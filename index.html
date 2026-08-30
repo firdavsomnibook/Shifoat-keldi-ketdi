@@ -177,6 +177,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
           <button class="big-button come-button" id="btnCome">🟢 KELYAPMAN</button>
           <button class="big-button leave-button" id="btnLeave">🔴 KETYAPMAN</button>
         </div>
+
+        <button class="admin-link" id="btnAdminFace" style="margin-top:14px; font-size:12px; display:none;">Admin</button>
       </div>
 
     </section>
@@ -208,6 +210,15 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
           <p class="result-title" id="resultTitle"></p>
           <p class="result-body" id="resultBody"></p>
           <p class="result-badge" id="resultBadge"></p>
+        </div>
+
+        <!-- "Xodim admin" (yuzi ham xodim, ham admin sifatida tanilgan
+             hisobga bog'langan) uchun: Admin tugmasi orqali yuz skanerlansa
+             ikkita tanlov ko'rsatiladi. Oddiy xodim/oddiy admin natijasida
+             yashirin turadi. -->
+        <div class="action-row" id="adminChoiceRow" style="display:none; margin-top:16px;">
+          <button class="btn btn-secondary" id="btnAdminChoiceAttendance">Yuzni skanerini jo'natish</button>
+          <button class="btn btn-primary" id="btnAdminChoiceEnter">Admin oynasiga kirish</button>
         </div>
       </div>
     </section>
@@ -278,7 +289,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         <button class="btn btn-primary" id="btnAddEmployee">+ Yangi xodim</button>
       </div>
       <div style="overflow-x:auto;"><table class="data-table" id="employeesTable">
-        <thead><tr><th>Login</th><th>Lavozim</th><th>Grafik</th><th>Faol</th><th>Yuz</th><th></th></tr></thead>
+        <thead><tr><th>Login</th><th>Lavozim</th><th>Grafik</th><th>Faol</th><th>Yuz</th><th id="thEmployeePassword" style="display:none;">Parol</th><th></th></tr></thead>
         <tbody></tbody>
       </table></div>
     </section>
@@ -345,7 +356,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       </div>
       <p id="reportSummary" style="line-height:1.7;"></p>
       <div style="overflow-x:auto;"><table class="data-table" id="reportTable">
-        <thead><tr><th>Sana</th><th>Status</th><th>Keldi</th><th>Ketdi</th><th>Kechikish</th><th>Ko'p ishlagan</th><th>Kam ishlagan</th></tr></thead>
+        <thead><tr><th>Sana</th><th>Status</th><th>Keldi</th><th>Ketdi</th><th>Kechikish</th><th>Ko'p ishlagan</th><th>Kam ishlagan</th><th>Erta kelgan</th></tr></thead>
         <tbody></tbody>
       </table></div>
     </section>
@@ -363,6 +374,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         <h3 style="margin-top:0;">Ma'lumotlar</h3>
         <p class="muted" id="dbModeLabel"></p>
         <button class="btn btn-primary" id="btnExportBackup">💾 Backup (JSON) yuklab olish</button>
+        <button class="btn btn-secondary" id="btnClearLocalCache" style="margin-left:8px;">🧹 Mahalliy keshni tozalash</button>
       </div>
       <div class="card" style="max-width:420px;">
         <h3 style="margin-top:0;">Fullscreen / Kiosk</h3>
@@ -378,7 +390,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         <button class="btn btn-primary" id="btnAddAdmin">+ Yangi admin</button>
       </div>
       <div style="overflow-x:auto;"><table class="data-table" id="adminsTable">
-        <thead><tr><th>Login</th><th>To'liq ism</th><th>Rol</th><th>Ruxsatlar soni</th><th></th></tr></thead>
+        <thead><tr><th>Login</th><th>To'liq ism</th><th>Rol</th><th>Ruxsatlar soni</th><th>Bog'langan xodim</th><th id="thAdminPassword" style="display:none;">Parol</th><th></th></tr></thead>
         <tbody></tbody>
       </table></div>
     </section>
@@ -446,6 +458,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     <div class="form-row"><label>Parol</label><input type="password" id="newAdminPassword" /></div>
     <div class="form-row"><label><input type="checkbox" id="newAdminSuper" /> Super Admin</label></div>
     <div id="newAdminPermissions"></div>
+    <div class="form-row" style="display:none;"><label><input type="checkbox" id="newAdminIsEmployee" /> Xodim admin</label></div>
+    <div class="form-row" id="newAdminEmployeeRow" style="display:none;">
+      <label>Bog'lanadigan xodim</label>
+      <select id="newAdminEmployeeSelect"></select>
+    </div>
     <p class="error-text" id="adminModalError"></p>
     <div style="display:flex; gap:10px; justify-content:flex-end;">
       <button class="btn btn-secondary" id="adminModalCancel">Bekor qilish</button>
@@ -684,7 +701,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   // src/data/firebaseAdapter.js
   init_appConfig();
   async function loadFirebaseAdapter() {
-    const [{ initializeApp, getApps }, fsMod, authMod] = await Promise.all([
+    const [{ initializeApp, getApps, deleteApp }, fsMod, authMod] = await Promise.all([
       import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
       import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"),
       import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js")
@@ -715,7 +732,9 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       createUserWithEmailAndPassword,
       signOut: fbSignOut,
       onAuthStateChanged,
-      signInAnonymously
+      signInAnonymously,
+      deleteUser,
+      updatePassword
     } = authMod;
     const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
     let auth;
@@ -761,13 +780,13 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     }
     async function findEmployeeByLogin2(login3, password) {
       const trimmed = login3.trim();
-      if (!trimmed || !password) return null;
+      if (!trimmed) return null;
       const snap = await getDocs(query(collection(dbFs, "employees"), where("firstName", "==", trimmed)));
       for (const d of snap.docs) {
         const data = d.data();
-        if (data.isActive && data.password && data.password === password) {
-          return { id: d.id, ...data };
-        }
+        if (!data.isActive) continue;
+        if (!data.password) return { id: d.id, ...data };
+        if (password && data.password === password) return { id: d.id, ...data };
       }
       return null;
     }
@@ -1046,15 +1065,30 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       const snap = await getDocs(query(collection(dbFs, "users"), limit(1)));
       return !snap.empty;
     }
-    async function createUser2(username, password, fullName, role, actorId) {
+    async function createUser2(username, password, fullName, role, actorId, linkedEmployeeId = null) {
       username = username.trim();
       if (username.length < 3) throw new Error("Login kamida 3 ta belgidan iborat bo'lishi kerak.");
       if (password.length < 6) throw new Error("Parol kamida 6 ta belgidan iborat bo'lishi kerak.");
-      const email = usernameToEmail(username);
+      const allUsersSnap = await getDocs(collection(dbFs, "users"));
+      const lowerUsername = username.toLowerCase();
+      const collided = allUsersSnap.docs.some(
+        (d) => (d.data().username || "").trim().toLowerCase() === lowerUsername
+      );
+      if (collided) throw new Error(`'${username}' logini allaqachon band.`);
+      const email = `admin-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}@shifoat.local`;
+      const secondaryApp = initializeApp(firebaseConfig, `Secondary-${Date.now()}`);
+      let secondaryAuth;
+      try {
+        secondaryAuth = initializeAuth(secondaryApp, { persistence: inMemoryPersistence });
+      } catch (err) {
+        secondaryAuth = getAuth(secondaryApp);
+      }
       let credential;
       try {
-        credential = await createUserWithEmailAndPassword(auth, email, password);
+        credential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
       } catch (err) {
+        await deleteApp(secondaryApp).catch(() => {
+        });
         if (err.code === "auth/email-already-in-use") throw new Error(`'${username}' logini allaqachon band.`);
         throw err;
       }
@@ -1066,13 +1100,23 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         isActive: true,
         createdAt: nowIso2(),
         permissions: [],
-        recoveryPassword: password
+        recoveryPassword: password,
+        linkedEmployeeId: linkedEmployeeId || null,
+        authEmail: email
       };
       try {
         await setDoc(doc(dbFs, "users", uid), user);
       } catch (err) {
-        throw new Error("Admin yaratishga ruxsat yo'q (bootstrap allaqachon bajarilgan).");
+        await deleteUser(credential.user).catch(() => {
+        });
+        await deleteApp(secondaryApp).catch(() => {
+        });
+        const wrapped = new Error("Admin yaratishga ruxsat yo'q (bootstrap allaqachon bajarilgan).");
+        wrapped.code = err && err.code;
+        throw wrapped;
       }
+      await deleteApp(secondaryApp).catch(() => {
+      });
       if (actorId === null && role === "SUPER_ADMIN") {
         await setDoc(doc(dbFs, "system", "adminBootstrap"), {
           completed: true,
@@ -1134,7 +1178,16 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       return info;
     }
     async function login2(username, password) {
-      const email = usernameToEmail(username);
+      const lowerUsername = username.trim().toLowerCase();
+      let email = usernameToEmail(username);
+      try {
+        const snap = await getDocs(collection(dbFs, "users"));
+        const match = snap.docs.find(
+          (d) => (d.data().username || "").trim().toLowerCase() === lowerUsername
+        );
+        if (match && match.data().authEmail) email = match.data().authEmail;
+      } catch (err) {
+      }
       try {
         const credential = await signInWithEmailAndPassword(auth, email, password);
         const snap = await getDoc(doc(dbFs, "users", credential.user.uid));
@@ -1186,6 +1239,92 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     async function setUserRole2(userId, role, actorId) {
       await updateDoc(doc(dbFs, "users", userId), { role });
       await addAuditLog2(actorId, "", "ADMIN_ROLE_CHANGED", "user", userId, `role=${role}`);
+    }
+    async function resetAdminPassword2(userId, newPassword, actorId) {
+      if (newPassword.length < 6) throw new Error("Parol kamida 6 ta belgidan iborat bo'lishi kerak.");
+      if (auth.currentUser && auth.currentUser.uid === userId) {
+        try {
+          await updatePassword(auth.currentUser, newPassword);
+        } catch (err) {
+          if (err && err.code === "auth/requires-recent-login") {
+            throw new Error("Xavfsizlik uchun avval tizimdan chiqib, qaytadan kiring, keyin qayta urinib ko'ring.");
+          }
+          throw err;
+        }
+        await updateDoc(doc(dbFs, "users", userId), { recoveryPassword: newPassword });
+        await addAuditLog2(actorId, "", "ADMIN_PASSWORD_RESET", "user", userId, "self");
+        return;
+      }
+      const targetSnap = await getDoc(doc(dbFs, "users", userId));
+      if (!targetSnap.exists()) throw new Error("Admin topilmadi.");
+      const targetData = targetSnap.data();
+      const targetEmail = targetData.authEmail || usernameToEmail(targetData.username);
+      const currentPassword = targetData.recoveryPassword;
+      if (!currentPassword) {
+        throw new Error(
+          "Bu (eski) hisobning joriy paroli tizimda saqlanmagan, shuning uchun uni bu yerdan almashtirib bo'lmaydi. Iltimos, o'sha admin o'zi ('" + targetData.username + "') tizimga kirib, o'z parolini o'zi almashtirsin."
+        );
+      }
+      const secondaryApp = initializeApp(firebaseConfig, `Secondary-${Date.now()}`);
+      let secondaryAuth;
+      try {
+        secondaryAuth = initializeAuth(secondaryApp, { persistence: inMemoryPersistence });
+      } catch (err) {
+        secondaryAuth = getAuth(secondaryApp);
+      }
+      try {
+        const credential = await signInWithEmailAndPassword(secondaryAuth, targetEmail, currentPassword);
+        await updatePassword(credential.user, newPassword);
+      } catch (err) {
+        await deleteApp(secondaryApp).catch(() => {
+        });
+        throw new Error("Parolni almashtirib bo'lmadi: " + String(err && err.code || err && err.message || err));
+      }
+      await deleteApp(secondaryApp).catch(() => {
+      });
+      await updateDoc(doc(dbFs, "users", userId), { recoveryPassword: newPassword });
+      await addAuditLog2(actorId, "", "ADMIN_PASSWORD_RESET", "user", userId, `username=${targetData.username}`);
+    }
+    async function setLinkedEmployee2(userId, employeeId, actorId) {
+      await updateDoc(doc(dbFs, "users", userId), { linkedEmployeeId: employeeId || null });
+      await addAuditLog2(
+        actorId,
+        "",
+        "ADMIN_LINKED_EMPLOYEE",
+        "user",
+        userId,
+        `linkedEmployeeId=${employeeId || "(bekor qilindi)"}`
+      );
+    }
+    async function saveAdminFaceVectors2(userId, vectors, actorId) {
+      const faceVectors = vectors.map((v) => Array.from(v));
+      await updateDoc(doc(dbFs, "users", userId), { faceVectors });
+      await addAuditLog2(actorId, "", "ADMIN_FACE_ENROLLED", "user", userId, `vectors=${faceVectors.length}`);
+      return faceVectors;
+    }
+    async function hasAdminFaceEnrolled2(userId) {
+      const user = await getUserById2(userId);
+      return !!(user && Array.isArray(user.faceVectors) && user.faceVectors.length > 0);
+    }
+    async function getAllAdminFaceCandidates2() {
+      const usersSnap = await getDocs(collection(dbFs, "users"));
+      const users = usersSnap.docs.map(docToObject).filter((u) => u.isActive !== false);
+      const embeddingsSnap = await getDocs(collection(dbFs, "embeddings"));
+      const embeddingsByEmployee = /* @__PURE__ */ new Map();
+      for (const row of embeddingsSnap.docs.map(docToObject)) {
+        if (!embeddingsByEmployee.has(row.employeeId)) embeddingsByEmployee.set(row.employeeId, []);
+        embeddingsByEmployee.get(row.employeeId).push(row.vector);
+      }
+      const candidates = [];
+      for (const user of users) {
+        if (user.linkedEmployeeId) {
+          const vectors = embeddingsByEmployee.get(user.linkedEmployeeId) || [];
+          for (const vector of vectors) candidates.push({ employeeId: user.id, vector });
+        } else if (Array.isArray(user.faceVectors) && user.faceVectors.length > 0) {
+          for (const vector of user.faceVectors) candidates.push({ employeeId: user.id, vector });
+        }
+      }
+      return candidates;
     }
     async function ensureDefaultSettings2() {
       const snap = await getDocs(collection(dbFs, "settings"));
@@ -1305,6 +1444,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       getPermissions: getPermissions2,
       setPermissions: setPermissions2,
       setUserRole: setUserRole2,
+      resetAdminPassword: resetAdminPassword2,
+      setLinkedEmployee: setLinkedEmployee2,
+      saveAdminFaceVectors: saveAdminFaceVectors2,
+      hasAdminFaceEnrolled: hasAdminFaceEnrolled2,
+      getAllAdminFaceCandidates: getAllAdminFaceCandidates2,
       ensureDefaultSettings: ensureDefaultSettings2,
       forceUpdateSpeedSettings: forceUpdateSpeedSettings2,
       getSetting: getSetting2,
@@ -1336,6 +1480,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     findEmployeeByLogin: () => findEmployeeByLogin,
     forceUpdateSpeedSettings: () => forceUpdateSpeedSettings,
     getAllActiveEmbeddings: () => getAllActiveEmbeddings,
+    getAllAdminFaceCandidates: () => getAllAdminFaceCandidates,
     getAttendanceForDate: () => getAttendanceForDate,
     getAuthDebugInfo: () => getAuthDebugInfo,
     getCurrentSchedule: () => getCurrentSchedule,
@@ -1347,6 +1492,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     getScheduleForDate: () => getScheduleForDate,
     getSetting: () => getSetting,
     getUserById: () => getUserById,
+    hasAdminFaceEnrolled: () => hasAdminFaceEnrolled,
     hasFaceEnrolled: () => hasFaceEnrolled,
     importBackupJson: () => importBackupJson,
     isLoginTaken: () => isLoginTaken,
@@ -1364,9 +1510,12 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     login: () => login,
     mode: () => mode,
     moveRestDay: () => moveRestDay,
+    resetAdminPassword: () => resetAdminPassword,
+    saveAdminFaceVectors: () => saveAdminFaceVectors,
     saveEmbeddings: () => saveEmbeddings,
     setDayStatus: () => setDayStatus,
     setLatePermission: () => setLatePermission,
+    setLinkedEmployee: () => setLinkedEmployee,
     setManualAttendance: () => setManualAttendance,
     setPermissions: () => setPermissions,
     setSetting: () => setSetting,
@@ -1411,6 +1560,13 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       request.onerror = () => reject(request.error);
     });
     return dbPromise;
+  }
+  async function closeDb() {
+    if (dbPromise) {
+      const db2 = await dbPromise;
+      db2.close();
+      dbPromise = null;
+    }
   }
   async function withStore(storeName, mode2, fn) {
     const db2 = await openDb();
@@ -1563,9 +1719,13 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   }
   async function findEmployeeByLogin(login2, password) {
     const trimmed = login2.trim();
-    if (!trimmed || !password) return null;
+    if (!trimmed) return null;
     const employees = await getAll("employees");
-    return employees.find((e) => e.isActive && e.firstName === trimmed && e.password && e.password === password) || null;
+    const employee = employees.find((e) => e.isActive && e.firstName === trimmed) || null;
+    if (!employee) return null;
+    if (!employee.password) return employee;
+    if (!password) return null;
+    return employee.password === password ? employee : null;
   }
   async function getEmployee(id) {
     return get("employees", id);
@@ -1645,6 +1805,31 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     const activeIds = new Set(employees.map((e) => e.id));
     const all = await getAll("embeddings");
     return all.filter((row) => activeIds.has(row.employeeId)).map((row) => ({ employeeId: row.employeeId, vector: row.vector }));
+  }
+  async function saveAdminFaceVectors(userId, vectors, actorId) {
+    const existing = await get("users", userId);
+    if (!existing) throw new Error("Foydalanuvchi topilmadi.");
+    const faceVectors = vectors.map((v) => Array.from(v));
+    await put("users", { ...existing, faceVectors });
+    await addAuditLog(actorId, "", "ADMIN_FACE_ENROLLED", "user", userId, `vectors=${faceVectors.length}`);
+    return faceVectors;
+  }
+  async function hasAdminFaceEnrolled(userId) {
+    const user = await get("users", userId);
+    return !!(user && Array.isArray(user.faceVectors) && user.faceVectors.length > 0);
+  }
+  async function getAllAdminFaceCandidates() {
+    const users = (await getAll("users")).filter((u) => u.isActive !== false);
+    const candidates = [];
+    for (const user of users) {
+      if (user.linkedEmployeeId) {
+        const rows = await getAllByIndex("embeddings", "employeeId", user.linkedEmployeeId);
+        for (const row of rows) candidates.push({ employeeId: user.id, vector: row.vector });
+      } else if (Array.isArray(user.faceVectors) && user.faceVectors.length > 0) {
+        for (const vector of user.faceVectors) candidates.push({ employeeId: user.id, vector });
+      }
+    }
+    return candidates;
   }
   async function findAttendanceRow(employeeId, dateKey) {
     const rows = await getAllByIndex("attendance", "employeeId", employeeId);
@@ -1782,7 +1967,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     const all = await getAll("users");
     return all.length > 0;
   }
-  async function createUser(username, password, fullName, role, actorId) {
+  async function createUser(username, password, fullName, role, actorId, linkedEmployeeId = null) {
     username = username.trim();
     if (username.length < 3) throw new Error("Login kamida 3 ta belgidan iborat bo'lishi kerak.");
     if (password.length < 6) throw new Error("Parol kamida 6 ta belgidan iborat bo'lishi kerak.");
@@ -1796,7 +1981,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       role,
       isActive: true,
       createdAt: nowIso(),
-      recoveryPassword: password
+      recoveryPassword: password,
+      linkedEmployeeId: linkedEmployeeId || null
     };
     await put("users", user);
     await addAuditLog(
@@ -1808,6 +1994,19 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       `username=${username}, role=${role}`
     );
     return user;
+  }
+  async function setLinkedEmployee(userId, employeeId, actorId) {
+    const existing = await get("users", userId);
+    if (!existing) throw new Error("Foydalanuvchi topilmadi.");
+    await put("users", { ...existing, linkedEmployeeId: employeeId || null });
+    await addAuditLog(
+      actorId,
+      "",
+      "ADMIN_LINKED_EMPLOYEE",
+      "user",
+      userId,
+      `linkedEmployeeId=${employeeId || "(bekor qilindi)"}`
+    );
   }
   async function login(username, password) {
     const all = await getAll("users");
@@ -1859,6 +2058,17 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     if (!existing) throw new Error("Foydalanuvchi topilmadi.");
     await put("users", { ...existing, role });
     await addAuditLog(actorId, "", "ADMIN_ROLE_CHANGED", "user", userId, `role=${role}`);
+  }
+  async function resetAdminPassword(userId, newPassword, actorId) {
+    if (newPassword.length < 6) throw new Error("Parol kamida 6 ta belgidan iborat bo'lishi kerak.");
+    const existing = await get("users", userId);
+    if (!existing) throw new Error("Admin topilmadi.");
+    await put("users", {
+      ...existing,
+      passwordHash: await hashPassword(newPassword),
+      recoveryPassword: newPassword
+    });
+    await addAuditLog(actorId, "", "ADMIN_PASSWORD_RESET", "user", userId, `username=${existing.username}`);
   }
   async function ensureDefaultSettings() {
     const existing = await getAll("settings");
@@ -1931,6 +2141,9 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       cachedMode = "local";
     }
     return cachedAdapter;
+  }
+  function currentMode() {
+    return cachedMode;
   }
 
   // src/face/faceService.js
@@ -2076,7 +2289,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   function hhmm(date) {
     const p = tashkentParts(date);
     const hour = p.hour === "24" ? "00" : p.hour;
-    return `${hour}:${p.minute}`;
+    return `${hour}:${p.minute}:${p.second}`;
   }
   function ddmmyyyy(dateOrKey) {
     if (typeof dateOrKey === "string") {
@@ -2142,6 +2355,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   }
   function computeOvertime(scheduledEndDate, actualDate) {
     const diffSeconds = (actualDate.getTime() - scheduledEndDate.getTime()) / 1e3;
+    if (diffSeconds <= 0) return 0;
+    return Math.floor(diffSeconds / 60);
+  }
+  function computeEarlyArrival(scheduledStartDate, checkInDate) {
+    const diffSeconds = (scheduledStartDate.getTime() - checkInDate.getTime()) / 1e3;
     if (diffSeconds <= 0) return 0;
     return Math.floor(diffSeconds / 60);
   }
@@ -2497,7 +2715,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   var livenessTracker = null;
   var collectedFrames = 0;
   var requiredFrames = 12;
-  var currentMode = "IN";
+  var currentMode2 = "IN";
   var bestDescriptor = null;
   var resultTimer = null;
   var recognitionInProgress = false;
@@ -2532,6 +2750,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     wireHomeScreen();
     wireCameraScreen();
     wireAdminLoginModal();
+    wireAdminChoiceButtons();
     wireFirstRunModal();
     try {
       if (Number(await db.getSetting("kiosk_fullscreen")) === 1) {
@@ -2552,13 +2771,14 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     document.getElementById("btnAdminLink").addEventListener("click", () => {
       document.getElementById("adminLoginModal").classList.add("active");
     });
+    document.getElementById("btnAdminFace").addEventListener("click", () => startCamera("ADMIN"));
   }
   function wireCameraScreen() {
     document.getElementById("btnCameraBack").addEventListener("click", stopCameraAndGoHome);
   }
   var SCAN_HINT_TEXT = "Iltimos, yuzingizni yaqinroq olib keling, qaddingizni tik tuting, kameraga tik qarang.";
   async function startCamera(mode2) {
-    currentMode = mode2;
+    currentMode2 = mode2;
     cameraInstruction.textContent = "Iltimos, kameraga qarab turing\u2026";
     cameraStatus.textContent = SCAN_HINT_TEXT;
     showScreen("camera");
@@ -2652,6 +2872,10 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       );
       return;
     }
+    if (currentMode2 === "ADMIN") {
+      await finishAdminRecognition();
+      return;
+    }
     try {
       const [thresholdRaw, candidates] = await Promise.all([
         db.getSetting("face_match_threshold"),
@@ -2669,12 +2893,88 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         return;
       }
       const fullName = `${employee.firstName} ${employee.lastName || ""}`.trim();
-      const result = currentMode === "IN" ? await checkIn(db, employee.id, fullName) : await checkOut(db, employee.id, fullName);
+      const result = currentMode2 === "IN" ? await checkIn(db, employee.id, fullName) : await checkOut(db, employee.id, fullName);
       showAttendanceResult(result);
     } catch (err) {
       console.error("finishRecognition failed:", err);
       showResultError("Xatolik yuz berdi", uzError(err));
     }
+  }
+  var pendingAdminChoice = null;
+  var adminChoiceRow = document.getElementById("adminChoiceRow");
+  async function finishAdminRecognition() {
+    try {
+      const [thresholdRaw, candidates] = await Promise.all([
+        db.getSetting("face_match_threshold"),
+        db.getAllAdminFaceCandidates()
+      ]);
+      const threshold = numSetting(thresholdRaw, 0.5);
+      const { employeeId: adminUserId } = bestMatch(bestDescriptor, candidates, threshold);
+      if (!adminUserId) {
+        showResultError("\u26A0\uFE0F Ruxsat yo'q", "Administrator sifatida tanilmadingiz.");
+        return;
+      }
+      const adminUser = await db.getUserById(adminUserId);
+      if (!adminUser || adminUser.isActive === false) {
+        showResultError("\u26A0\uFE0F Ruxsat yo'q", "Administrator sifatida tanilmadingiz.");
+        return;
+      }
+      if (adminUser.linkedEmployeeId) {
+        showAdminChoiceScreen(adminUser);
+      } else {
+        await enterAdminPanelAs(adminUser);
+      }
+    } catch (err) {
+      console.error("finishAdminRecognition failed:", err);
+      showResultError("Xatolik yuz berdi", uzError(err));
+    }
+  }
+  async function enterAdminPanelAs(adminUser) {
+    stopCamera();
+    try {
+      const user = await db.login(adminUser.username, adminUser.recoveryPassword);
+      sessionStorage.setItem("shifoat_admin_user_id", user.id);
+      if (window.__shifoatEnterAdmin) {
+        await window.__shifoatEnterAdmin();
+      } else {
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error("enterAdminPanelAs failed:", err);
+      showResultError("Xatolik yuz berdi", uzError(err));
+    }
+  }
+  function showAdminChoiceScreen(adminUser) {
+    stopCamera();
+    pendingAdminChoice = adminUser;
+    setResultKind("info");
+    resultTitle.textContent = `Salom, ${adminUser.fullName || adminUser.username}! \u{1F44B}`;
+    resultBody.textContent = "Siz ham xodim, ham admin sifatida ro'yxatdan o'tgansiz.\nNima qilmoqchisiz?";
+    resultBadge.textContent = "";
+    adminChoiceRow.style.display = "flex";
+    showScreen("result");
+    scheduleReturnHome(2e4);
+  }
+  function wireAdminChoiceButtons() {
+    document.getElementById("btnAdminChoiceAttendance").addEventListener("click", async () => {
+      if (!pendingAdminChoice) return;
+      const adminUser = pendingAdminChoice;
+      pendingAdminChoice = null;
+      adminChoiceRow.style.display = "none";
+      const employee = await db.getEmployee(adminUser.linkedEmployeeId);
+      if (!employee) {
+        showResultError("Xatolik yuz berdi", "Bog'langan xodim topilmadi.");
+        return;
+      }
+      await handleEmployeeLogin(employee);
+    });
+    document.getElementById("btnAdminChoiceEnter").addEventListener("click", async () => {
+      if (!pendingAdminChoice) return;
+      const adminUser = pendingAdminChoice;
+      pendingAdminChoice = null;
+      adminChoiceRow.style.display = "none";
+      await enterAdminPanelAs(adminUser);
+    });
   }
   async function handleEmployeeLogin(employee) {
     const fullName = `${employee.firstName} ${employee.lastName || ""}`.trim();
@@ -2693,12 +2993,13 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   function setResultKind(kind) {
     resultCard.className = `result-card ${kind}`;
   }
-  function scheduleReturnHome() {
+  function scheduleReturnHome(delayMs = RESULT_SCREEN_AUTO_RETURN_MS) {
     clearTimeout(resultTimer);
-    resultTimer = setTimeout(() => showScreen("home"), RESULT_SCREEN_AUTO_RETURN_MS);
+    resultTimer = setTimeout(() => showScreen("home"), delayMs);
   }
   function showResultError(title, body) {
     stopCamera();
+    adminChoiceRow.style.display = "none";
     setResultKind("error");
     resultTitle.textContent = title;
     resultBody.textContent = body;
@@ -2708,6 +3009,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   }
   function showResultWarning(title, body) {
     stopCamera();
+    adminChoiceRow.style.display = "none";
     setResultKind("warning");
     resultTitle.textContent = title;
     resultBody.textContent = body;
@@ -2717,6 +3019,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   }
   function showAttendanceResult(result) {
     stopCamera();
+    adminChoiceRow.style.display = "none";
     const firstName = result.employeeName.split(" ")[0] || "";
     if (result.status === AttendanceStatus.CHECKED_IN) {
       setResultKind("success");
@@ -3150,6 +3453,49 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
       okBtn.focus();
     });
   }
+  function promptDialog({
+    title = "Kiriting",
+    message = "",
+    placeholder = "",
+    okText = "OK",
+    cancelText = "Bekor qilish"
+  } = {}) {
+    return new Promise((resolve) => {
+      const { overlay, btnRow } = buildModalShell(title, message);
+      const input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = placeholder;
+      input.style.cssText = "width: 100%; margin-top: 4px; padding: 8px 10px; border-radius: 8px; border: 1px solid #C9CCE6; font-size: 14px; box-sizing: border-box;";
+      overlay.querySelector(".modal-box").insertBefore(input, btnRow);
+      const cancelBtn2 = document.createElement("button");
+      cancelBtn2.type = "button";
+      cancelBtn2.className = "btn btn-secondary";
+      cancelBtn2.textContent = cancelText;
+      const okBtn = document.createElement("button");
+      okBtn.type = "button";
+      okBtn.className = "btn btn-primary";
+      okBtn.textContent = okText;
+      function cleanup(result) {
+        document.removeEventListener("keydown", onKeydown);
+        overlay.remove();
+        resolve(result);
+      }
+      function onKeydown(ev) {
+        if (ev.key === "Escape") cleanup(null);
+        else if (ev.key === "Enter") cleanup(input.value);
+      }
+      cancelBtn2.addEventListener("click", () => cleanup(null));
+      okBtn.addEventListener("click", () => cleanup(input.value));
+      overlay.addEventListener("click", (ev) => {
+        if (ev.target === overlay) cleanup(null);
+      });
+      document.addEventListener("keydown", onKeydown);
+      btnRow.appendChild(cancelBtn2);
+      btnRow.appendChild(okBtn);
+      document.body.appendChild(overlay);
+      input.focus();
+    });
+  }
   function alertDialog({ title = "Xabar", message = "", okText = "OK" } = {}) {
     return new Promise((resolve) => {
       const { overlay, btnRow } = buildModalShell(title, message);
@@ -3194,16 +3540,27 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
     const employees = await _db2.listEmployees();
     const tbody = document.querySelector("#employeesTable tbody");
     tbody.innerHTML = "";
+    const users = await _db2.listUsers();
+    const sortedByAge = [...users].sort(
+      (a, b) => a.createdAt > b.createdAt ? 1 : a.createdAt < b.createdAt ? -1 : 0
+    );
+    const primaryAdminId = sortedByAge.length ? sortedByAge[0].id : null;
+    const viewerIsPrimary = _user.id === primaryAdminId;
+    const thPassword = document.getElementById("thEmployeePassword");
+    if (thPassword) thPassword.style.display = viewerIsPrimary ? "" : "none";
     for (const employee of employees) {
       const schedule = await _db2.getCurrentSchedule(employee.id, tashkentDateKey());
       const scheduleText = schedule ? `${schedule.workStart}-${schedule.workEnd}` : "\u2014";
       const hasFace = await _db2.hasFaceEnrolled(employee.id);
       const fullName = `${employee.firstName} ${employee.lastName || ""}`.trim();
+      const passwordCellStyle = viewerIsPrimary ? "" : ' style="display:none;"';
+      const passwordCellText = viewerIsPrimary ? employee.password || "\u2014" : "";
       const tr = document.createElement("tr");
       tr.innerHTML = `
       <td>${fullName}</td><td>${employee.position || ""}</td>
       <td>${scheduleText}</td><td>${employee.isActive ? "Ha" : "Yo'q"}</td>
-      <td>${hasFace ? "\u2705" : "\u2014"}</td><td></td>`;
+      <td>${hasFace ? "\u2705" : "\u2014"}</td>
+      <td class="employee-password-cell"${passwordCellStyle}>${passwordCellText}</td><td></td>`;
       if (_canEdit) {
         const actionsCell = tr.lastElementChild;
         const editBtn = document.createElement("button");
@@ -3290,10 +3647,6 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       return;
     }
     const password = document.getElementById("empPassword").value;
-    if (!_editingId && !password) {
-      errorEl.textContent = "Parol kiritilishi shart.";
-      return;
-    }
     try {
       const taken = await _db2.isLoginTaken(firstName, _editingId);
       if (taken) {
@@ -3569,6 +3922,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       totalLatePenalty: 0,
       totalOvertimeMinutes: 0,
       totalUndertimeMinutes: 0,
+      totalEarlyMinutes: 0,
       days: []
     };
     const [attendanceRows, dayStatusRows, scheduleHistory] = await Promise.all([
@@ -3590,10 +3944,14 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       else if (status === DAY_STATUS_SICK) report.sickDays++;
       else if (status === DAY_STATUS_VACATION) report.vacationDays++;
       let checkIn2 = "\u2014", checkOut2 = "\u2014", lateMinutes = 0, latePenalty = 0, overtimeMinutes = 0, undertimeMinutes = 0;
+      let earlyMinutes = 0;
       if (att) {
         if (att.checkInTime) {
           report.actualWorkedDays++;
           checkIn2 = hhmm(new Date(att.checkInTime));
+          if (att.scheduledStart && WORK_LIKE_STATUSES.has(status)) {
+            earlyMinutes = computeEarlyArrival(new Date(att.scheduledStart), new Date(att.checkInTime));
+          }
         }
         if (att.checkOutTime) {
           checkOut2 = hhmm(new Date(att.checkOutTime));
@@ -3610,6 +3968,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         report.totalLatePenalty += latePenalty;
         report.totalOvertimeMinutes += overtimeMinutes;
         report.totalUndertimeMinutes += undertimeMinutes;
+        report.totalEarlyMinutes += earlyMinutes;
       }
       report.days.push({
         dateKey,
@@ -3621,7 +3980,8 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         lateMinutes,
         latePenalty,
         overtimeMinutes,
-        undertimeMinutes
+        undertimeMinutes,
+        earlyMinutes
       });
     }
     return report;
@@ -3686,7 +4046,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
   }
   function renderSummary() {
     const r = _lastReport;
-    summaryEl.textContent = `Rejalashtirilgan: ${r.plannedWorkDays} kun | Ishlagan: ${r.actualWorkedDays} kun | Dam: ${r.restDays} | Ko'chirilgan dam: ${r.movedRestDays} | Ruxsat: ${r.permissionDays} | Kechikkan kunlar: ${r.lateDays} | Jami kechikish: ${r.totalLateMinutes} min | Jami jarima: ${r.totalLatePenalty.toLocaleString("uz-UZ")} so'm | Jami ko'p ishlagan: ${r.totalOvertimeMinutes} min | Jami kam ishlagan: ${r.totalUndertimeMinutes} min`;
+    summaryEl.textContent = `Rejalashtirilgan: ${r.plannedWorkDays} kun | Ishlagan: ${r.actualWorkedDays} kun | Dam: ${r.restDays} | Ko'chirilgan dam: ${r.movedRestDays} | Ruxsat: ${r.permissionDays} | Kechikkan kunlar: ${r.lateDays} | Jami kechikish: ${r.totalLateMinutes} min | Jami jarima: ${r.totalLatePenalty.toLocaleString("uz-UZ")} so'm | Jami ko'p ishlagan: ${r.totalOvertimeMinutes} min | Jami kam ishlagan: ${r.totalUndertimeMinutes} min | Jami erta kelgan: ${r.totalEarlyMinutes} min`;
   }
   function renderReportRows() {
     const tbody = document.querySelector("#reportTable tbody");
@@ -3695,6 +4055,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     for (const day of _lastReport.days) {
       const overtimeText = formatDurationUz(day.overtimeMinutes) || "\u2014";
       const undertimeText = formatDurationUz(day.undertimeMinutes) || "\u2014";
+      const earlyText = day.earlyMinutes ? `${day.earlyMinutes} min` : "\u2014";
       const tr = document.createElement("tr");
       tr.dataset.dateKey = day.dateKey;
       if (_editMode) {
@@ -3708,7 +4069,8 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         <td>${overtimeText}</td>
         <td>${undertimeText}
           <button type="button" class="btn btn-secondary edit-clear" style="padding:2px 8px; font-size:11px; margin-left:6px;">Kelmagan</button>
-        </td>`;
+        </td>
+        <td>${earlyText}</td>`;
         const clearRow = () => {
           tr.querySelector(".edit-checkin").value = "";
           tr.querySelector(".edit-checkout").value = "";
@@ -3722,7 +4084,8 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         <td>${day.checkIn}</td><td>${day.checkOut}</td>
         <td>${day.lateMinutes ? day.lateMinutes + " min" : "\u2014"}</td>
         <td>${overtimeText}</td>
-        <td>${undertimeText}</td>`;
+        <td>${undertimeText}</td>
+        <td>${earlyText}</td>`;
       }
       tbody.appendChild(tr);
     }
@@ -3810,12 +4173,24 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     document.getElementById("btnSaveSettings").addEventListener("click", onSaveSettings);
     document.getElementById("btnExportBackup").addEventListener("click", onExportBackup);
     document.getElementById("settingFullscreen").addEventListener("change", onToggleFullscreen);
+    document.getElementById("btnClearLocalCache").addEventListener("click", onClearLocalCache);
   }
   async function refreshSettings() {
     document.getElementById("settingGrace").value = await _db6.getSetting("late_grace_minutes");
     document.getElementById("settingPenalty").value = await _db6.getSetting("late_penalty_per_minute");
     document.getElementById("settingFullscreen").checked = Number(await _db6.getSetting("kiosk_fullscreen")) === 1;
-    document.getElementById("dbModeLabel").textContent = _db6.mode === "firebase" ? "Ma'lumotlar bazasi: Firebase (Firestore)" : "Ma'lumotlar bazasi: Local (shu brauzer, IndexedDB)";
+    const mode2 = currentMode();
+    const dbModeLabel = document.getElementById("dbModeLabel");
+    if (mode2 === "firebase") {
+      dbModeLabel.textContent = "Ma'lumotlar bazasi: Firebase (Firestore)";
+      dbModeLabel.style.color = "";
+    } else if (mode2 === "local-fallback") {
+      dbModeLabel.textContent = "\u26A0\uFE0F Ma'lumotlar bazasi: Local \u2014 ZAXIRA rejimi! (Firebase ulanmadi, ma'lumotlar shu qurilmada, boshqalarga ko'rinmaydi)";
+      dbModeLabel.style.color = "#c0392b";
+    } else {
+      dbModeLabel.textContent = "Ma'lumotlar bazasi: Local (shu brauzer, IndexedDB)";
+      dbModeLabel.style.color = "";
+    }
   }
   async function onSaveSettings() {
     await _db6.setSetting("late_grace_minutes", document.getElementById("settingGrace").value);
@@ -3824,6 +4199,28 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
   }
   async function onToggleFullscreen() {
     await _db6.setSetting("kiosk_fullscreen", document.getElementById("settingFullscreen").checked ? "1" : "0");
+  }
+  async function onClearLocalCache() {
+    const ok = await confirmDialog({
+      title: "Mahalliy keshni tozalash",
+      message: "Bu shu kompyuter/brauzerda vaqtinchalik saqlangan zaxira ma'lumotlarni (Firebase ishlamay qolgan paytda ishlatiladigan) butunlay o'chiradi. Haqiqiy ma'lumotlar Firebase'da xavfsiz qoladi \u2014 bu FAQAT shu kompyuterdagi eski/keraksiz zaxira nusxani tozalaydi (masalan 'login allaqachon band' kabi tushunarsiz xatolarni tuzatish uchun). Davom etasizmi?",
+      okText: "Ha, tozalash",
+      cancelText: "Bekor qilish",
+      danger: true
+    });
+    if (!ok) return;
+    await closeDb();
+    await new Promise((resolve) => {
+      const req = indexedDB.deleteDatabase("shifoat_attendance");
+      req.onsuccess = resolve;
+      req.onerror = resolve;
+      req.onblocked = resolve;
+    });
+    await alertDialog({
+      title: "Bajarildi",
+      message: "Mahalliy kesh tozalandi. Sahifa hozir qayta yuklanadi."
+    });
+    window.location.reload();
   }
   async function onExportBackup() {
     const json = await _db6.exportBackupJson();
@@ -3855,12 +4252,22 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       row.innerHTML = `<input type="checkbox" data-permission-key="${key}" /> ${label}`;
       permsContainer.appendChild(row);
     }
-    document.getElementById("btnAddAdmin").addEventListener("click", () => {
+    const isEmployeeCb = document.getElementById("newAdminIsEmployee");
+    const employeeRow = document.getElementById("newAdminEmployeeRow");
+    const employeeSelect3 = document.getElementById("newAdminEmployeeSelect");
+    isEmployeeCb.addEventListener("change", () => {
+      employeeRow.style.display = isEmployeeCb.checked ? "block" : "none";
+    });
+    document.getElementById("btnAddAdmin").addEventListener("click", async () => {
       document.getElementById("adminModalError").textContent = "";
       document.getElementById("newAdminUsername").value = "";
       document.getElementById("newAdminPassword").value = "";
       document.getElementById("newAdminSuper").checked = true;
       permsContainer.querySelectorAll("input[type=checkbox]").forEach((cb) => cb.checked = false);
+      isEmployeeCb.checked = false;
+      employeeRow.style.display = "none";
+      const employees = await _db7.listEmployees({ activeOnly: true });
+      employeeSelect3.innerHTML = employees.map((e) => `<option value="${e.id}">${e.firstName} ${e.lastName || ""}</option>`.trim()).join("");
       document.getElementById("adminModal").classList.add("active");
     });
     document.getElementById("adminModalCancel").addEventListener("click", () => {
@@ -3870,18 +4277,32 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
   }
   async function refreshAdmins() {
     const users = await _db7.listUsers();
+    const employees = await _db7.listEmployees();
+    const employeeById = new Map(employees.map((e) => [e.id, e]));
     const tbody = document.querySelector("#adminsTable tbody");
     tbody.innerHTML = "";
+    const sortedByAge = [...users].sort(
+      (a, b) => a.createdAt > b.createdAt ? 1 : a.createdAt < b.createdAt ? -1 : 0
+    );
+    const primaryAdminId = sortedByAge.length ? sortedByAge[0].id : null;
+    const viewerIsPrimary = _user4.id === primaryAdminId;
+    const thPassword = document.getElementById("thAdminPassword");
+    if (thPassword) thPassword.style.display = viewerIsPrimary ? "" : "none";
     for (const u of users) {
       const isSuper = u.role === ROLE_SUPER_ADMIN;
       const permCount = isSuper ? "\u2014" : (await _db7.getPermissions(u.id)).size;
+      const linkedEmployee = u.linkedEmployeeId ? employeeById.get(u.linkedEmployeeId) : null;
+      const linkedText = linkedEmployee ? `${linkedEmployee.firstName} ${linkedEmployee.lastName || ""}`.trim() : "\u2014";
+      const passwordCellStyle = viewerIsPrimary ? "" : ' style="display:none;"';
+      const passwordCellText = viewerIsPrimary ? u.recoveryPassword || "\u2014" : "";
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${u.username}</td><td>${u.fullName || ""}</td><td>${isSuper ? "Super Admin" : "Admin"}</td><td>${permCount}</td><td></td>`;
+      tr.innerHTML = `<td>${u.username}</td><td>${u.fullName || ""}</td><td>${isSuper ? "Super Admin" : "Admin"}</td><td>${permCount}</td><td>${linkedText}</td><td class="admin-password-cell"${passwordCellStyle}>${passwordCellText}</td><td></td>`;
+      const actionsCell = tr.lastElementChild;
       if (!isSuper) {
-        const actionsCell = tr.lastElementChild;
         const promoteBtn = document.createElement("button");
         promoteBtn.className = "btn btn-secondary";
         promoteBtn.textContent = "Super Admin qilish";
+        promoteBtn.style.marginRight = "6px";
         promoteBtn.addEventListener("click", async () => {
           const ok = await confirmDialog({
             title: "Super Admin huquqi",
@@ -3899,6 +4320,32 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         });
         actionsCell.appendChild(promoteBtn);
       }
+      if (viewerIsPrimary) {
+        const changePwBtn = document.createElement("button");
+        changePwBtn.className = "btn btn-secondary";
+        changePwBtn.textContent = "\u{1F511} Parolni almashtirish";
+        changePwBtn.style.marginRight = "6px";
+        changePwBtn.addEventListener("click", async () => {
+          const newPassword = await promptDialog({
+            title: "Parolni almashtirish",
+            message: `"${u.username}" uchun yangi parol kiriting (kamida 6 ta belgi):`,
+            placeholder: "Yangi parol"
+          });
+          if (newPassword === null) return;
+          if (newPassword.length < 6) {
+            await alertDialog({ title: "Xatolik", message: "Parol kamida 6 ta belgidan iborat bo'lishi kerak." });
+            return;
+          }
+          try {
+            await _db7.resetAdminPassword(u.id, newPassword, _user4.id);
+            await refreshAdmins();
+            await alertDialog({ title: "Bajarildi", message: `"${u.username}" uchun parol yangilandi.` });
+          } catch (err) {
+            await alertDialog({ title: "Xatolik", message: uzError(err) });
+          }
+        });
+        actionsCell.appendChild(changePwBtn);
+      }
       tbody.appendChild(tr);
     }
   }
@@ -3909,11 +4356,34 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     const password = document.getElementById("newAdminPassword").value;
     const isSuper = document.getElementById("newAdminSuper").checked;
     const role = isSuper ? ROLE_SUPER_ADMIN : ROLE_ADMIN;
+    const isEmployeeAdmin = document.getElementById("newAdminIsEmployee").checked;
+    const linkedEmployeeId = isEmployeeAdmin ? document.getElementById("newAdminEmployeeSelect").value || null : null;
     let user;
     try {
-      user = await _db7.createUser(username, password, fullName, role, _user4.id);
+      user = await _db7.createUser(username, password, fullName, role, _user4.id, linkedEmployeeId);
     } catch (err) {
-      errorEl.textContent = uzError(err);
+      let message = uzError(err);
+      const mode2 = currentMode();
+      const modeLabel = mode2 === "firebase" ? "Firebase" : mode2 === "local-fallback" ? "Local \u2014 ZAXIRA (Firebase ulanmadi!)" : "Local";
+      message += `
+
+[Diagnostika] Rejim: ${modeLabel}, xato kodi: ${err && err.code || "yo'q"}`;
+      if (err && err.code === "permission-denied") {
+        try {
+          const debugInfo = await _db7.getAuthDebugInfo();
+          message += `
+UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" : "yo'q"}, rol: ${debugInfo.role || "\u2014"}` + (debugInfo.readError ? `, o'qishda xato: ${debugInfo.readError}` : "");
+          if (debugInfo.probes && debugInfo.probes.length) {
+            message += `
+[Sinovlar]
+` + debugInfo.probes.join("\n");
+          }
+        } catch (debugErr) {
+          message += `
+[Diagnostika o'qib bo'lmadi: ${String(debugErr && debugErr.message || debugErr)}]`;
+        }
+      }
+      errorEl.textContent = message;
       return;
     }
     if (!isSuper) {
@@ -3999,7 +4469,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-08-29 19:45 UTC";
+  var BUILD_STAMP = "2026-08-30 09:10 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
@@ -4028,7 +4498,6 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
   }
   bootstrap();
 })();
-
 </script>
 </body>
 </html>
