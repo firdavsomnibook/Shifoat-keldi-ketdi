@@ -422,7 +422,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         <option value="4">Juma</option><option value="5">Shanba</option><option value="6">Yakshanba</option>
       </select>
     </div>
-    <div class="form-row"><label>O'rtacha oylik ish haqi (so'm)</label><input type="number" id="empSalary" value="2000000" /></div>
+    <div class="form-row"><label>O'rtacha oylik ish haqi (so'm) — ixtiyoriy</label><input type="number" id="empSalary" placeholder="ixtiyoriy" /></div>
     <div class="form-row"><label>Oyda hisoblanadigan ish kunlari</label><input type="number" id="empWorkDays" value="26" /></div>
     <div class="form-row"><label><input type="checkbox" id="empActive" checked /> Faol</label></div>
     <p class="error-text" id="employeeModalError"></p>
@@ -3620,7 +3620,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         document.getElementById("empWorkStart").value = "08:00";
         document.getElementById("empWorkEnd").value = "18:00";
         document.getElementById("empRestDay").value = "2";
-        document.getElementById("empSalary").value = "2000000";
+        document.getElementById("empSalary").value = "";
         document.getElementById("empWorkDays").value = "26";
         return;
       }
@@ -3661,8 +3661,11 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       workStart: document.getElementById("empWorkStart").value,
       workEnd: document.getElementById("empWorkEnd").value,
       weeklyRestDay: Number(document.getElementById("empRestDay").value),
-      avgMonthlySalary: Number(document.getElementById("empSalary").value),
-      workDaysPerMonth: Number(document.getElementById("empWorkDays").value)
+      // "|| 0" — bo'sh (ixtiyoriy) qoldirilgan maydon hech qachon NaN
+      // bermaydi, shuning uchun xodimni saqlash/yaratish hech qachon shu
+      // sabab bilan to'xtab qolmaydi.
+      avgMonthlySalary: Number(document.getElementById("empSalary").value) || 0,
+      workDaysPerMonth: Number(document.getElementById("empWorkDays").value) || 0
     };
     const fields = {
       firstName,
@@ -4469,7 +4472,7 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-08-30 09:10 UTC";
+  var BUILD_STAMP = "2026-08-30 09:25 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
