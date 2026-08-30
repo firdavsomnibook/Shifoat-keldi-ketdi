@@ -215,6 +215,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   .stat-grid { grid-template-columns: 1fr; }
   .action-row { max-width: 100%; }
 }
+
 </style>
 <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 </head>
@@ -2282,18 +2283,45 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     }
     return Math.sqrt(sum);
   }
+  function averageDescriptor(list) {
+    if (!list || list.length === 0) return null;
+    if (list.length === 1) return list[0];
+    const dim = list[0].length;
+    const sum = new Float32Array(dim);
+    for (const vec of list) {
+      for (let i = 0; i < dim; i++) sum[i] += vec[i];
+    }
+    for (let i = 0; i < dim; i++) sum[i] /= list.length;
+    return sum;
+  }
+  var CORROBORATION_MULTIPLIER = 1.35;
+  var MIN_MARGIN_FROM_RUNNER_UP = 0.08;
   function bestMatch(queryDescriptor, candidates, threshold) {
-    let bestEmployeeId = null;
-    let bestDistance = Infinity;
+    const distancesByEmployee = /* @__PURE__ */ new Map();
     for (const { employeeId, vector } of candidates) {
       const distance2 = euclideanDistance(queryDescriptor, vector);
-      if (distance2 < bestDistance) {
-        bestDistance = distance2;
-        bestEmployeeId = employeeId;
+      if (!distancesByEmployee.has(employeeId)) distancesByEmployee.set(employeeId, []);
+      distancesByEmployee.get(employeeId).push(distance2);
+    }
+    const perEmployee = [...distancesByEmployee.entries()].map(([employeeId, distances]) => {
+      distances.sort((a, b) => a - b);
+      return { employeeId, distances, best: distances[0] };
+    });
+    perEmployee.sort((a, b) => a.best - b.best);
+    if (perEmployee.length === 0) return { employeeId: null, distance: Infinity };
+    const top = perEmployee[0];
+    if (top.best > threshold) return { employeeId: null, distance: top.best };
+    if (top.distances.length >= 2) {
+      const corroborated = top.distances.filter((d) => d <= threshold * CORROBORATION_MULTIPLIER).length;
+      if (corroborated < 2) return { employeeId: null, distance: top.best };
+    }
+    if (perEmployee.length >= 2) {
+      const runnerUpBest = perEmployee[1].best;
+      if (runnerUpBest - top.best < MIN_MARGIN_FROM_RUNNER_UP) {
+        return { employeeId: null, distance: top.best };
       }
     }
-    if (bestDistance > threshold) return { employeeId: null, distance: bestDistance };
-    return { employeeId: bestEmployeeId, distance: bestDistance };
+    return { employeeId: top.employeeId, distance: top.best };
   }
 
   // src/face/liveness.js
@@ -2811,6 +2839,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   var requiredFrames = 12;
   var currentMode2 = "IN";
   var bestDescriptor = null;
+  var frameDescriptors = [];
   var resultTimer = null;
   var recognitionInProgress = false;
   var videoEl = document.getElementById("cameraVideo");
@@ -2882,6 +2911,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     livenessTracker = new LivenessTracker({ requiredBlinks, minMovement });
     collectedFrames = 0;
     bestDescriptor = null;
+    frameDescriptors = [];
     recognitionInProgress = false;
     try {
       await loadModels();
@@ -2949,9 +2979,10 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     ctx.strokeRect(box.x, box.y, box.width, box.height);
     livenessTracker.addSample(detection.landmarks);
     collectedFrames += 1;
-    bestDescriptor = detection.descriptor;
+    frameDescriptors.push(detection.descriptor);
     cameraStatus.textContent = SCAN_HINT_TEXT;
     if (collectedFrames < requiredFrames) return;
+    bestDescriptor = averageDescriptor(frameDescriptors);
     if (recognitionInProgress) return;
     recognitionInProgress = true;
     if (detectLoopHandle) {
@@ -3448,6 +3479,7 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
   var mediaStream2 = null;
   var detectLoop = null;
   var lastDescriptor = null;
+  var holdDescriptors = [];
   var capturedEmbeddings = [];
   var resolvePromise = null;
   var TICK_MS = 150;
@@ -3493,6 +3525,7 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
       lastDescriptor = null;
       holdCount = 0;
       yawAccum = 0;
+      holdDescriptors = [];
       return;
     }
     const box = detection.detection.box;
@@ -3505,6 +3538,7 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
       lastDescriptor = null;
       holdCount = 0;
       yawAccum = 0;
+      holdDescriptors = [];
       if (check.hint === "wrong-side") {
         statusLabel.textContent = "Bu tomon emas \u2014 boshqa tomonga buriling.";
       } else {
@@ -3513,6 +3547,7 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
       return;
     }
     lastDescriptor = detection.descriptor;
+    holdDescriptors.push(detection.descriptor);
     holdCount++;
     yawAccum += yaw;
     if (holdCount >= HOLD_TICKS) {
@@ -3526,8 +3561,9 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
     statusLabel.textContent = `Yuz to'g'ri turibdi. Qimirlamang\u2026 ${dotsLeft}`;
   }
   function autoCapture(avgYaw) {
-    if (!lastDescriptor) return;
-    capturedEmbeddings.push(lastDescriptor);
+    const embedding = averageDescriptor(holdDescriptors) || lastDescriptor;
+    if (!embedding) return;
+    capturedEmbeddings.push(embedding);
     poseYaws.push(typeof avgYaw === "number" ? avgYaw : poseYaws[poseYaws.length - 1] || 0);
     const done = capturedEmbeddings.length >= POSES.length;
     if (done) {
@@ -3542,6 +3578,7 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
     lastDescriptor = null;
     holdCount = 0;
     yawAccum = 0;
+    holdDescriptors = [];
     setTimeout(() => {
       paused = false;
     }, COOLDOWN_MS);
@@ -3553,6 +3590,7 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
     lastDescriptor = null;
     holdCount = 0;
     yawAccum = 0;
+    holdDescriptors = [];
     paused = false;
     poseLabel.textContent = `1/${POSES.length}: ${POSES[0]}`;
     statusLabel.textContent = "Kamera ishga tushmoqda\u2026";
@@ -4736,7 +4774,7 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-08-30 13:00 UTC";
+  var BUILD_STAMP = "2026-08-30 17:20 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
@@ -4765,6 +4803,7 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
   }
   bootstrap();
 })();
+
 </script>
 </body>
 </html>
