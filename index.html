@@ -71,6 +71,15 @@ html, body {
 .result-card.warning { background: #FFF6E5; border: 2px solid #E0A400; }
 .result-card.error { background: #FDEAEE; border: 2px solid var(--shifoat-red); }
 .result-card.info { background: #EEF0FB; border: 2px solid var(--navy); }
+/* 30.08.2026: xodim kelyapman/ketyapman qilganda tasdiqlash ekranida
+   o'zining rasmi ham ko'rinsin degan so'rov — qarang kiosk.js
+   showAttendanceResult(). Rasm bo'lmasa (#resultPhoto display:none
+   qoladi), joyi bo'sh qolmaydi, boshqa hech narsa siljimaydi. */
+.result-photo {
+  width: 92px; height: 92px; border-radius: 50%; object-fit: cover;
+  margin: 0 auto 14px; display: block; border: 3px solid var(--white);
+  box-shadow: 0 4px 14px rgba(33,35,85,0.18);
+}
 .result-title { font-size: 26px; font-weight: 700; margin: 0 0 10px; white-space: pre-line; }
 .result-body { font-size: 18px; margin: 0 0 10px; white-space: pre-line; }
 .result-badge { font-size: 15px; color: var(--deep-navy); white-space: pre-line; }
@@ -98,6 +107,11 @@ html, body {
 .section-title { font-size: 20px; font-weight: 800; color: var(--deep-navy); margin: 0 0 18px; }
 
 .card { background: var(--white); border-radius: 16px; border: 1px solid var(--border-soft); padding: 18px 20px; }
+/* 30.08.2026: Dashboard kartochkalari endi bosiladigan — o'sha toifadagi
+   xodimlar ro'yxatini ochadi (qarang dashboardSection.js). */
+.card-clickable { cursor: pointer; transition: box-shadow 0.12s ease, transform 0.08s ease; }
+.card-clickable:hover { box-shadow: 0 4px 16px rgba(33,35,85,0.10); }
+.card-clickable:active { transform: scale(0.98); }
 /* Kartochka sarlavhalari (masalan "Dam kunini ko'chirish") — Grafik/
    Kalendar bo'limidagi kun tafsiloti matni (#dayDetailLabel pastda)
    kattalashtirilgach, sarlavha undan KICHIKROQ bo'lib qolishi uchun
@@ -155,6 +169,52 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
 
 .login-screen { display: flex; align-items: center; justify-content: center; height: 100vh; background: var(--bg-soft); }
 .login-card { background: var(--white); border-radius: 20px; padding: 36px; width: 380px; box-shadow: 0 10px 40px rgba(33,35,85,0.12); }
+
+/* ---------- Mobil telefonlar uchun (30.08.2026 so'rovi: "telefonda ham
+   ishlatsa bo'ladigan qilsak" — ekran tor bo'lganda hammasi ezilib
+   qolmasligi uchun) ---------- */
+@media (max-width: 720px) {
+  /* Kiosk (index.html) — kamera orqali kelish/ketishni belgilash ekrani */
+  .kiosk-root { padding: 20px 16px; }
+  .greeting { font-size: 21px; }
+  .sub-greeting { font-size: 14px; }
+  .action-row { flex-direction: column; gap: 14px; max-width: 420px; }
+  .big-button { padding: 24px 16px; font-size: 19px; }
+  .camera-instruction { font-size: 16px; }
+  .result-card { padding: 26px 18px; }
+  .result-title { font-size: 20px; }
+  .result-body { font-size: 15px; }
+  .login-card { width: 92vw; padding: 24px; }
+
+  /* Admin panel (admin.html) — chap tomondagi doimiy panel endi yuqorida
+     gorizontal, siljib (scroll) o'qiladigan tugmalar qatoriga aylanadi. */
+  .admin-root { flex-direction: column; height: auto; min-height: 100vh; }
+  .admin-sidebar {
+    width: 100%; flex-direction: row; align-items: center; flex-shrink: 0;
+    padding: 10px 12px; gap: 10px; flex-wrap: nowrap;
+  }
+  .admin-sidebar .sidebar-since, .admin-sidebar .sidebar-user { display: none; }
+  .admin-sidebar .sidebar-brand { font-size: 16px; margin: 0; white-space: nowrap; }
+  #adminNav {
+    display: flex; flex-direction: row; flex-wrap: nowrap; overflow-x: auto;
+    gap: 6px; flex: 1; -webkit-overflow-scrolling: touch;
+  }
+  .nav-button { width: auto; white-space: nowrap; padding: 8px 12px; font-size: 13px; }
+  .nav-spacer { display: none; }
+  #btnLogout { width: auto; white-space: nowrap; flex-shrink: 0; }
+
+  .admin-content { padding: 14px; }
+  .section-title { font-size: 17px; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .toolbar { gap: 8px; }
+  .modal-box { width: 92vw; padding: 18px; }
+  table.data-table th, table.data-table td { padding: 6px 8px; font-size: 12px; }
+}
+
+@media (max-width: 420px) {
+  .stat-grid { grid-template-columns: 1fr; }
+  .action-row { max-width: 100%; }
+}
 </style>
 <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 </head>
@@ -207,6 +267,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     <section class="screen" id="screen-result">
       <div class="kiosk-center">
         <div class="result-card" id="resultCard">
+          <img class="result-photo" id="resultPhoto" style="display:none;" alt="" />
           <p class="result-title" id="resultTitle"></p>
           <p class="result-body" id="resultBody"></p>
           <p class="result-badge" id="resultBadge"></p>
@@ -289,7 +350,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         <button class="btn btn-primary" id="btnAddEmployee">+ Yangi xodim</button>
       </div>
       <div style="overflow-x:auto;"><table class="data-table" id="employeesTable">
-        <thead><tr><th>Login</th><th>Lavozim</th><th>Grafik</th><th>Faol</th><th>Yuz</th><th id="thEmployeePassword" style="display:none;">Parol</th><th></th></tr></thead>
+        <thead><tr><th>Rasmi</th><th>Login</th><th>Lavozim</th><th>Grafik</th><th>Faol</th><th>Yuz</th><th id="thEmployeePassword" style="display:none;">Parol</th><th></th></tr></thead>
         <tbody></tbody>
       </table></div>
     </section>
@@ -410,6 +471,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
 <div class="modal-overlay" id="employeeModal">
   <div class="modal-box">
     <h3 id="employeeModalTitle">Yangi xodim</h3>
+    <div class="form-row">
+      <label>Xodim rasmi (ixtiyoriy) — faqat admin kirita oladi</label>
+      <img id="empPhotoPreview" style="display:none; width:64px; height:64px; border-radius:50%; object-fit:cover; margin-bottom:6px;" />
+      <input type="file" accept="image/*" id="empPhotoInput" />
+    </div>
     <div class="form-row"><label>Login</label><input type="text" id="empFirstName" /></div>
     <div class="form-row"><label>Parol</label><input type="text" id="empPassword" /></div>
     <div class="form-row"><label>Telefon (ixtiyoriy)</label><input type="text" id="empPhone" /></div>
@@ -446,6 +512,17 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px;">
       <button class="btn btn-secondary" id="faceEnrollCancel">Bekor qilish</button>
       <button class="btn btn-primary" id="faceEnrollCapture" style="display:none;">📸 Suratga olish</button>
+    </div>
+  </div>
+</div>
+
+<!-- Dashboard kartochkasi bosilganda chiqadigan xodimlar ro'yxati (rasmi bilan) -->
+<div class="modal-overlay" id="dashboardListModal">
+  <div class="modal-box">
+    <h3 id="dashboardListTitle"></h3>
+    <div id="dashboardListBody"></div>
+    <div style="display:flex; justify-content:flex-end; margin-top:12px;">
+      <button class="btn btn-secondary" id="dashboardListClose">Yopish</button>
     </div>
   </div>
 </div>
@@ -758,6 +835,9 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         department: (fields.department || "").trim(),
         phone: fields.phone || null,
         password: fields.password != null ? String(fields.password) : "",
+        // 30.08.2026 so'rovi: xodim rasmi (kichraytirilgan data: URL) —
+        // qarang localAdapter.js'dagi bir xil izoh.
+        photoUrl: fields.photoUrl || null,
         isActive: true,
         createdAt: nowIso2(),
         updatedAt: nowIso2()
@@ -1041,6 +1121,10 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     async function listLatePermissionsForEmployee2(employeeId) {
       const q = query(collection(dbFs, "latePermissions"), where("employeeId", "==", employeeId));
       const snap = await getDocs(q);
+      return snap.docs.map(docToObject);
+    }
+    async function listAllLatePermissions2() {
+      const snap = await getDocs(collection(dbFs, "latePermissions"));
       return snap.docs.map(docToObject);
     }
     async function setLatePermission2(employeeId, dateKey, allowedStartTime, reason, actorId) {
@@ -1431,6 +1515,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       listScheduleOverrides: listScheduleOverrides2,
       getLatePermission: getLatePermission2,
       listLatePermissionsForEmployee: listLatePermissionsForEmployee2,
+      listAllLatePermissions: listAllLatePermissions2,
       setLatePermission: setLatePermission2,
       anyAdminExists: anyAdminExists2,
       createUser: createUser2,
@@ -1497,6 +1582,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     importBackupJson: () => importBackupJson,
     isLoginTaken: () => isLoginTaken,
     listAllDayStatuses: () => listAllDayStatuses,
+    listAllLatePermissions: () => listAllLatePermissions,
     listAllSchedules: () => listAllSchedules,
     listAttendanceForDate: () => listAttendanceForDate,
     listAttendanceForMonth: () => listAttendanceForMonth,
@@ -1695,6 +1781,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       department: (fields.department || "").trim(),
       phone: fields.phone || null,
       password: fields.password != null ? String(fields.password) : "",
+      // 30.08.2026 so'rovi: xodim rasmi (admin "Yangi xodim" oynasida
+      // yuklaydi) — Dashboard'dagi ro'yxatlarda va kiosk "tasdiqlandi"
+      // ekranida ko'rsatish uchun. Kichraytirilgan/siqilgan data: URL
+      // sifatida saqlanadi (qarang employeesSection.js resizeImageFile()).
+      photoUrl: fields.photoUrl || null,
       isActive: true,
       createdAt: nowIso(),
       updatedAt: nowIso()
@@ -1948,6 +2039,9 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   }
   async function listLatePermissionsForEmployee(employeeId) {
     return getAllByIndex("latePermissions", "employeeId", employeeId);
+  }
+  async function listAllLatePermissions() {
+    return getAll("latePermissions");
   }
   async function setLatePermission(employeeId, dateKey, allowedStartTime, reason, actorId) {
     const existing = await findLatePermissionRow(employeeId, dateKey);
@@ -2678,7 +2772,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   }
   function uzError(err, fallback = "Noma'lum xatolik yuz berdi. Qayta urinib ko'ring.") {
     if (!err) return fallback;
-    const code = err.code || err.name || "";
+    const code = typeof err.code === "string" && err.code || err.name || "";
     if (CODE_MAP[code]) return CODE_MAP[code];
     const raw = String(err && err.message || err || "").trim();
     if (!raw) return fallback;
@@ -2795,6 +2889,13 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       showResultError("Yuz tanish modeli yuklanmadi", uzError(err));
       return;
     }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showResultError(
+        "Kamera ishlamayapti",
+        "Bu qurilma/brauzer kamerani faqat xavfsiz (https://) manzil orqali ochilganda ruxsat beradi. Saytni to'g'ridan-to'g'ri saqlangan fayl sifatida emas, balki https:// bilan boshlanadigan havola orqali oching."
+      );
+      return;
+    }
     try {
       mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: CAMERA_WIDTH }, height: { ideal: CAMERA_HEIGHT }, facingMode: "user" },
@@ -2802,8 +2903,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       });
     } catch (err) {
       showResultError(
-        "Kamera topilmadi",
-        "Kamerani boshqa dastur ishlatayotganini yoki brauzer ruxsatini tekshiring."
+        "Kamera ochilmadi",
+        uzError(err, "Kamerani boshqa dastur ishlatayotganini yoki brauzer ruxsatini tekshiring.")
       );
       return;
     }
@@ -2894,7 +2995,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       }
       const fullName = `${employee.firstName} ${employee.lastName || ""}`.trim();
       const result = currentMode2 === "IN" ? await checkIn(db, employee.id, fullName) : await checkOut(db, employee.id, fullName);
-      showAttendanceResult(result);
+      showAttendanceResult(result, employee.photoUrl);
     } catch (err) {
       console.error("finishRecognition failed:", err);
       showResultError("Xatolik yuz berdi", uzError(err));
@@ -2981,7 +3082,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     try {
       const todayRecord = await getTodayRecord(db, employee.id);
       const result = !todayRecord || !todayRecord.checkInTime ? await checkIn(db, employee.id, fullName) : await checkOut(db, employee.id, fullName);
-      showAttendanceResult(result);
+      showAttendanceResult(result, employee.photoUrl);
     } catch (err) {
       showResultError("Xatolik yuz berdi", uzError(err));
     }
@@ -2990,8 +3091,18 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   var resultTitle = document.getElementById("resultTitle");
   var resultBody = document.getElementById("resultBody");
   var resultBadge = document.getElementById("resultBadge");
+  var resultPhoto = document.getElementById("resultPhoto");
   function setResultKind(kind) {
     resultCard.className = `result-card ${kind}`;
+  }
+  function setResultPhoto(photoUrl) {
+    if (photoUrl) {
+      resultPhoto.src = photoUrl;
+      resultPhoto.style.display = "block";
+    } else {
+      resultPhoto.src = "";
+      resultPhoto.style.display = "none";
+    }
   }
   function scheduleReturnHome(delayMs = RESULT_SCREEN_AUTO_RETURN_MS) {
     clearTimeout(resultTimer);
@@ -3001,6 +3112,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     stopCamera();
     adminChoiceRow.style.display = "none";
     setResultKind("error");
+    setResultPhoto(null);
     resultTitle.textContent = title;
     resultBody.textContent = body;
     resultBadge.textContent = "";
@@ -3011,15 +3123,17 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     stopCamera();
     adminChoiceRow.style.display = "none";
     setResultKind("warning");
+    setResultPhoto(null);
     resultTitle.textContent = title;
     resultBody.textContent = body;
     resultBadge.textContent = "";
     showScreen("result");
     scheduleReturnHome();
   }
-  function showAttendanceResult(result) {
+  function showAttendanceResult(result, photoUrl) {
     stopCamera();
     adminChoiceRow.style.display = "none";
+    setResultPhoto(photoUrl);
     const firstName = result.employeeName.split(" ")[0] || "";
     if (result.status === AttendanceStatus.CHECKED_IN) {
       setResultKind("success");
@@ -3170,15 +3284,25 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
   var _db;
   async function initDashboard(db2, _user5) {
     _db = db2;
+    document.getElementById("dashboardListClose").addEventListener("click", () => {
+      document.getElementById("dashboardListModal").classList.remove("active");
+    });
   }
   async function refreshDashboard() {
     const todayKey = tashkentDateKey();
     document.getElementById("dashboardHeading").textContent = `Bugun \u2014 ${ddmmyyyy(todayKey)}`;
-    const [employees, todayRecords, allSchedules, allDayStatuses] = await Promise.all([
+    const [employees, todayRecords, allSchedules, allDayStatuses, allLatePermissions] = await Promise.all([
       _db.listEmployees({ activeOnly: true }),
       listTodayRecords(_db),
       _db.listAllSchedules(),
-      _db.listAllDayStatuses()
+      _db.listAllDayStatuses(),
+      // 30.08.2026 so'rovi: "Ruxsatli" kartochkasi hech qachon ishlamasdi,
+      // chunki u FAQAT dayStatuses'dagi RUXSATLI/KASALLIK/TATIL statusini
+      // tekshirardi — bu esa hech qanday admin oynasidan yozilmaydi.
+      // Haqiqatda admin "Grafik/Kalendar > Kechikishga ruxsat" orqali
+      // BUTUNLAY BOSHQA to'plamga (latePermissions) yozadi. Endi shu
+      // to'plam ham o'qiladi va "Ruxsatli" aynan shundan to'ldiriladi.
+      _db.listAllLatePermissions()
     ]);
     const byEmployee = new Map(todayRecords.map((r) => [r.employeeId, r]));
     const schedulesByEmployee = /* @__PURE__ */ new Map();
@@ -3190,7 +3314,11 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
     for (const d of allDayStatuses) {
       if (d.dateKey === todayKey) dayStatusByEmployee.set(d.employeeId, d.status);
     }
-    let shouldWork = 0, checkedIn = 0, notYet = 0, late = 0, resting = 0, permission = 0;
+    const latePermissionByEmployee = /* @__PURE__ */ new Map();
+    for (const p of allLatePermissions) {
+      if (p.dateKey === todayKey) latePermissionByEmployee.set(p.employeeId, p);
+    }
+    const shouldWork = [], checkedIn = [], notYet = [], late = [], resting = [], permission = [];
     for (const employee of employees) {
       const status = resolveDayStatusSync(
         dayStatusByEmployee.get(employee.id),
@@ -3198,21 +3326,28 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
         todayKey
       );
       const record = byEmployee.get(employee.id);
+      const fullName = `${employee.firstName} ${employee.lastName || ""}`.trim();
+      const entry = { name: fullName, photoUrl: employee.photoUrl || null };
+      const todaysPermission = latePermissionByEmployee.get(employee.id);
+      if (todaysPermission) {
+        const note = `Ruxsat: ${todaysPermission.allowedStartTime} gacha kelishi mumkin` + (todaysPermission.reason ? ` \u2014 ${todaysPermission.reason}` : "");
+        permission.push({ ...entry, note });
+      }
       if (status === DAY_STATUS_REST || status === DAY_STATUS_MOVED_REST) {
-        resting++;
+        resting.push(entry);
         continue;
       }
       if (status === DAY_STATUS_PERMISSION || status === DAY_STATUS_SICK || status === DAY_STATUS_VACATION) {
-        permission++;
+        if (!todaysPermission) permission.push(entry);
         continue;
       }
       if (status === DAY_STATUS_WORK || status === DAY_STATUS_EXTRA_WORK) {
-        shouldWork++;
+        shouldWork.push(entry);
         if (record && record.checkInTime) {
-          checkedIn++;
-          if (record.lateMinutes > 0) late++;
+          checkedIn.push({ ...entry, checkInTimeStr: hhmm(new Date(record.checkInTime)) });
+          if (record.lateMinutes > 0) late.push({ ...entry, lateMinutes: record.lateMinutes });
         } else {
-          notYet++;
+          notYet.push(entry);
         }
       }
     }
@@ -3226,12 +3361,34 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
     ];
     const container = document.getElementById("dashboardStats");
     container.innerHTML = "";
-    for (const [label, value] of cards) {
+    for (const [label, list] of cards) {
       const card = document.createElement("div");
-      card.className = "card";
-      card.innerHTML = `<p class="card-value">${value}</p><p class="card-label">${label}</p>`;
+      card.className = "card card-clickable";
+      card.innerHTML = `<p class="card-value">${list.length}</p><p class="card-label">${label}</p>`;
+      card.addEventListener("click", () => openDashboardList(label, list));
       container.appendChild(card);
     }
+  }
+  function openDashboardList(title, list) {
+    document.getElementById("dashboardListTitle").textContent = `${title} (${list.length})`;
+    const body = document.getElementById("dashboardListBody");
+    if (!list.length) {
+      body.innerHTML = `<p class="muted">Bu ro'yxat bo'sh.</p>`;
+    } else {
+      body.innerHTML = list.map((e) => {
+        const avatar = e.photoUrl ? `<img src="${e.photoUrl}" style="width:36px; height:36px; border-radius:50%; object-fit:cover;" />` : `<span style="width:36px; height:36px; border-radius:50%; background:#EEF0FB; display:inline-flex; align-items:center; justify-content:center; color:#6B6F91; font-weight:700; font-size:14px;">${(e.name[0] || "?").toUpperCase()}</span>`;
+        let extra = "";
+        if (e.checkInTimeStr) {
+          extra = `<span class="muted" style="margin-left:auto;">${e.checkInTimeStr}</span>`;
+        } else if (e.lateMinutes) {
+          extra = `<span style="margin-left:auto; color:var(--shifoat-red-dark); font-weight:700;">${e.lateMinutes} daqiqa</span>`;
+        } else if (e.note) {
+          extra = `<span class="muted" style="margin-left:auto; font-size:12px; text-align:right; max-width:55%;">${e.note}</span>`;
+        }
+        return `<div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #EEF0F7;">${avatar}<span>${e.name}</span>${extra}</div>`;
+      }).join("");
+    }
+    document.getElementById("dashboardListModal").classList.add("active");
   }
 
   // src/business/employeeService.js
@@ -3279,6 +3436,7 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
 
   // src/ui/admin/faceEnrollModal.js
   var POSES = ["To'g'ri qarang", "Biroz chapga buriling", "Biroz o'ngga buriling"];
+  var YAW_TURN_THRESHOLD = 0.09;
   var modal = document.getElementById("faceEnrollModal");
   var videoEl2 = document.getElementById("faceEnrollVideo");
   var overlayEl2 = document.getElementById("faceEnrollOverlay");
@@ -3297,6 +3455,8 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
   var COOLDOWN_MS = 1400;
   var holdCount = 0;
   var paused = false;
+  var yawAccum = 0;
+  var poseYaws = [];
   async function stopCamera2() {
     if (detectLoop) {
       clearInterval(detectLoop);
@@ -3307,6 +3467,22 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
       mediaStream2 = null;
     }
   }
+  function poseCheck(yaw) {
+    const idx = capturedEmbeddings.length;
+    if (idx === 0) return { ok: true };
+    const baseYaw = poseYaws[0];
+    if (baseYaw == null) return { ok: true };
+    const diff = yaw - baseYaw;
+    if (Math.abs(diff) < YAW_TURN_THRESHOLD) {
+      return { ok: false, hint: "more" };
+    }
+    if (idx === 1) return { ok: true };
+    const firstDiff = poseYaws[1] - baseYaw;
+    if (Math.sign(diff) === Math.sign(firstDiff)) {
+      return { ok: false, hint: "wrong-side" };
+    }
+    return { ok: true };
+  }
   async function tick() {
     if (paused) return;
     const detection = await detectFace(videoEl2).catch(() => null);
@@ -3316,25 +3492,43 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
       statusLabel.textContent = "Yuz aniqlanmadi \u2014 kameraga to'g'ri qarang.";
       lastDescriptor = null;
       holdCount = 0;
+      yawAccum = 0;
       return;
     }
     const box = detection.detection.box;
     ctx.strokeStyle = "#ED2040";
     ctx.lineWidth = 3;
     ctx.strokeRect(box.x, box.y, box.width, box.height);
+    const yaw = yawSignal(detection.landmarks);
+    const check = poseCheck(yaw);
+    if (!check.ok) {
+      lastDescriptor = null;
+      holdCount = 0;
+      yawAccum = 0;
+      if (check.hint === "wrong-side") {
+        statusLabel.textContent = "Bu tomon emas \u2014 boshqa tomonga buriling.";
+      } else {
+        statusLabel.textContent = "Ko'rsatilgan tomonga yanada ko'proq buriling\u2026";
+      }
+      return;
+    }
     lastDescriptor = detection.descriptor;
     holdCount++;
+    yawAccum += yaw;
     if (holdCount >= HOLD_TICKS) {
+      const avgYaw = yawAccum / holdCount;
       holdCount = 0;
-      autoCapture();
+      yawAccum = 0;
+      autoCapture(avgYaw);
       return;
     }
     const dotsLeft = Math.max(1, HOLD_TICKS - holdCount);
-    statusLabel.textContent = `Yuz aniqlandi. Qimirlamang\u2026 ${dotsLeft}`;
+    statusLabel.textContent = `Yuz to'g'ri turibdi. Qimirlamang\u2026 ${dotsLeft}`;
   }
-  function autoCapture() {
+  function autoCapture(avgYaw) {
     if (!lastDescriptor) return;
     capturedEmbeddings.push(lastDescriptor);
+    poseYaws.push(typeof avgYaw === "number" ? avgYaw : poseYaws[poseYaws.length - 1] || 0);
     const done = capturedEmbeddings.length >= POSES.length;
     if (done) {
       poseLabel.textContent = "Tayyor!";
@@ -3347,6 +3541,7 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
     paused = true;
     lastDescriptor = null;
     holdCount = 0;
+    yawAccum = 0;
     setTimeout(() => {
       paused = false;
     }, COOLDOWN_MS);
@@ -3354,8 +3549,10 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
   function openFaceEnroll(employeeName) {
     titleEl.textContent = `Yuzni ro'yxatdan o'tkazish \u2014 ${employeeName}`;
     capturedEmbeddings = [];
+    poseYaws = [];
     lastDescriptor = null;
     holdCount = 0;
+    yawAccum = 0;
     paused = false;
     poseLabel.textContent = `1/${POSES.length}: ${POSES[0]}`;
     statusLabel.textContent = "Kamera ishga tushmoqda\u2026";
@@ -3365,6 +3562,9 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
       (async () => {
         try {
           await loadModels();
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw { name: "SecurityError" };
+          }
           mediaStream2 = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
           videoEl2.srcObject = mediaStream2;
           await videoEl2.play();
@@ -3527,6 +3727,46 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
   var _user;
   var _canEdit;
   var _editingId = null;
+  var _pendingPhotoUrl = null;
+  var MAX_PHOTO_DIM = 220;
+  var PHOTO_JPEG_QUALITY = 0.72;
+  function resizeImageFile(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error || new Error("Rasmni o'qib bo'lmadi."));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("Rasm formatini tanib bo'lmadi."));
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > height && width > MAX_PHOTO_DIM) {
+            height = Math.round(height * MAX_PHOTO_DIM / width);
+            width = MAX_PHOTO_DIM;
+          } else if (height > MAX_PHOTO_DIM) {
+            width = Math.round(width * MAX_PHOTO_DIM / height);
+            height = MAX_PHOTO_DIM;
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL("image/jpeg", PHOTO_JPEG_QUALITY));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  function setPhotoPreview(url) {
+    const preview = document.getElementById("empPhotoPreview");
+    if (url) {
+      preview.src = url;
+      preview.style.display = "block";
+    } else {
+      preview.src = "";
+      preview.style.display = "none";
+    }
+  }
   async function initEmployees(db2, user) {
     _db2 = db2;
     _user = user;
@@ -3535,12 +3775,21 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
     document.getElementById("btnAddEmployee").addEventListener("click", () => openModal(null));
     document.getElementById("employeeModalCancel").addEventListener("click", closeModal);
     document.getElementById("employeeModalSave").addEventListener("click", onSave);
+    document.getElementById("empPhotoInput").addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      try {
+        _pendingPhotoUrl = await resizeImageFile(file);
+        setPhotoPreview(_pendingPhotoUrl);
+      } catch (err) {
+        document.getElementById("employeeModalError").textContent = uzError(err, "Rasmni yuklab bo'lmadi.");
+      }
+    });
   }
   async function refreshEmployees() {
-    const employees = await _db2.listEmployees();
+    const [employees, users] = await Promise.all([_db2.listEmployees(), _db2.listUsers()]);
     const tbody = document.querySelector("#employeesTable tbody");
     tbody.innerHTML = "";
-    const users = await _db2.listUsers();
     const sortedByAge = [...users].sort(
       (a, b) => a.createdAt > b.createdAt ? 1 : a.createdAt < b.createdAt ? -1 : 0
     );
@@ -3548,15 +3797,22 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
     const viewerIsPrimary = _user.id === primaryAdminId;
     const thPassword = document.getElementById("thEmployeePassword");
     if (thPassword) thPassword.style.display = viewerIsPrimary ? "" : "none";
-    for (const employee of employees) {
-      const schedule = await _db2.getCurrentSchedule(employee.id, tashkentDateKey());
+    const todayKey = tashkentDateKey();
+    const [schedules, faceFlags] = await Promise.all([
+      Promise.all(employees.map((e) => _db2.getCurrentSchedule(e.id, todayKey))),
+      Promise.all(employees.map((e) => _db2.hasFaceEnrolled(e.id)))
+    ]);
+    employees.forEach((employee, i) => {
+      const schedule = schedules[i];
       const scheduleText = schedule ? `${schedule.workStart}-${schedule.workEnd}` : "\u2014";
-      const hasFace = await _db2.hasFaceEnrolled(employee.id);
+      const hasFace = faceFlags[i];
       const fullName = `${employee.firstName} ${employee.lastName || ""}`.trim();
       const passwordCellStyle = viewerIsPrimary ? "" : ' style="display:none;"';
       const passwordCellText = viewerIsPrimary ? employee.password || "\u2014" : "";
+      const photoCell = employee.photoUrl ? `<img src="${employee.photoUrl}" style="width:32px; height:32px; border-radius:50%; object-fit:cover; display:block;" />` : `<span class="muted">\u2014</span>`;
       const tr = document.createElement("tr");
       tr.innerHTML = `
+      <td>${photoCell}</td>
       <td>${fullName}</td><td>${employee.position || ""}</td>
       <td>${scheduleText}</td><td>${employee.isActive ? "Ha" : "Yo'q"}</td>
       <td>${hasFace ? "\u2705" : "\u2014"}</td>
@@ -3605,7 +3861,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         actionsCell.appendChild(deleteBtn);
       }
       tbody.appendChild(tr);
-    }
+    });
   }
   function openModal(employee) {
     _editingId = employee ? employee.id : null;
@@ -3615,6 +3871,9 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     document.getElementById("empPassword").value = employee ? employee.password || "" : "";
     document.getElementById("empPhone").value = employee ? employee.phone || "" : "";
     document.getElementById("empActive").checked = employee ? employee.isActive : true;
+    document.getElementById("empPhotoInput").value = "";
+    _pendingPhotoUrl = employee ? employee.photoUrl || null : null;
+    setPhotoPreview(_pendingPhotoUrl);
     const applySchedule = async () => {
       if (!employee) {
         document.getElementById("empWorkStart").value = "08:00";
@@ -3674,6 +3933,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       department: "",
       phone: document.getElementById("empPhone").value.trim() || null,
       password,
+      photoUrl: _pendingPhotoUrl || null,
       ...scheduleFields
     };
     try {
@@ -3681,7 +3941,8 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         const patch = {
           firstName: fields.firstName,
           phone: fields.phone,
-          isActive: document.getElementById("empActive").checked
+          isActive: document.getElementById("empActive").checked,
+          photoUrl: fields.photoUrl
         };
         if (password) patch.password = password;
         await updateEmployeeAndMaybeSchedule(_db2, _editingId, patch, scheduleFields, tashkentDateKey(), _user.id);
@@ -4279,8 +4540,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     document.getElementById("adminModalSave").addEventListener("click", onSaveAdmin);
   }
   async function refreshAdmins() {
-    const users = await _db7.listUsers();
-    const employees = await _db7.listEmployees();
+    const [users, employees] = await Promise.all([_db7.listUsers(), _db7.listEmployees()]);
     const employeeById = new Map(employees.map((e) => [e.id, e]));
     const tbody = document.querySelector("#adminsTable tbody");
     tbody.innerHTML = "";
@@ -4291,9 +4551,13 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     const viewerIsPrimary = _user4.id === primaryAdminId;
     const thPassword = document.getElementById("thAdminPassword");
     if (thPassword) thPassword.style.display = viewerIsPrimary ? "" : "none";
+    const permCounts = await Promise.all(users.map(
+      (u) => u.role === ROLE_SUPER_ADMIN ? Promise.resolve(null) : _db7.getPermissions(u.id)
+    ));
+    const permCountByUserId = new Map(users.map((u, i) => [u.id, permCounts[i]]));
     for (const u of users) {
       const isSuper = u.role === ROLE_SUPER_ADMIN;
-      const permCount = isSuper ? "\u2014" : (await _db7.getPermissions(u.id)).size;
+      const permCount = isSuper ? "\u2014" : permCountByUserId.get(u.id).size;
       const linkedEmployee = u.linkedEmployeeId ? employeeById.get(u.linkedEmployeeId) : null;
       const linkedText = linkedEmployee ? `${linkedEmployee.firstName} ${linkedEmployee.lastName || ""}`.trim() : "\u2014";
       const passwordCellStyle = viewerIsPrimary ? "" : ' style="display:none;"';
@@ -4472,7 +4736,7 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-08-30 09:25 UTC";
+  var BUILD_STAMP = "2026-08-30 13:00 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
