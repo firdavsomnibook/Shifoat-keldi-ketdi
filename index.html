@@ -143,6 +143,36 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
 .modal-box { background: var(--white); border-radius: 16px; padding: 24px; width: 460px; max-width: 92vw; max-height: 88vh; overflow-y: auto; }
 .modal-box h3 { margin-top: 0; color: var(--deep-navy); }
 
+/* ---------- Dashboard ro'yxatidagi rasm: hover yozuvi + kattalashtirish
+   (31.08.2026 so'rovi) ---------- */
+.dash-avatar-wrap { position: relative; width: 36px; height: 36px; border-radius: 50%; overflow: hidden; flex-shrink: 0; cursor: pointer; }
+.dash-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dash-avatar-hover {
+  position: absolute; inset: 0; background: rgba(20, 22, 60, 0.62); color: #fff;
+  font-size: 8px; font-weight: 700; line-height: 1.1; text-align: center;
+  display: flex; align-items: center; justify-content: center; padding: 2px;
+  opacity: 0; transition: opacity 0.12s ease;
+}
+.dash-avatar-wrap:hover .dash-avatar-hover { opacity: 1; }
+/* Rasmi yo'q (harf-belgi) xodimlarda kattalashtirish shart emas — hover
+   yozuvi ham chiqmaydi, kursor ham oddiy holatda qoladi. */
+.dash-avatar-wrap.no-photo { cursor: default; }
+.dash-avatar-wrap.no-photo .dash-avatar-hover { display: none; }
+
+/* Rasm kattalashtirilgan holda ko'rinadigan oyna — boshqa modallardan
+   ustida turishi uchun (masalan Dashboard ro'yxati ustida ochilishi
+   mumkin) balandroq z-index. */
+/* 31.08.2026 so'rovi: "sal kattaroq chiqsin" -- oyna va rasm kattalashtirildi
+   (280px -> 400px), ish vaqti ham ismi bilan birga ko'rinadi. Rasmning o'zi
+   endi employeesSection.js'da yuqoriroq o'lcham/sifatda saqlanadi (480px /
+   0.85), shuning uchun bu kattalikda ham piksellanib qolmaydi. */
+#photoLightboxModal { z-index: 200; background: rgba(20, 22, 60, 0.72); }
+#photoLightboxModal .modal-box { width: auto; max-width: 460px; text-align: center; padding: 24px; }
+#photoLightboxImg { width: 100%; max-width: 400px; max-height: 68vh; object-fit: cover; border-radius: 16px; display: block; margin: 0 auto 16px; box-shadow: 0 10px 28px rgba(20,22,60,0.3); }
+#photoLightboxName { font-size: 19px; font-weight: 700; color: var(--deep-navy); margin: 0 0 4px; }
+#photoLightboxSchedule { font-size: 14px; font-weight: 600; color: #6B6F91; margin: 0 0 18px; }
+#photoLightboxSchedule:empty { display: none; }
+
 .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
 .pill-work { background: #EEF0FB; color: var(--navy); }
 .pill-rest { background: #F0F1F9; color: #6B6F91; }
@@ -339,7 +369,12 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
 
     <!-- DASHBOARD -->
     <section class="admin-section" data-section="dashboard">
-      <p class="section-title" id="dashboardHeading">Dashboard</p>
+      <div class="toolbar">
+        <p class="section-title" id="dashboardHeading" style="margin:0;">Dashboard</p>
+        <div style="flex:1"></div>
+        <label class="muted">Sana:</label>
+        <input type="date" id="dashboardDate" />
+      </div>
       <div class="stat-grid" id="dashboardStats"></div>
     </section>
 
@@ -457,6 +492,28 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       </table></div>
     </section>
 
+    <!-- PERMISSIONS LOG ("Ruxsatlar kitobi" — 31.08.2026 so'rovi: barcha
+         berilgan "Kechikishga ruxsat"larning yagona jurnali) -->
+    <section class="admin-section" data-section="permissionsLog">
+      <p class="section-title">Ruxsatlar kitobi</p>
+      <div class="toolbar">
+        <label class="muted">Sana (aniq kun, ixtiyoriy):</label>
+        <input type="date" id="permissionsLogDate" />
+        <label class="muted">Xodim:</label>
+        <select id="permissionsLogEmployeeSelect"></select>
+        <label class="muted">Yil:</label>
+        <input type="number" id="permissionsLogYear" style="width:90px;" />
+        <label class="muted">Oy:</label>
+        <input type="number" id="permissionsLogMonth" min="1" max="12" style="width:70px;" />
+        <div style="flex:1"></div>
+        <button class="btn btn-primary" id="btnExportPermissionsWord">📄 Word yuklab olish</button>
+      </div>
+      <div style="overflow-x:auto;"><table class="data-table" id="permissionsLogTable">
+        <thead><tr><th>Sana</th><th>Turi</th><th>Xodim</th><th>Tafsilot</th><th>Sabab</th><th>Kim tomonidan berildi</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </section>
+
   </main>
 </div>
 
@@ -479,6 +536,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     </div>
     <div class="form-row"><label>Login</label><input type="text" id="empFirstName" /></div>
     <div class="form-row"><label>Parol</label><input type="text" id="empPassword" /></div>
+    <div class="form-row"><label>Lavozim (ixtiyoriy)</label><input type="text" id="empPosition" placeholder="masalan: Hamshira, Shifokor" /></div>
     <div class="form-row"><label>Telefon (ixtiyoriy)</label><input type="text" id="empPhone" /></div>
     <div class="form-row"><label>Ish boshlanish vaqti</label><input type="time" id="empWorkStart" value="08:00" /></div>
     <div class="form-row"><label>Ish tugash vaqti</label><input type="time" id="empWorkEnd" value="18:00" /></div>
@@ -525,6 +583,17 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     <div style="display:flex; justify-content:flex-end; margin-top:12px;">
       <button class="btn btn-secondary" id="dashboardListClose">Yopish</button>
     </div>
+  </div>
+</div>
+
+<!-- 31.08.2026 so'rovi: Dashboard ro'yxatidagi rasm ustiga bosilganda
+     kattalashtirib ko'rsatuvchi oyna, pastida ismi bilan. -->
+<div class="modal-overlay" id="photoLightboxModal">
+  <div class="modal-box">
+    <img id="photoLightboxImg" src="" alt="" />
+    <p id="photoLightboxName"></p>
+    <p id="photoLightboxSchedule"></p>
+    <button class="btn btn-secondary" id="photoLightboxClose">Yopish</button>
   </div>
 </div>
 
@@ -618,7 +687,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   // src/reports/wordExport.js
   var wordExport_exports = {};
   __export(wordExport_exports, {
-    exportMonthlyReportDocx: () => exportMonthlyReportDocx
+    exportMonthlyReportDocx: () => exportMonthlyReportDocx,
+    exportPermissionsLogDocx: () => exportPermissionsLogDocx
   });
   async function ensureDocx() {
     if (docxLoaded) return;
@@ -731,6 +801,61 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       ].map((text) => new TableCell({ children: [new Paragraph(String(text))] }))
     }));
     return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...rows] });
+  }
+  async function exportPermissionsLogDocx(rows, meta) {
+    await ensureDocx();
+    const children = [];
+    const logoBytes = await tryLoadLogoBytes();
+    if (logoBytes) {
+      children.push(new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new ImageRun({ data: logoBytes, transformation: { width: 90, height: 90 } })]
+      }));
+    }
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: BRAND_NAME.toUpperCase(), bold: true, size: 48, color: hex(COLOR_RED) })]
+      }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: BRAND_SINCE, italics: true, size: 22, color: hex(COLOR_NAVY_DEEP) })]
+      }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: "RUXSATLAR KITOBI", bold: true, size: 30, color: hex(COLOR_NAVY_DEEP) })]
+      }),
+      new Paragraph({ text: "" })
+    );
+    children.push(makeKeyValueTable([
+      ["Xodim:", meta.employeeLabel],
+      ["Davr:", meta.periodLabel]
+    ]));
+    children.push(new Paragraph({ text: "" }));
+    children.push(makePermissionsTable(rows));
+    children.push(new Paragraph({ text: "" }));
+    children.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [new TextRun({ text: `${BRAND_NAME} ${BRAND_SINCE} \u2014 avtomatik generatsiya qilingan hisobot`, italics: true, size: 16 })]
+    }));
+    const doc = new Document({ sections: [{ properties: {}, children }] });
+    const blob = await Packer.toBlob(doc);
+    const filename = `Ruxsatlar_kitobi_${meta.filenameSuffix}.docx`;
+    triggerDownload(blob, filename);
+    return filename;
+  }
+  function makePermissionsTable(rows) {
+    const header = new TableRow({
+      children: ["Sana", "Turi", "Xodim", "Tafsilot", "Sabab", "Kim tomonidan berildi"].map(
+        (title) => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: title, bold: true })] })] })
+      )
+    });
+    const dataRows = rows.map((r) => new TableRow({
+      children: [r.dateLabel, r.type, r.employeeName, r.detail, r.reason || "\u2014", r.grantedByName].map(
+        (text) => new TableCell({ children: [new Paragraph(String(text))] })
+      )
+    }));
+    return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...dataRows] });
   }
   function triggerDownload(blob, filename) {
     const url = URL.createObjectURL(blob);
@@ -1104,6 +1229,10 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       const q = query(collection(dbFs, "scheduleOverrides"), where("employeeId", "==", employeeId));
       const snap = await getDocs(q);
       return snap.docs.map(docToObject).sort((a, b) => a.createdAt < b.createdAt ? 1 : -1);
+    }
+    async function listAllScheduleOverrides2() {
+      const snap = await getDocs(collection(dbFs, "scheduleOverrides"));
+      return snap.docs.map(docToObject);
     }
     async function findLatePermissionDoc(employeeId, dateKey) {
       const q = query(
@@ -1514,6 +1643,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       setDayStatus: setDayStatus2,
       moveRestDay: moveRestDay3,
       listScheduleOverrides: listScheduleOverrides2,
+      listAllScheduleOverrides: listAllScheduleOverrides2,
       getLatePermission: getLatePermission2,
       listLatePermissionsForEmployee: listLatePermissionsForEmployee2,
       listAllLatePermissions: listAllLatePermissions2,
@@ -1584,6 +1714,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     isLoginTaken: () => isLoginTaken,
     listAllDayStatuses: () => listAllDayStatuses,
     listAllLatePermissions: () => listAllLatePermissions,
+    listAllScheduleOverrides: () => listAllScheduleOverrides,
     listAllSchedules: () => listAllSchedules,
     listAttendanceForDate: () => listAttendanceForDate,
     listAttendanceForMonth: () => listAttendanceForMonth,
@@ -2031,6 +2162,9 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     const rows = await getAllByIndex("scheduleOverrides", "employeeId", employeeId);
     return rows.sort((a, b) => a.createdAt < b.createdAt ? 1 : -1);
   }
+  async function listAllScheduleOverrides() {
+    return getAll("scheduleOverrides");
+  }
   async function findLatePermissionRow(employeeId, dateKey) {
     const rows = await getAllByIndex("latePermissions", "employeeId", employeeId);
     return rows.find((r) => r.dateKey === dateKey) || null;
@@ -2403,9 +2537,9 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     }
     return parts;
   }
+  var DAY_BOUNDARY_GRACE_MS = 60 * 60 * 1e3;
   function tashkentDateKey(date = now()) {
-    const p = tashkentParts(date);
-    const hour = p.hour === "24" ? "00" : p.hour;
+    const p = tashkentParts(new Date(date.getTime() - DAY_BOUNDARY_GRACE_MS));
     return `${p.year}-${p.month}-${p.day}`;
   }
   function hhmm(date) {
@@ -2432,7 +2566,9 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     return names[weekdayIndexMonday0(dateKeyOrDate)];
   }
   function combineTashkent(dateKey, hhmmStr) {
-    return /* @__PURE__ */ new Date(`${dateKey}T${hhmmStr}:00+05:00`);
+    const hasSeconds = hhmmStr.split(":").length >= 3;
+    const timePart = hasSeconds ? hhmmStr : `${hhmmStr}:00`;
+    return /* @__PURE__ */ new Date(`${dateKey}T${timePart}+05:00`);
   }
   function daysInMonth(year, month) {
     return new Date(year, month, 0).getDate();
@@ -2749,9 +2885,6 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   }
   async function getTodayRecord(db2, employeeId, at = /* @__PURE__ */ new Date()) {
     return db2.getAttendanceForDate(employeeId, tashkentDateKey(at));
-  }
-  async function listTodayRecords(db2, at = /* @__PURE__ */ new Date()) {
-    return db2.listAttendanceForDate(tashkentDateKey(at));
   }
 
   // src/ui/kiosk.js
@@ -3311,20 +3444,167 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
     return perms.has(permissionKey);
   }
 
+  // src/ui/admin/confirmDialog.js
+  function buildModalShell(title, message) {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay active";
+    overlay.style.zIndex = "200";
+    const box = document.createElement("div");
+    box.className = "modal-box";
+    box.style.maxWidth = "420px";
+    const h3 = document.createElement("h3");
+    h3.textContent = title;
+    const p = document.createElement("p");
+    p.style.cssText = "color: var(--dark); font-size: 14px; line-height: 1.5; white-space: pre-line; margin: 0 0 4px;";
+    p.textContent = message;
+    const btnRow = document.createElement("div");
+    btnRow.style.cssText = "display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px;";
+    box.appendChild(h3);
+    box.appendChild(p);
+    box.appendChild(btnRow);
+    overlay.appendChild(box);
+    return { overlay, btnRow };
+  }
+  function confirmDialog({
+    title = "Tasdiqlang",
+    message = "",
+    okText = "Ha",
+    cancelText = "Bekor qilish",
+    danger = false
+  } = {}) {
+    return new Promise((resolve) => {
+      const { overlay, btnRow } = buildModalShell(title, message);
+      const cancelBtn2 = document.createElement("button");
+      cancelBtn2.type = "button";
+      cancelBtn2.className = "btn btn-secondary";
+      cancelBtn2.textContent = cancelText;
+      const okBtn = document.createElement("button");
+      okBtn.type = "button";
+      okBtn.className = "btn btn-primary";
+      okBtn.textContent = okText;
+      if (danger) okBtn.style.background = "var(--shifoat-red-dark)";
+      function cleanup(result) {
+        document.removeEventListener("keydown", onKeydown);
+        overlay.remove();
+        resolve(result);
+      }
+      function onKeydown(ev) {
+        if (ev.key === "Escape") cleanup(false);
+        else if (ev.key === "Enter") cleanup(true);
+      }
+      cancelBtn2.addEventListener("click", () => cleanup(false));
+      okBtn.addEventListener("click", () => cleanup(true));
+      overlay.addEventListener("click", (ev) => {
+        if (ev.target === overlay) cleanup(false);
+      });
+      document.addEventListener("keydown", onKeydown);
+      btnRow.appendChild(cancelBtn2);
+      btnRow.appendChild(okBtn);
+      document.body.appendChild(overlay);
+      okBtn.focus();
+    });
+  }
+  function promptDialog({
+    title = "Kiriting",
+    message = "",
+    placeholder = "",
+    okText = "OK",
+    cancelText = "Bekor qilish"
+  } = {}) {
+    return new Promise((resolve) => {
+      const { overlay, btnRow } = buildModalShell(title, message);
+      const input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = placeholder;
+      input.style.cssText = "width: 100%; margin-top: 4px; padding: 8px 10px; border-radius: 8px; border: 1px solid #C9CCE6; font-size: 14px; box-sizing: border-box;";
+      overlay.querySelector(".modal-box").insertBefore(input, btnRow);
+      const cancelBtn2 = document.createElement("button");
+      cancelBtn2.type = "button";
+      cancelBtn2.className = "btn btn-secondary";
+      cancelBtn2.textContent = cancelText;
+      const okBtn = document.createElement("button");
+      okBtn.type = "button";
+      okBtn.className = "btn btn-primary";
+      okBtn.textContent = okText;
+      function cleanup(result) {
+        document.removeEventListener("keydown", onKeydown);
+        overlay.remove();
+        resolve(result);
+      }
+      function onKeydown(ev) {
+        if (ev.key === "Escape") cleanup(null);
+        else if (ev.key === "Enter") cleanup(input.value);
+      }
+      cancelBtn2.addEventListener("click", () => cleanup(null));
+      okBtn.addEventListener("click", () => cleanup(input.value));
+      overlay.addEventListener("click", (ev) => {
+        if (ev.target === overlay) cleanup(null);
+      });
+      document.addEventListener("keydown", onKeydown);
+      btnRow.appendChild(cancelBtn2);
+      btnRow.appendChild(okBtn);
+      document.body.appendChild(overlay);
+      input.focus();
+    });
+  }
+  function alertDialog({ title = "Xabar", message = "", okText = "OK" } = {}) {
+    return new Promise((resolve) => {
+      const { overlay, btnRow } = buildModalShell(title, message);
+      const okBtn = document.createElement("button");
+      okBtn.type = "button";
+      okBtn.className = "btn btn-primary";
+      okBtn.textContent = okText;
+      function cleanup() {
+        document.removeEventListener("keydown", onKeydown);
+        overlay.remove();
+        resolve();
+      }
+      function onKeydown(ev) {
+        if (ev.key === "Escape" || ev.key === "Enter") cleanup();
+      }
+      okBtn.addEventListener("click", cleanup);
+      overlay.addEventListener("click", (ev) => {
+        if (ev.target === overlay) cleanup();
+      });
+      document.addEventListener("keydown", onKeydown);
+      btnRow.appendChild(okBtn);
+      document.body.appendChild(overlay);
+      okBtn.focus();
+    });
+  }
+
   // src/ui/admin/dashboardSection.js
   var _db;
-  async function initDashboard(db2, _user5) {
+  async function initDashboard(db2, _user6) {
     _db = db2;
     document.getElementById("dashboardListClose").addEventListener("click", () => {
       document.getElementById("dashboardListModal").classList.remove("active");
     });
+    document.getElementById("photoLightboxClose").addEventListener("click", () => {
+      document.getElementById("photoLightboxModal").classList.remove("active");
+    });
+    const dateInput3 = document.getElementById("dashboardDate");
+    dateInput3.value = tashkentDateKey();
+    dateInput3.addEventListener("change", refreshDashboard);
+  }
+  function openPhotoLightbox(photoUrl, name, scheduleText) {
+    document.getElementById("photoLightboxImg").src = photoUrl;
+    document.getElementById("photoLightboxName").textContent = name;
+    document.getElementById("photoLightboxSchedule").textContent = scheduleText || "";
+    document.getElementById("photoLightboxModal").classList.add("active");
   }
   async function refreshDashboard() {
-    const todayKey = tashkentDateKey();
-    document.getElementById("dashboardHeading").textContent = `Bugun \u2014 ${ddmmyyyy(todayKey)}`;
-    const [employees, todayRecords, allSchedules, allDayStatuses, allLatePermissions] = await Promise.all([
+    const dateInput3 = document.getElementById("dashboardDate");
+    const selectedDateKey = dateInput3.value || tashkentDateKey();
+    const actualTodayKey = tashkentDateKey();
+    document.getElementById("dashboardHeading").textContent = selectedDateKey === actualTodayKey ? `Bugun \u2014 ${ddmmyyyy(selectedDateKey)}` : ddmmyyyy(selectedDateKey);
+    const [employees, dayRecords, allSchedules, allDayStatuses, allLatePermissions, allScheduleOverrides] = await Promise.all([
       _db.listEmployees({ activeOnly: true }),
-      listTodayRecords(_db),
+      // Avval listTodayRecords(_db) chaqirilardi — bu ICHKARIDA hozirgi
+      // vaqtdan tashkentDateKey() hisoblab, xuddi shu db.listAttendanceForDate()
+      // ni chaqirar edi. Endi tanlangan sanani to'g'ridan-to'g'ri beramiz —
+      // shu bilan istalgan (o'tmishdagi) kun uchun ham ishlaydi.
+      _db.listAttendanceForDate(selectedDateKey),
       _db.listAllSchedules(),
       _db.listAllDayStatuses(),
       // 30.08.2026 so'rovi: "Ruxsatli" kartochkasi hech qachon ishlamasdi,
@@ -3333,9 +3613,15 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
       // Haqiqatda admin "Grafik/Kalendar > Kechikishga ruxsat" orqali
       // BUTUNLAY BOSHQA to'plamga (latePermissions) yozadi. Endi shu
       // to'plam ham o'qiladi va "Ruxsatli" aynan shundan to'ldiriladi.
-      _db.listAllLatePermissions()
+      _db.listAllLatePermissions(),
+      // 01.09.2026 so'rovi: "Dam" ro'yxatida ko'chirilgan dam kunlari
+      // oddiy dam kunidan AJRALIB (qizil "Dam kuni ko'chirilgan" yozuvi
+      // bilan) ko'rinishi kerak, bosilganda esa sababi (komentariyasi)
+      // chiqishi kerak — buning uchun scheduleOverrides to'plami ham
+      // kerak (Ruxsatlar kitobida ishlatilgani bilan bir xil manba).
+      _db.listAllScheduleOverrides()
     ]);
-    const byEmployee = new Map(todayRecords.map((r) => [r.employeeId, r]));
+    const byEmployee = new Map(dayRecords.map((r) => [r.employeeId, r]));
     const schedulesByEmployee = /* @__PURE__ */ new Map();
     for (const s of allSchedules) {
       if (!schedulesByEmployee.has(s.employeeId)) schedulesByEmployee.set(s.employeeId, []);
@@ -3343,33 +3629,49 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
     }
     const dayStatusByEmployee = /* @__PURE__ */ new Map();
     for (const d of allDayStatuses) {
-      if (d.dateKey === todayKey) dayStatusByEmployee.set(d.employeeId, d.status);
+      if (d.dateKey === selectedDateKey) dayStatusByEmployee.set(d.employeeId, d.status);
     }
     const latePermissionByEmployee = /* @__PURE__ */ new Map();
     for (const p of allLatePermissions) {
-      if (p.dateKey === todayKey) latePermissionByEmployee.set(p.employeeId, p);
+      if (p.dateKey === selectedDateKey) latePermissionByEmployee.set(p.employeeId, p);
     }
-    const shouldWork = [], checkedIn = [], notYet = [], late = [], resting = [], permission = [];
+    const moveOverrideByEmployeeAndDate = /* @__PURE__ */ new Map();
+    for (const o of allScheduleOverrides) {
+      if (o.newDateKey === selectedDateKey) moveOverrideByEmployeeAndDate.set(`${o.employeeId}|${o.newDateKey}`, o);
+    }
+    const shouldWork = [], checkedIn = [], checkedOut = [], notYet = [], late = [], resting = [], permission = [];
     for (const employee of employees) {
       const status = resolveDayStatusSync(
         dayStatusByEmployee.get(employee.id),
         schedulesByEmployee.get(employee.id) || [],
-        todayKey
+        selectedDateKey
       );
       const record = byEmployee.get(employee.id);
       const fullName = `${employee.firstName} ${employee.lastName || ""}`.trim();
-      const entry = { name: fullName, photoUrl: employee.photoUrl || null };
-      const todaysPermission = latePermissionByEmployee.get(employee.id);
-      if (todaysPermission) {
-        const note = `Ruxsat: ${todaysPermission.allowedStartTime} gacha kelishi mumkin` + (todaysPermission.reason ? ` \u2014 ${todaysPermission.reason}` : "");
+      const daysSchedule = pickScheduleForDate(schedulesByEmployee.get(employee.id) || [], selectedDateKey);
+      const scheduleText = daysSchedule ? `${daysSchedule.workStart} - ${daysSchedule.workEnd}` : null;
+      const entry = { name: fullName, photoUrl: employee.photoUrl || null, scheduleText };
+      const daysPermission = latePermissionByEmployee.get(employee.id);
+      if (daysPermission) {
+        const note = `Ruxsat: ${daysPermission.allowedStartTime} gacha kelishi mumkin` + (daysPermission.reason ? ` \u2014 ${daysPermission.reason}` : "");
         permission.push({ ...entry, note });
       }
       if (status === DAY_STATUS_REST || status === DAY_STATUS_MOVED_REST) {
-        resting.push(entry);
+        if (status === DAY_STATUS_MOVED_REST) {
+          const override = moveOverrideByEmployeeAndDate.get(`${employee.id}|${selectedDateKey}`);
+          resting.push({
+            ...entry,
+            movedRest: true,
+            movedRestReason: override ? override.reason : "",
+            movedRestOriginalDate: override ? override.originalDateKey : null
+          });
+        } else {
+          resting.push(entry);
+        }
         continue;
       }
       if (status === DAY_STATUS_PERMISSION || status === DAY_STATUS_SICK || status === DAY_STATUS_VACATION) {
-        if (!todaysPermission) permission.push(entry);
+        if (!daysPermission) permission.push(entry);
         continue;
       }
       if (status === DAY_STATUS_WORK || status === DAY_STATUS_EXTRA_WORK) {
@@ -3380,11 +3682,15 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
         } else {
           notYet.push(entry);
         }
+        if (record && record.checkOutTime) {
+          checkedOut.push({ ...entry, checkOutTimeStr: hhmm(new Date(record.checkOutTime)) });
+        }
       }
     }
     const cards = [
       ["Ishda bo'lishi kerak", shouldWork],
       ["Kelgan", checkedIn],
+      ["Ketgan", checkedOut],
       ["Hali kelmagan", notYet],
       ["Kechikkan", late],
       ["Dam", resting],
@@ -3406,18 +3712,65 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
     if (!list.length) {
       body.innerHTML = `<p class="muted">Bu ro'yxat bo'sh.</p>`;
     } else {
-      body.innerHTML = list.map((e) => {
-        const avatar = e.photoUrl ? `<img src="${e.photoUrl}" style="width:36px; height:36px; border-radius:50%; object-fit:cover;" />` : `<span style="width:36px; height:36px; border-radius:50%; background:#EEF0FB; display:inline-flex; align-items:center; justify-content:center; color:#6B6F91; font-weight:700; font-size:14px;">${(e.name[0] || "?").toUpperCase()}</span>`;
-        let extra = "";
-        if (e.checkInTimeStr) {
-          extra = `<span class="muted" style="margin-left:auto;">${e.checkInTimeStr}</span>`;
-        } else if (e.lateMinutes) {
-          extra = `<span style="margin-left:auto; color:var(--shifoat-red-dark); font-weight:700;">${e.lateMinutes} daqiqa</span>`;
-        } else if (e.note) {
-          extra = `<span class="muted" style="margin-left:auto; font-size:12px; text-align:right; max-width:55%;">${e.note}</span>`;
+      body.innerHTML = "";
+      for (const e of list) {
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #EEF0F7;";
+        const avatarWrap = document.createElement("div");
+        avatarWrap.className = e.photoUrl ? "dash-avatar-wrap" : "dash-avatar-wrap no-photo";
+        if (e.photoUrl) {
+          avatarWrap.innerHTML = `<img src="${e.photoUrl}" alt="" /><span class="dash-avatar-hover">Rasmni ko'rish</span>`;
+          avatarWrap.addEventListener("click", () => openPhotoLightbox(e.photoUrl, e.name, e.scheduleText));
+        } else {
+          avatarWrap.style.cssText = "background:#EEF0FB; display:flex; align-items:center; justify-content:center; color:#6B6F91; font-weight:700; font-size:14px;";
+          avatarWrap.textContent = (e.name[0] || "?").toUpperCase();
         }
-        return `<div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #EEF0F7;">${avatar}<span>${e.name}</span>${extra}</div>`;
-      }).join("");
+        row.appendChild(avatarWrap);
+        const nameCol = document.createElement("div");
+        nameCol.style.cssText = "display:flex; flex-direction:column; line-height:1.35;";
+        const nameEl = document.createElement("span");
+        nameEl.textContent = e.name;
+        nameCol.appendChild(nameEl);
+        if (e.scheduleText) {
+          const scheduleEl = document.createElement("span");
+          scheduleEl.className = "muted";
+          scheduleEl.style.fontSize = "12px";
+          scheduleEl.textContent = e.scheduleText;
+          nameCol.appendChild(scheduleEl);
+        }
+        row.appendChild(nameCol);
+        let extraHtml = "";
+        if (e.checkInTimeStr) {
+          extraHtml = `<span class="muted" style="margin-left:auto;">${e.checkInTimeStr}</span>`;
+        } else if (e.checkOutTimeStr) {
+          extraHtml = `<span class="muted" style="margin-left:auto;">${e.checkOutTimeStr}</span>`;
+        } else if (e.lateMinutes) {
+          extraHtml = `<span style="margin-left:auto; color:var(--shifoat-red-dark); font-weight:700;">${e.lateMinutes} daqiqa</span>`;
+        } else if (e.movedRest) {
+          extraHtml = `<span class="dash-moved-rest-label" style="margin-left:auto; color:var(--shifoat-red-dark); font-weight:700; cursor:pointer; text-decoration:underline;">Dam kuni ko'chirilgan</span>`;
+        } else if (e.note) {
+          extraHtml = `<span class="muted" style="margin-left:auto; font-size:12px; text-align:right; max-width:55%;">${e.note}</span>`;
+        }
+        if (extraHtml) {
+          const extraWrap = document.createElement("div");
+          extraWrap.style.marginLeft = "auto";
+          extraWrap.innerHTML = extraHtml;
+          row.appendChild(extraWrap);
+          if (e.movedRest) {
+            const label = extraWrap.querySelector(".dash-moved-rest-label");
+            if (label) {
+              label.addEventListener("click", () => {
+                const origLine = e.movedRestOriginalDate ? `Asl dam kuni: ${ddmmyyyy(e.movedRestOriginalDate)}
+` : "";
+                const reasonLine = e.movedRestReason ? `Sabab: ${e.movedRestReason}` : "Sabab ko'rsatilmagan.";
+                alertDialog({ title: "Dam kuni ko'chirilgan", message: `${e.name}
+${origLine}${reasonLine}` });
+              });
+            }
+          }
+        }
+        body.appendChild(row);
+      }
     }
     document.getElementById("dashboardListModal").classList.add("active");
   }
@@ -3631,143 +3984,14 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
     }
   }
 
-  // src/ui/admin/confirmDialog.js
-  function buildModalShell(title, message) {
-    const overlay = document.createElement("div");
-    overlay.className = "modal-overlay active";
-    overlay.style.zIndex = "200";
-    const box = document.createElement("div");
-    box.className = "modal-box";
-    box.style.maxWidth = "420px";
-    const h3 = document.createElement("h3");
-    h3.textContent = title;
-    const p = document.createElement("p");
-    p.style.cssText = "color: var(--dark); font-size: 14px; line-height: 1.5; white-space: pre-line; margin: 0 0 4px;";
-    p.textContent = message;
-    const btnRow = document.createElement("div");
-    btnRow.style.cssText = "display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px;";
-    box.appendChild(h3);
-    box.appendChild(p);
-    box.appendChild(btnRow);
-    overlay.appendChild(box);
-    return { overlay, btnRow };
-  }
-  function confirmDialog({
-    title = "Tasdiqlang",
-    message = "",
-    okText = "Ha",
-    cancelText = "Bekor qilish",
-    danger = false
-  } = {}) {
-    return new Promise((resolve) => {
-      const { overlay, btnRow } = buildModalShell(title, message);
-      const cancelBtn2 = document.createElement("button");
-      cancelBtn2.type = "button";
-      cancelBtn2.className = "btn btn-secondary";
-      cancelBtn2.textContent = cancelText;
-      const okBtn = document.createElement("button");
-      okBtn.type = "button";
-      okBtn.className = "btn btn-primary";
-      okBtn.textContent = okText;
-      if (danger) okBtn.style.background = "var(--shifoat-red-dark)";
-      function cleanup(result) {
-        document.removeEventListener("keydown", onKeydown);
-        overlay.remove();
-        resolve(result);
-      }
-      function onKeydown(ev) {
-        if (ev.key === "Escape") cleanup(false);
-        else if (ev.key === "Enter") cleanup(true);
-      }
-      cancelBtn2.addEventListener("click", () => cleanup(false));
-      okBtn.addEventListener("click", () => cleanup(true));
-      overlay.addEventListener("click", (ev) => {
-        if (ev.target === overlay) cleanup(false);
-      });
-      document.addEventListener("keydown", onKeydown);
-      btnRow.appendChild(cancelBtn2);
-      btnRow.appendChild(okBtn);
-      document.body.appendChild(overlay);
-      okBtn.focus();
-    });
-  }
-  function promptDialog({
-    title = "Kiriting",
-    message = "",
-    placeholder = "",
-    okText = "OK",
-    cancelText = "Bekor qilish"
-  } = {}) {
-    return new Promise((resolve) => {
-      const { overlay, btnRow } = buildModalShell(title, message);
-      const input = document.createElement("input");
-      input.type = "text";
-      input.placeholder = placeholder;
-      input.style.cssText = "width: 100%; margin-top: 4px; padding: 8px 10px; border-radius: 8px; border: 1px solid #C9CCE6; font-size: 14px; box-sizing: border-box;";
-      overlay.querySelector(".modal-box").insertBefore(input, btnRow);
-      const cancelBtn2 = document.createElement("button");
-      cancelBtn2.type = "button";
-      cancelBtn2.className = "btn btn-secondary";
-      cancelBtn2.textContent = cancelText;
-      const okBtn = document.createElement("button");
-      okBtn.type = "button";
-      okBtn.className = "btn btn-primary";
-      okBtn.textContent = okText;
-      function cleanup(result) {
-        document.removeEventListener("keydown", onKeydown);
-        overlay.remove();
-        resolve(result);
-      }
-      function onKeydown(ev) {
-        if (ev.key === "Escape") cleanup(null);
-        else if (ev.key === "Enter") cleanup(input.value);
-      }
-      cancelBtn2.addEventListener("click", () => cleanup(null));
-      okBtn.addEventListener("click", () => cleanup(input.value));
-      overlay.addEventListener("click", (ev) => {
-        if (ev.target === overlay) cleanup(null);
-      });
-      document.addEventListener("keydown", onKeydown);
-      btnRow.appendChild(cancelBtn2);
-      btnRow.appendChild(okBtn);
-      document.body.appendChild(overlay);
-      input.focus();
-    });
-  }
-  function alertDialog({ title = "Xabar", message = "", okText = "OK" } = {}) {
-    return new Promise((resolve) => {
-      const { overlay, btnRow } = buildModalShell(title, message);
-      const okBtn = document.createElement("button");
-      okBtn.type = "button";
-      okBtn.className = "btn btn-primary";
-      okBtn.textContent = okText;
-      function cleanup() {
-        document.removeEventListener("keydown", onKeydown);
-        overlay.remove();
-        resolve();
-      }
-      function onKeydown(ev) {
-        if (ev.key === "Escape" || ev.key === "Enter") cleanup();
-      }
-      okBtn.addEventListener("click", cleanup);
-      overlay.addEventListener("click", (ev) => {
-        if (ev.target === overlay) cleanup();
-      });
-      document.addEventListener("keydown", onKeydown);
-      btnRow.appendChild(okBtn);
-      document.body.appendChild(overlay);
-      okBtn.focus();
-    });
-  }
-
   // src/ui/admin/employeesSection.js
   var _db2;
   var _user;
   var _canEdit;
   var _editingId = null;
   var _pendingPhotoUrl = null;
-  var MAX_PHOTO_DIM = 220;
-  var PHOTO_JPEG_QUALITY = 0.72;
+  var MAX_PHOTO_DIM = 480;
+  var PHOTO_JPEG_QUALITY = 0.85;
   function resizeImageFile(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -3826,8 +4050,8 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
   }
   async function refreshEmployees() {
     const [employees, users] = await Promise.all([_db2.listEmployees(), _db2.listUsers()]);
-    const tbody = document.querySelector("#employeesTable tbody");
-    tbody.innerHTML = "";
+    const tbody2 = document.querySelector("#employeesTable tbody");
+    tbody2.innerHTML = "";
     const sortedByAge = [...users].sort(
       (a, b) => a.createdAt > b.createdAt ? 1 : a.createdAt < b.createdAt ? -1 : 0
     );
@@ -3898,7 +4122,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         actionsCell.appendChild(faceBtn);
         actionsCell.appendChild(deleteBtn);
       }
-      tbody.appendChild(tr);
+      tbody2.appendChild(tr);
     });
   }
   function openModal(employee) {
@@ -3907,6 +4131,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     document.getElementById("employeeModalError").textContent = "";
     document.getElementById("empFirstName").value = employee ? employee.firstName : "";
     document.getElementById("empPassword").value = employee ? employee.password || "" : "";
+    document.getElementById("empPosition").value = employee ? employee.position || "" : "";
     document.getElementById("empPhone").value = employee ? employee.phone || "" : "";
     document.getElementById("empActive").checked = employee ? employee.isActive : true;
     document.getElementById("empPhotoInput").value = "";
@@ -3967,7 +4192,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     const fields = {
       firstName,
       lastName: "",
-      position: "",
+      position: document.getElementById("empPosition").value.trim(),
       department: "",
       phone: document.getElementById("empPhone").value.trim() || null,
       password,
@@ -3979,6 +4204,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         const patch = {
           firstName: fields.firstName,
           phone: fields.phone,
+          position: fields.position,
           isActive: document.getElementById("empActive").checked,
           photoUrl: fields.photoUrl
         };
@@ -4016,14 +4242,14 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
   // src/ui/admin/attendanceSection.js
   var _db3;
   var dateInput = document.getElementById("attendanceDate");
-  async function initAttendance(db2, _user5) {
+  async function initAttendance(db2, _user6) {
     _db3 = db2;
     dateInput.value = tashkentDateKey();
     dateInput.addEventListener("change", refreshAttendance);
   }
   async function refreshAttendance() {
     const dateKey = dateInput.value || tashkentDateKey();
-    const tbody = document.querySelector("#attendanceTable tbody");
+    const tbody2 = document.querySelector("#attendanceTable tbody");
     let employees, records, allSchedules, allDayStatuses;
     try {
       [employees, records, allSchedules, allDayStatuses] = await Promise.all([
@@ -4034,7 +4260,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       ]);
     } catch (err) {
       console.error("refreshAttendance failed:", err);
-      tbody.innerHTML = `<tr><td colspan="7">${uzError(err)}</td></tr>`;
+      tbody2.innerHTML = `<tr><td colspan="7">${uzError(err)}</td></tr>`;
       return;
     }
     const byEmployee = new Map(records.map((r) => [r.employeeId, r]));
@@ -4047,7 +4273,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     for (const d of allDayStatuses) {
       if (d.dateKey === dateKey) dayStatusByEmployee.set(d.employeeId, d.status);
     }
-    tbody.innerHTML = "";
+    tbody2.innerHTML = "";
     for (const employee of employees) {
       const status = resolveDayStatusSync(
         dayStatusByEmployee.get(employee.id),
@@ -4070,7 +4296,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       <td>${checkIn2}</td><td>${checkOut2}</td><td>${lateText}</td>
       <td>${overtimeText}</td>
       <td>${undertimeText}</td>`;
-      tbody.appendChild(tr);
+      tbody2.appendChild(tr);
     }
   }
 
@@ -4333,9 +4559,9 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     const employeeId = employeeSelect2.value;
     if (!employeeId) return;
     exitEditMode();
-    const tbody = document.querySelector("#reportTable tbody");
+    const tbody2 = document.querySelector("#reportTable tbody");
     summaryEl.textContent = "Hisoblanmoqda\u2026";
-    tbody.innerHTML = "";
+    tbody2.innerHTML = "";
     try {
       _lastReport = await buildMonthlyReport(_db5, employeeId, Number(yearInput2.value), Number(monthInput2.value));
     } catch (err) {
@@ -4351,8 +4577,8 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     summaryEl.textContent = `Rejalashtirilgan: ${r.plannedWorkDays} kun | Ishlagan: ${r.actualWorkedDays} kun | Dam: ${r.restDays} | Ko'chirilgan dam: ${r.movedRestDays} | Ruxsat: ${r.permissionDays} | Kechikkan kunlar: ${r.lateDays} | Jami kechikish: ${r.totalLateMinutes} min | Jami jarima: ${r.totalLatePenalty.toLocaleString("uz-UZ")} so'm | Jami ko'p ishlagan: ${r.totalOvertimeMinutes} min | Jami kam ishlagan: ${r.totalUndertimeMinutes} min | Jami erta kelgan: ${r.totalEarlyMinutes} min`;
   }
   function renderReportRows() {
-    const tbody = document.querySelector("#reportTable tbody");
-    tbody.innerHTML = "";
+    const tbody2 = document.querySelector("#reportTable tbody");
+    tbody2.innerHTML = "";
     if (!_lastReport) return;
     for (const day of _lastReport.days) {
       const overtimeText = formatDurationUz(day.overtimeMinutes) || "\u2014";
@@ -4361,8 +4587,8 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       const tr = document.createElement("tr");
       tr.dataset.dateKey = day.dateKey;
       if (_editMode) {
-        const checkInVal = day.checkIn !== "\u2014" ? day.checkIn : "";
-        const checkOutVal = day.checkOut !== "\u2014" ? day.checkOut : "";
+        const checkInVal = day.checkIn !== "\u2014" ? day.checkIn.slice(0, 5) : "";
+        const checkOutVal = day.checkOut !== "\u2014" ? day.checkOut.slice(0, 5) : "";
         tr.innerHTML = `
         <td>${day.dateStr} (${day.weekdayUz})</td><td>${day.statusLabel}</td>
         <td><input type="time" class="edit-checkin" value="${checkInVal}" style="width:110px;" /></td>
@@ -4389,7 +4615,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         <td>${undertimeText}</td>
         <td>${earlyText}</td>`;
       }
-      tbody.appendChild(tr);
+      tbody2.appendChild(tr);
     }
   }
   async function onToggleEdit() {
@@ -4429,8 +4655,8 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         if (!checkInInput) continue;
         const dateKey = tr.dataset.dateKey;
         const day = _lastReport.days.find((d) => d.dateKey === dateKey);
-        const oldCheckIn = day.checkIn !== "\u2014" ? day.checkIn : "";
-        const oldCheckOut = day.checkOut !== "\u2014" ? day.checkOut : "";
+        const oldCheckIn = day.checkIn !== "\u2014" ? day.checkIn.slice(0, 5) : "";
+        const oldCheckOut = day.checkOut !== "\u2014" ? day.checkOut.slice(0, 5) : "";
         const newCheckIn = checkInInput.value || "";
         const newCheckOut = checkOutInput.value || "";
         if (newCheckIn === oldCheckIn && newCheckOut === oldCheckOut) continue;
@@ -4470,7 +4696,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
 
   // src/ui/admin/settingsSection.js
   var _db6;
-  async function initSettings(db2, _user5) {
+  async function initSettings(db2, _user6) {
     _db6 = db2;
     document.getElementById("btnSaveSettings").addEventListener("click", onSaveSettings);
     document.getElementById("btnExportBackup").addEventListener("click", onExportBackup);
@@ -4556,7 +4782,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     }
     const isEmployeeCb = document.getElementById("newAdminIsEmployee");
     const employeeRow = document.getElementById("newAdminEmployeeRow");
-    const employeeSelect3 = document.getElementById("newAdminEmployeeSelect");
+    const employeeSelect4 = document.getElementById("newAdminEmployeeSelect");
     isEmployeeCb.addEventListener("change", () => {
       employeeRow.style.display = isEmployeeCb.checked ? "block" : "none";
     });
@@ -4569,7 +4795,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       isEmployeeCb.checked = false;
       employeeRow.style.display = "none";
       const employees = await _db7.listEmployees({ activeOnly: true });
-      employeeSelect3.innerHTML = employees.map((e) => `<option value="${e.id}">${e.firstName} ${e.lastName || ""}</option>`.trim()).join("");
+      employeeSelect4.innerHTML = employees.map((e) => `<option value="${e.id}">${e.firstName} ${e.lastName || ""}</option>`.trim()).join("");
       document.getElementById("adminModal").classList.add("active");
     });
     document.getElementById("adminModalCancel").addEventListener("click", () => {
@@ -4580,8 +4806,8 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
   async function refreshAdmins() {
     const [users, employees] = await Promise.all([_db7.listUsers(), _db7.listEmployees()]);
     const employeeById = new Map(employees.map((e) => [e.id, e]));
-    const tbody = document.querySelector("#adminsTable tbody");
-    tbody.innerHTML = "";
+    const tbody2 = document.querySelector("#adminsTable tbody");
+    tbody2.innerHTML = "";
     const sortedByAge = [...users].sort(
       (a, b) => a.createdAt > b.createdAt ? 1 : a.createdAt < b.createdAt ? -1 : 0
     );
@@ -4651,7 +4877,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         });
         actionsCell.appendChild(changePwBtn);
       }
-      tbody.appendChild(tr);
+      tbody2.appendChild(tr);
     }
   }
   async function onSaveAdmin() {
@@ -4699,6 +4925,170 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
     await refreshAdmins();
   }
 
+  // src/ui/admin/permissionsLogSection.js
+  var _db8;
+  var _user5;
+  var _lastRows = [];
+  var UZ_MONTHS2 = [
+    "",
+    "Yanvar",
+    "Fevral",
+    "Mart",
+    "Aprel",
+    "May",
+    "Iyun",
+    "Iyul",
+    "Avgust",
+    "Sentabr",
+    "Oktabr",
+    "Noyabr",
+    "Dekabr"
+  ];
+  var employeeSelect3 = document.getElementById("permissionsLogEmployeeSelect");
+  var dateInput2 = document.getElementById("permissionsLogDate");
+  var yearInput3 = document.getElementById("permissionsLogYear");
+  var monthInput3 = document.getElementById("permissionsLogMonth");
+  function tbody() {
+    return document.querySelector("#permissionsLogTable tbody");
+  }
+  async function initPermissionsLog(db2, user) {
+    _db8 = db2;
+    _user5 = user;
+    const today = /* @__PURE__ */ new Date();
+    yearInput3.value = today.getFullYear();
+    monthInput3.value = today.getMonth() + 1;
+    dateInput2.value = "";
+    employeeSelect3.addEventListener("change", renderLog);
+    dateInput2.addEventListener("change", renderLog);
+    yearInput3.addEventListener("change", renderLog);
+    monthInput3.addEventListener("change", renderLog);
+    document.getElementById("btnExportPermissionsWord").addEventListener("click", onExportWord);
+  }
+  async function refreshPermissionsLog() {
+    const currentId = employeeSelect3.value;
+    const employees = await _db8.listEmployees();
+    employeeSelect3.innerHTML = "";
+    const allOption = document.createElement("option");
+    allOption.value = "";
+    allOption.textContent = "Barchasi";
+    employeeSelect3.appendChild(allOption);
+    for (const employee of employees) {
+      const option = document.createElement("option");
+      option.value = employee.id;
+      option.textContent = `${employee.firstName} ${employee.lastName || ""}`.trim();
+      employeeSelect3.appendChild(option);
+    }
+    employeeSelect3.value = currentId && employees.some((e) => e.id === currentId) ? currentId : "";
+    await renderLog();
+  }
+  async function renderLog() {
+    const body = tbody();
+    body.innerHTML = `<tr><td colspan="6" class="muted">Yuklanmoqda\u2026</td></tr>`;
+    const [latePermissions, scheduleOverrides, employees, users] = await Promise.all([
+      _db8.listAllLatePermissions(),
+      _db8.listAllScheduleOverrides(),
+      _db8.listEmployees(),
+      _db8.listUsers()
+    ]);
+    const employeeById = new Map(employees.map((e) => [e.id, e]));
+    const userById = new Map(users.map((u) => [u.id, u]));
+    const merged = [
+      ...latePermissions.map((p) => ({
+        sortDateKey: p.dateKey,
+        employeeId: p.employeeId,
+        type: "Kechikishga ruxsat",
+        detail: `${p.allowedStartTime || "\u2014"} gacha kelishi mumkin`,
+        reason: p.reason,
+        createdBy: p.createdBy
+      })),
+      ...scheduleOverrides.map((o) => ({
+        // Yangi (ko'chirilgan) dam kuni — bugungi/kelajakdagi jadvalga
+        // taalluqli asosiy sana shu, shuning uchun "Sana" ustunida shu
+        // ko'rsatiladi, asl sana esa "Tafsilot"da.
+        sortDateKey: o.newDateKey,
+        employeeId: o.employeeId,
+        type: "Dam kuni ko'chirildi",
+        detail: `Asl dam kuni: ${ddmmyyyy(o.originalDateKey)} \u2192 Yangi dam kuni: ${ddmmyyyy(o.newDateKey)}`,
+        reason: o.reason,
+        createdBy: o.createdBy
+      }))
+    ];
+    const employeeId = employeeSelect3.value;
+    const exactDate = dateInput2.value;
+    const year = Number(yearInput3.value);
+    const month = Number(monthInput3.value);
+    const monthPrefix = year && month ? `${year}-${String(month).padStart(2, "0")}` : null;
+    let rows = merged;
+    if (employeeId) rows = rows.filter((r) => r.employeeId === employeeId);
+    if (exactDate) {
+      rows = rows.filter((r) => r.sortDateKey === exactDate);
+    } else if (monthPrefix) {
+      rows = rows.filter((r) => r.sortDateKey && r.sortDateKey.startsWith(monthPrefix));
+    }
+    rows.sort((a, b) => a.sortDateKey < b.sortDateKey ? 1 : a.sortDateKey > b.sortDateKey ? -1 : 0);
+    const displayRows = rows.map((r) => {
+      const employee = employeeById.get(r.employeeId);
+      const employeeName = employee ? `${employee.firstName} ${employee.lastName || ""}`.trim() : "(o'chirilgan xodim)";
+      const grantedByUser = userById.get(r.createdBy);
+      const grantedByName = grantedByUser ? grantedByUser.fullName || grantedByUser.username : "\u2014";
+      return {
+        dateLabel: ddmmyyyy(r.sortDateKey),
+        type: r.type,
+        employeeName,
+        detail: r.detail,
+        reason: r.reason || "\u2014",
+        grantedByName
+      };
+    });
+    _lastRows = displayRows;
+    if (!displayRows.length) {
+      body.innerHTML = `<tr><td colspan="6" class="muted">Bu davrda hech qanday ruxsat berilmagan.</td></tr>`;
+      return;
+    }
+    body.innerHTML = displayRows.map((r) => `<tr>
+      <td>${r.dateLabel}</td>
+      <td>${r.type}</td>
+      <td>${r.employeeName}</td>
+      <td>${r.detail}</td>
+      <td>${r.reason}</td>
+      <td>${r.grantedByName}</td>
+    </tr>`).join("");
+  }
+  function currentPeriodLabel() {
+    const exactDate = dateInput2.value;
+    if (exactDate) return `Aniq kun: ${ddmmyyyy(exactDate)}`;
+    const year = Number(yearInput3.value);
+    const month = Number(monthInput3.value);
+    if (year && month >= 1 && month <= 12) return `${UZ_MONTHS2[month]} ${year}`;
+    return "Barcha davr";
+  }
+  function currentFilenameSuffix() {
+    const exactDate = dateInput2.value;
+    if (exactDate) return exactDate;
+    const year = Number(yearInput3.value);
+    const month = Number(monthInput3.value);
+    if (year && month) return `${year}-${String(month).padStart(2, "0")}`;
+    return "barcha";
+  }
+  async function onExportWord() {
+    if (!_lastRows.length) {
+      await alertDialog({ title: "Bo'sh ro'yxat", message: "Yuklab olish uchun hozirgi filtrda hech qanday yozuv yo'q." });
+      return;
+    }
+    const employeeLabel = employeeSelect3.options[employeeSelect3.selectedIndex]?.textContent || "Barchasi";
+    const meta = {
+      employeeLabel,
+      periodLabel: currentPeriodLabel(),
+      filenameSuffix: `${employeeLabel === "Barchasi" ? "Barchasi" : employeeLabel.replace(/\s+/g, "_")}_${currentFilenameSuffix()}`
+    };
+    try {
+      const { exportPermissionsLogDocx: exportPermissionsLogDocx2 } = await Promise.resolve().then(() => (init_wordExport(), wordExport_exports));
+      await exportPermissionsLogDocx2(_lastRows, meta);
+    } catch (err) {
+      await alertDialog({ title: "Xatolik", message: `Word fayl yaratilmadi: ${uzError(err)}` });
+    }
+  }
+
   // src/ui/admin/adminApp.js
   var SECTIONS = [
     { key: "dashboard", title: "Dashboard", permission: "view_attendance", refresh: refreshDashboard },
@@ -4707,7 +5097,12 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
     { key: "schedule", title: "Grafik / Kalendar", permission: "manage_schedule", refresh: refreshSchedule },
     { key: "reports", title: "Hisobotlar", permission: "view_reports", refresh: refreshReports },
     { key: "settings", title: "Sozlamalar", permission: null, refresh: refreshSettings },
-    { key: "admins", title: "Administratorlar", permission: "manage_admins", refresh: refreshAdmins }
+    { key: "admins", title: "Administratorlar", permission: "manage_admins", refresh: refreshAdmins },
+    // 31.08.2026 so'rovi: "Ruxsatlar kitobi" — Grafik/Kalendar orqali
+    // berilgan barcha "Kechikishga ruxsat"larning yagona jurnali. Xuddi
+    // ruxsat BERISH bilan bir xil ruxsat (manage_schedule) — kim
+    // belgilay olsa, o'sha jurnalni ham ko'ra oladi.
+    { key: "permissionsLog", title: "Ruxsatlar kitobi", permission: "manage_schedule", refresh: refreshPermissionsLog }
   ];
   async function bootAdmin() {
     const db2 = await getDb();
@@ -4749,7 +5144,8 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
       initSchedule(db2, user),
       initReports(db2, user),
       initSettings(db2, user),
-      initAdmins(db2, user)
+      initAdmins(db2, user),
+      initPermissionsLog(db2, user)
     ]);
     if (visibleSections.length) {
       activateSectionInternal(visibleSections[0].key, visibleSections);
@@ -4774,7 +5170,7 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-08-30 17:20 UTC";
+  var BUILD_STAMP = "2026-09-01 12:00 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
