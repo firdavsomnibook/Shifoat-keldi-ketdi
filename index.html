@@ -203,6 +203,72 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
 /* ---------- Mobil telefonlar uchun (30.08.2026 so'rovi: "telefonda ham
    ishlatsa bo'ladigan qilsak" — ekran tor bo'lganda hammasi ezilib
    qolmasligi uchun) ---------- */
+
+/* ---------------------------------------------------------------------
+   01.09.2026 so'rovi: haftalik intizom baholash + "Oyning namunali
+   xodimi" kartasi (Dashboard).
+   --------------------------------------------------------------------- */
+.champion-card {
+  margin-top: 18px; padding: 20px 22px; border-radius: 16px;
+  background: linear-gradient(135deg, #FFF9E6 0%, #FFF3D1 100%);
+  border: 2px solid #E9C46A;
+  box-shadow: 0 4px 18px rgba(233, 196, 106, .25);
+}
+.champion-card.champion-empty {
+  background: #F5F6FA; border: 2px dashed #C9CCE0; box-shadow: none;
+}
+.champion-title {
+  margin: 0 0 14px; font-size: 15px; font-weight: 800; letter-spacing: .4px;
+  color: #8A6D1F; text-transform: uppercase;
+}
+.champion-card.champion-empty .champion-title { color: #6B6F91; }
+.champion-body { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.champion-photo {
+  width: 92px; height: 92px; border-radius: 50%; object-fit: cover; flex: none;
+  border: 3px solid #E9C46A; background: #fff;
+}
+.champion-photo-placeholder {
+  width: 92px; height: 92px; border-radius: 50%; flex: none;
+  border: 3px solid #E9C46A; background: #fff; color: #8A6D1F;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 34px; font-weight: 800;
+}
+.champion-name { margin: 0; font-size: 24px; font-weight: 800; color: var(--navy-deep, #212355); }
+.champion-score { margin: 2px 0 10px; font-size: 17px; font-weight: 700; color: #8A6D1F; }
+.champion-stats { display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: 13px; color: #4A4D6B; }
+.champion-stats span b { color: var(--navy-deep, #212355); }
+.champion-weeks { margin-top: 10px; font-size: 15px; letter-spacing: 3px; }
+
+.rating-block { margin-top: 22px; }
+.rating-block h3 {
+  margin: 0 0 10px; font-size: 15px; font-weight: 700; color: var(--navy-deep, #212355);
+}
+.rating-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-bottom: 1px solid #EEF0F7; background: #fff;
+}
+.rating-row:first-of-type { border-top-left-radius: 12px; border-top-right-radius: 12px; }
+.rating-row:last-child { border-bottom: none; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
+.rating-place { width: 26px; flex: none; font-weight: 700; color: #6B6F91; font-size: 13px; }
+.rating-photo { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; flex: none; }
+.rating-photo-placeholder {
+  width: 38px; height: 38px; border-radius: 50%; flex: none; background: #EEF0FB;
+  display: flex; align-items: center; justify-content: center;
+  color: #6B6F91; font-weight: 700; font-size: 14px;
+}
+.rating-name { font-weight: 600; }
+.rating-sub { font-size: 12px; color: #6B6F91; }
+.rating-score { margin-left: auto; text-align: right; white-space: nowrap; }
+.rating-score b { font-size: 16px; }
+.rating-status { font-size: 12px; color: #6B6F91; }
+
+@media (max-width: 640px) {
+  .champion-photo, .champion-photo-placeholder { width: 68px; height: 68px; font-size: 26px; }
+  .champion-name { font-size: 20px; }
+  .champion-stats { gap: 4px 14px; font-size: 12px; }
+  .rating-score b { font-size: 14px; }
+}
+
 @media (max-width: 720px) {
   /* Kiosk (index.html) — kamera orqali kelish/ketishni belgilash ekrani */
   .kiosk-root { padding: 20px 16px; }
@@ -376,6 +442,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         <input type="date" id="dashboardDate" />
       </div>
       <div class="stat-grid" id="dashboardStats"></div>
+
+      <!-- 01.09.2026 so'rovi: haftalik intizom baholash + oyning namunali
+           xodimi. Ikkalasi ham dashboardSection.js tomonidan to'ldiriladi. -->
+      <div id="championCard"></div>
+      <div id="weeklyRatingBlock"></div>
     </section>
 
     <!-- EMPLOYEES -->
@@ -506,10 +577,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         <label class="muted">Oy:</label>
         <input type="number" id="permissionsLogMonth" min="1" max="12" style="width:70px;" />
         <div style="flex:1"></div>
+        <button class="btn btn-secondary" id="btnEditPermissionsLog">✏️ Tahrirlash</button>
         <button class="btn btn-primary" id="btnExportPermissionsWord">📄 Word yuklab olish</button>
       </div>
       <div style="overflow-x:auto;"><table class="data-table" id="permissionsLogTable">
-        <thead><tr><th>Sana</th><th>Turi</th><th>Xodim</th><th>Tafsilot</th><th>Sabab</th><th>Kim tomonidan berildi</th></tr></thead>
+        <thead><tr><th>Sana</th><th>Turi</th><th>Xodim</th><th>Tafsilot</th><th>Sabab</th><th>Kim tomonidan berildi</th><th id="permissionsLogActionsHead" style="display:none;">Amal</th></tr></thead>
         <tbody></tbody>
       </table></div>
     </section>
@@ -656,7 +728,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   ));
 
   // src/config/appConfig.js
-  var BRAND_NAME, BRAND_SINCE, COLOR_RED, COLOR_NAVY_DEEP, DEFAULT_SETTINGS, CAMERA_WIDTH, CAMERA_HEIGHT, RESULT_SCREEN_AUTO_RETURN_MS, LOGO_PATH;
+  var BRAND_NAME, BRAND_SINCE, COLOR_RED, COLOR_NAVY_DEEP, DEFAULT_SETTINGS, MIN_PASSWORD_LENGTH, MIN_PASSWORD_MESSAGE, CAMERA_WIDTH, CAMERA_HEIGHT, RESULT_SCREEN_AUTO_RETURN_MS, LOGO_PATH;
   var init_appConfig = __esm({
     "src/config/appConfig.js"() {
       BRAND_NAME = "Shifoat";
@@ -677,6 +749,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         recognition_hold_frames: 6,
         kiosk_fullscreen: 1
       };
+      MIN_PASSWORD_LENGTH = 4;
+      MIN_PASSWORD_MESSAGE = `Parol kamida ${MIN_PASSWORD_LENGTH} ta belgidan iborat bo'lishi kerak.`;
       CAMERA_WIDTH = 960;
       CAMERA_HEIGHT = 720;
       RESULT_SCREEN_AUTO_RETURN_MS = 7e3;
@@ -737,7 +811,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       ["Xodim:", report.employeeName],
       ["Lavozim:", report.position || "\u2014"],
       ["Filial/bo'lim:", report.department || "\u2014"],
-      ["Davr:", `${UZ_MONTHS[report.month]} ${report.year}`]
+      ["Davr:", `${UZ_MONTHS2[report.month]} ${report.year}`]
     ];
     children.push(makeKeyValueTable(infoRows));
     children.push(new Paragraph({ text: "" }));
@@ -867,12 +941,12 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 5e3);
   }
-  var Document, Paragraph, TextRun, Table, TableRow, TableCell, AlignmentType, WidthType, Packer, ImageRun, docxLoaded, UZ_MONTHS;
+  var Document, Paragraph, TextRun, Table, TableRow, TableCell, AlignmentType, WidthType, Packer, ImageRun, docxLoaded, UZ_MONTHS2;
   var init_wordExport = __esm({
     "src/reports/wordExport.js"() {
       init_appConfig();
       docxLoaded = false;
-      UZ_MONTHS = [
+      UZ_MONTHS2 = [
         "",
         "Yanvar",
         "Fevral",
@@ -923,6 +997,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       orderBy,
       limit,
       deleteDoc,
+      writeBatch,
       serverTimestamp,
       Timestamp,
       deleteField
@@ -973,15 +1048,17 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     }
     async function updateEmployee2(id, patch) {
       const ref = doc(dbFs, "employees", id);
-      await updateDoc(ref, { ...patch, updatedAt: nowIso2() });
-      return docToObject(await getDoc(ref));
+      const fields = { ...patch, updatedAt: nowIso2() };
+      await updateDoc(ref, fields);
+      return { id, ...fields };
     }
     async function isLoginTaken2(login3, excludeEmployeeId) {
       const trimmed = login3.trim();
-      const empSnap = await getDocs(query(collection(dbFs, "employees"), where("firstName", "==", trimmed)));
-      const empTaken = empSnap.docs.some((d) => d.id !== excludeEmployeeId);
-      if (empTaken) return true;
-      const userSnap = await getDocs(query(collection(dbFs, "users"), where("username", "==", trimmed)));
+      const [empSnap, userSnap] = await Promise.all([
+        getDocs(query(collection(dbFs, "employees"), where("firstName", "==", trimmed))),
+        getDocs(query(collection(dbFs, "users"), where("username", "==", trimmed)))
+      ]);
+      if (empSnap.docs.some((d) => d.id !== excludeEmployeeId)) return true;
       return !userSnap.empty;
     }
     async function findEmployeeByLogin2(login3, password) {
@@ -997,11 +1074,16 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       return null;
     }
     async function deleteEmployee2(id) {
-      await deleteDoc(doc(dbFs, "employees", id));
-      const schedSnap = await getDocs(query(collection(dbFs, "schedules"), where("employeeId", "==", id)));
-      await Promise.all(schedSnap.docs.map((d) => deleteDoc(d.ref)));
-      const embSnap = await getDocs(query(collection(dbFs, "embeddings"), where("employeeId", "==", id)));
-      await Promise.all(embSnap.docs.map((d) => deleteDoc(d.ref)));
+      const [, schedSnap, embSnap] = await Promise.all([
+        deleteDoc(doc(dbFs, "employees", id)),
+        getDocs(query(collection(dbFs, "schedules"), where("employeeId", "==", id))),
+        getDocs(query(collection(dbFs, "embeddings"), where("employeeId", "==", id)))
+      ]);
+      await Promise.all([
+        ...schedSnap.docs.map((d) => deleteDoc(d.ref)),
+        ...embSnap.docs.map((d) => deleteDoc(d.ref))
+      ]);
+      invalidateEmbeddingsCache();
     }
     async function getEmployee2(id) {
       const snap = await getDoc(doc(dbFs, "employees", id));
@@ -1057,13 +1139,12 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         const snap = await getDocs(q);
         await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
       }
-      const saved = [];
-      for (const vector of embeddings) {
+      const saved = await Promise.all(embeddings.map((vector) => {
         const ref = doc(collection(dbFs, "embeddings"));
         const row = { employeeId, vector: Array.from(vector), createdAt: nowIso2(), createdBy: actorId };
-        await setDoc(ref, row);
-        saved.push({ id: ref.id, ...row });
-      }
+        return setDoc(ref, row).then(() => ({ id: ref.id, ...row }));
+      }));
+      invalidateEmbeddingsCache();
       return saved;
     }
     async function hasFaceEnrolled2(employeeId) {
@@ -1071,11 +1152,36 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       const snap = await getDocs(q);
       return !snap.empty;
     }
-    async function getAllActiveEmbeddings2() {
-      const employees = await listEmployees2({ activeOnly: true });
-      const activeIds = new Set(employees.map((e) => e.id));
+    async function listEmployeeIdsWithFace2() {
       const snap = await getDocs(collection(dbFs, "embeddings"));
-      return snap.docs.map(docToObject).filter((row) => activeIds.has(row.employeeId)).map((row) => ({ employeeId: row.employeeId, vector: row.vector }));
+      return [...new Set(snap.docs.map((d) => d.data().employeeId))];
+    }
+    const EMBEDDINGS_CACHE_MS = 60 * 1e3;
+    let embeddingsCache = null;
+    let embeddingsCacheAt = 0;
+    let embeddingsLoadPromise = null;
+    function invalidateEmbeddingsCache() {
+      embeddingsCache = null;
+      embeddingsCacheAt = 0;
+    }
+    async function getAllActiveEmbeddings2() {
+      if (embeddingsCache && Date.now() - embeddingsCacheAt < EMBEDDINGS_CACHE_MS) return embeddingsCache;
+      if (!embeddingsLoadPromise) {
+        embeddingsLoadPromise = (async () => {
+          const [employees, snap] = await Promise.all([
+            listEmployees2({ activeOnly: true }),
+            getDocs(collection(dbFs, "embeddings"))
+          ]);
+          const activeIds = new Set(employees.map((e) => e.id));
+          const rows = snap.docs.map(docToObject).filter((row) => activeIds.has(row.employeeId)).map((row) => ({ employeeId: row.employeeId, vector: row.vector }));
+          embeddingsCache = rows;
+          embeddingsCacheAt = Date.now();
+          return rows;
+        })().finally(() => {
+          embeddingsLoadPromise = null;
+        });
+      }
+      return embeddingsLoadPromise;
     }
     function pickBestAttendanceSnap(docs) {
       if (docs.length <= 1) return docs[0] || null;
@@ -1171,6 +1277,16 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       const rows = snap.docs.map(docToObject).filter((r) => r.dateKey.startsWith(prefix));
       return dedupeAttendanceRows(rows, (r) => r.dateKey).sort((a, b) => a.dateKey.localeCompare(b.dateKey));
     }
+    async function listAttendanceForRange2(startDateKey, endDateKey) {
+      const q = query(
+        collection(dbFs, "attendance"),
+        where("dateKey", ">=", startDateKey),
+        where("dateKey", "<=", endDateKey)
+      );
+      const snap = await getDocs(q);
+      const rows = snap.docs.map(docToObject);
+      return dedupeAttendanceRows(rows, (r) => `${r.employeeId}|${r.dateKey}`);
+    }
     async function findDayStatusDoc(employeeId, dateKey) {
       const q = query(
         collection(dbFs, "dayStatuses"),
@@ -1234,6 +1350,86 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       const snap = await getDocs(collection(dbFs, "scheduleOverrides"));
       return snap.docs.map(docToObject);
     }
+    async function updateScheduleOverrideById2(id, fields, actorId) {
+      const ref = doc(dbFs, "scheduleOverrides", id);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) throw new Error("Dam kuni ko'chirish yozuvi topilmadi.");
+      const old = docToObject(snap);
+      const employeeId = fields.employeeId || old.employeeId;
+      const originalDateKey = fields.originalDateKey || old.originalDateKey;
+      const newDateKey = fields.newDateKey || old.newDateKey;
+      if (!employeeId || !originalDateKey || !newDateKey) throw new Error("Xodim va sanalar to'liq kiritilishi kerak.");
+      if (originalDateKey === newDateKey) throw new Error("Asl dam kuni va yangi dam kuni bir xil bo'lishi mumkin emas.");
+
+      const [oldOrigStatus, oldNewStatus, newOrigStatus, newNewStatus] = await Promise.all([
+        findDayStatusDoc(old.employeeId, old.originalDateKey),
+        findDayStatusDoc(old.employeeId, old.newDateKey),
+        findDayStatusDoc(employeeId, originalDateKey),
+        findDayStatusDoc(employeeId, newDateKey)
+      ]);
+
+      const batch = writeBatch(dbFs);
+      const oldOrigStillUsed = old.employeeId === employeeId && (old.originalDateKey === originalDateKey || old.originalDateKey === newDateKey);
+      const oldNewStillUsed = old.employeeId === employeeId && (old.newDateKey === originalDateKey || old.newDateKey === newDateKey);
+      // Eski sana yangi tahrirda ham ishlatilsa, o'sha hujjatni avval o'chirmaymiz:
+      // pastdagi batch.set() uni yangi to'g'ri status bilan atomik yangilaydi.
+      if (!oldOrigStillUsed && oldOrigStatus && oldOrigStatus.data().status === "ISH_KUNI") batch.delete(oldOrigStatus.ref);
+      if (!oldNewStillUsed && oldNewStatus && oldNewStatus.data().status === "KOCHIRILGAN_DAM") batch.delete(oldNewStatus.ref);
+
+      const originalPayload = {
+        employeeId,
+        dateKey: originalDateKey,
+        status: "ISH_KUNI",
+        note: `Dam kuni ${newDateKey} ga ko'chirildi`,
+        createdBy: actorId,
+        createdAt: nowIso2()
+      };
+      const newPayload = {
+        employeeId,
+        dateKey: newDateKey,
+        status: "KOCHIRILGAN_DAM",
+        note: `Asl dam kuni: ${originalDateKey}`,
+        createdBy: actorId,
+        createdAt: nowIso2()
+      };
+      batch.set(newOrigStatus ? newOrigStatus.ref : doc(collection(dbFs, "dayStatuses")), originalPayload);
+      batch.set(newNewStatus ? newNewStatus.ref : doc(collection(dbFs, "dayStatuses")), newPayload);
+
+      const payload = {
+        employeeId,
+        originalDateKey,
+        newDateKey,
+        reason: fields.reason || "",
+        updatedBy: actorId,
+        updatedAt: nowIso2()
+      };
+      batch.update(ref, payload);
+      await batch.commit();
+      await addAuditLog2(actorId, "", "SCHEDULE_OVERRIDE_EDITED", "scheduleOverride", id, `employeeId=${employeeId}, ${originalDateKey}->${newDateKey}`);
+      return { ...old, ...payload, id };
+    }
+    async function assertPermissionsDeleteOwner2(actorId) {
+      const actorSnap = actorId ? await getDoc(doc(dbFs, "users", actorId)) : null;
+      const username = actorSnap && actorSnap.exists() ? String(actorSnap.data().username || "").trim().toLowerCase() : "";
+      if (username !== "admin11") throw new Error("Ruxsatlarni o'chirish faqat admin11 uchun ochilgan.");
+    }
+    async function deleteScheduleOverrideById2(id, actorId) {
+      await assertPermissionsDeleteOwner2(actorId);
+      const ref = doc(dbFs, "scheduleOverrides", id);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) throw new Error("Dam kuni ko'chirish yozuvi topilmadi.");
+      const old = docToObject(snap);
+      const [oldOrigStatus, oldNewStatus] = await Promise.all([
+        findDayStatusDoc(old.employeeId, old.originalDateKey),
+        findDayStatusDoc(old.employeeId, old.newDateKey)
+      ]);
+      const batch = writeBatch(dbFs);
+      if (oldOrigStatus && oldOrigStatus.data().status === "ISH_KUNI") batch.delete(oldOrigStatus.ref);
+      if (oldNewStatus && oldNewStatus.data().status === "KOCHIRILGAN_DAM") batch.delete(oldNewStatus.ref);
+      batch.delete(ref);
+      await batch.commit();
+      await addAuditLog2(actorId, "", "SCHEDULE_OVERRIDE_DELETED", "scheduleOverride", id, `employeeId=${old.employeeId}, ${old.originalDateKey}->${old.newDateKey}`);
+    }
     async function findLatePermissionDoc(employeeId, dateKey) {
       const q = query(
         collection(dbFs, "latePermissions"),
@@ -1275,6 +1471,38 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       await setDoc(ref, payload);
       return { id: ref.id, ...payload };
     }
+    async function updateLatePermissionById2(id, fields, actorId) {
+      const ref = doc(dbFs, "latePermissions", id);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) throw new Error("Ruxsat yozuvi topilmadi.");
+      const old = docToObject(snap);
+      const employeeId = fields.employeeId || old.employeeId;
+      const dateKey = fields.dateKey || old.dateKey;
+      const allowedStartTime = fields.allowedStartTime || old.allowedStartTime;
+      if (!employeeId || !dateKey || !allowedStartTime) throw new Error("Xodim, sana va ruxsat soati to'liq kiritilishi kerak.");
+      const conflict = await findLatePermissionDoc(employeeId, dateKey);
+      if (conflict && conflict.id !== id) throw new Error("Bu xodimga shu sanada boshqa ruxsat allaqachon mavjud.");
+      const payload = {
+        employeeId,
+        dateKey,
+        allowedStartTime,
+        reason: fields.reason || null,
+        updatedBy: actorId,
+        updatedAt: nowIso2()
+      };
+      await updateDoc(ref, payload);
+      await addAuditLog2(actorId, "", "LATE_PERMISSION_EDITED", "latePermission", id, `employeeId=${employeeId}, date=${dateKey}, time=${allowedStartTime}`);
+      return { ...old, ...payload, id };
+    }
+    async function deleteLatePermissionById2(id, actorId) {
+      await assertPermissionsDeleteOwner2(actorId);
+      const ref = doc(dbFs, "latePermissions", id);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) throw new Error("Ruxsat yozuvi topilmadi.");
+      const old = docToObject(snap);
+      await deleteDoc(ref);
+      await addAuditLog2(actorId, "", "LATE_PERMISSION_DELETED", "latePermission", id, `employeeId=${old.employeeId}, date=${old.dateKey}`);
+    }
     async function anyAdminExists2() {
       const snap = await getDocs(query(collection(dbFs, "users"), limit(1)));
       return !snap.empty;
@@ -1282,7 +1510,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     async function createUser2(username, password, fullName, role, actorId, linkedEmployeeId = null) {
       username = username.trim();
       if (username.length < 3) throw new Error("Login kamida 3 ta belgidan iborat bo'lishi kerak.");
-      if (password.length < 6) throw new Error("Parol kamida 6 ta belgidan iborat bo'lishi kerak.");
+      if (password.length < MIN_PASSWORD_LENGTH) throw new Error(MIN_PASSWORD_MESSAGE);
       const allUsersSnap = await getDocs(collection(dbFs, "users"));
       const lowerUsername = username.toLowerCase();
       const collided = allUsersSnap.docs.some(
@@ -1414,6 +1642,32 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         throw err;
       }
     }
+    async function deleteAdminUser2(userId, actorId) {
+      const targetSnap = await getDoc(doc(dbFs, "users", userId));
+      if (!targetSnap.exists()) throw new Error("Admin topilmadi.");
+      const targetData = targetSnap.data();
+      await deleteDoc(doc(dbFs, "users", userId));
+      addAuditLog2(actorId, "", "ADMIN_DELETED", "user", userId, `username=${targetData.username || ""}`).catch((err) => console.error("Audit log failed (non-fatal):", err));
+      const email = targetData.authEmail || usernameToEmail(targetData.username || "");
+      const password = targetData.recoveryPassword;
+      if (!email || !password) return;
+      const secondaryApp = initializeApp(firebaseConfig, `SecondaryDel-${Date.now()}`);
+      try {
+        let secondaryAuth;
+        try {
+          secondaryAuth = initializeAuth(secondaryApp, { persistence: inMemoryPersistence });
+        } catch (err) {
+          secondaryAuth = getAuth(secondaryApp);
+        }
+        const credential = await signInWithEmailAndPassword(secondaryAuth, email, password);
+        await deleteUser(credential.user);
+      } catch (err) {
+        console.error("Auth account delete skipped (non-fatal):", err);
+      } finally {
+        await deleteApp(secondaryApp).catch(() => {
+        });
+      }
+    }
     async function signOutCurrentUser() {
       await fbSignOut(auth);
     }
@@ -1455,7 +1709,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       await addAuditLog2(actorId, "", "ADMIN_ROLE_CHANGED", "user", userId, `role=${role}`);
     }
     async function resetAdminPassword2(userId, newPassword, actorId) {
-      if (newPassword.length < 6) throw new Error("Parol kamida 6 ta belgidan iborat bo'lishi kerak.");
+      if (newPassword.length < MIN_PASSWORD_LENGTH) throw new Error(MIN_PASSWORD_MESSAGE);
       if (auth.currentUser && auth.currentUser.uid === userId) {
         try {
           await updatePassword(auth.currentUser, newPassword);
@@ -1540,30 +1794,58 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       }
       return candidates;
     }
+    let settingsCache = null;
+    let settingsLoadPromise = null;
+    function cacheSettingsFromDocs(docs) {
+      const cache = {};
+      for (const d of docs) cache[d.id] = d.data().value;
+      settingsCache = cache;
+      return cache;
+    }
+    async function loadAllSettingsOnce() {
+      if (settingsCache) return settingsCache;
+      if (!settingsLoadPromise) {
+        settingsLoadPromise = getDocs(collection(dbFs, "settings")).then((snap) => cacheSettingsFromDocs(snap.docs)).finally(() => {
+          settingsLoadPromise = null;
+        });
+      }
+      return settingsLoadPromise;
+    }
     async function ensureDefaultSettings2() {
       const snap = await getDocs(collection(dbFs, "settings"));
+      const cache = cacheSettingsFromDocs(snap.docs);
       const existingKeys = new Set(snap.docs.map((d) => d.id));
-      for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
-        if (!existingKeys.has(key)) await setDoc(doc(dbFs, "settings", key), { value: String(value) });
-      }
+      const missing = Object.entries(DEFAULT_SETTINGS).filter(([key]) => !existingKeys.has(key));
+      await Promise.all(missing.map(([key, value]) => {
+        cache[key] = String(value);
+        return setDoc(doc(dbFs, "settings", key), { value: String(value) });
+      }));
     }
     async function forceUpdateSpeedSettings2() {
-      await setDoc(doc(dbFs, "settings", "recognition_hold_frames"), { value: String(DEFAULT_SETTINGS.recognition_hold_frames) });
-      await setDoc(doc(dbFs, "settings", "liveness_required_blinks"), { value: String(DEFAULT_SETTINGS.liveness_required_blinks) });
+      const cache = await loadAllSettingsOnce();
+      const wanted = {
+        recognition_hold_frames: String(DEFAULT_SETTINGS.recognition_hold_frames),
+        liveness_required_blinks: String(DEFAULT_SETTINGS.liveness_required_blinks)
+      };
+      const stale = Object.entries(wanted).filter(([key, value]) => cache[key] !== value);
+      if (!stale.length) return;
+      await Promise.all(stale.map(([key, value]) => {
+        cache[key] = value;
+        return setDoc(doc(dbFs, "settings", key), { value });
+      }));
     }
     async function getSetting2(key) {
-      const snap = await getDoc(doc(dbFs, "settings", key));
-      if (snap.exists()) return snap.data().value;
+      const cache = settingsCache || await loadAllSettingsOnce();
+      if (cache[key] !== void 0) return cache[key];
       return DEFAULT_SETTINGS[key] !== void 0 ? String(DEFAULT_SETTINGS[key]) : null;
     }
     async function setSetting2(key, value) {
+      if (settingsCache) settingsCache[key] = String(value);
       await setDoc(doc(dbFs, "settings", key), { value: String(value) });
     }
     async function allSettings2() {
       const snap = await getDocs(collection(dbFs, "settings"));
-      const out = {};
-      for (const d of snap.docs) out[d.id] = d.data().value;
-      return out;
+      return { ...cacheSettingsFromDocs(snap.docs) };
     }
     async function addAuditLog2(actorId, actorName, action, entityType, entityId, details) {
       const ref = doc(collection(dbFs, "auditLogs"));
@@ -1628,6 +1910,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       listAllSchedules: listAllSchedules2,
       saveEmbeddings: saveEmbeddings2,
       hasFaceEnrolled: hasFaceEnrolled2,
+      invalidateEmbeddingsCache,
+      listEmployeeIdsWithFace: listEmployeeIdsWithFace2,
       getAllActiveEmbeddings: getAllActiveEmbeddings2,
       findAttendanceDoc,
       getAttendanceForDate: getAttendanceForDate2,
@@ -1636,6 +1920,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       setManualAttendance: setManualAttendance2,
       listAttendanceForDate: listAttendanceForDate2,
       listAttendanceForMonth: listAttendanceForMonth2,
+      listAttendanceForRange: listAttendanceForRange2,
       findDayStatusDoc,
       getExplicitDayStatus: getExplicitDayStatus2,
       listDayStatusesForEmployee: listDayStatusesForEmployee2,
@@ -1644,10 +1929,14 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       moveRestDay: moveRestDay3,
       listScheduleOverrides: listScheduleOverrides2,
       listAllScheduleOverrides: listAllScheduleOverrides2,
+      updateScheduleOverrideById: updateScheduleOverrideById2,
+      deleteScheduleOverrideById: deleteScheduleOverrideById2,
       getLatePermission: getLatePermission2,
       listLatePermissionsForEmployee: listLatePermissionsForEmployee2,
       listAllLatePermissions: listAllLatePermissions2,
       setLatePermission: setLatePermission2,
+      updateLatePermissionById: updateLatePermissionById2,
+      deleteLatePermissionById: deleteLatePermissionById2,
       anyAdminExists: anyAdminExists2,
       createUser: createUser2,
       login: login2,
@@ -1661,6 +1950,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       setPermissions: setPermissions2,
       setUserRole: setUserRole2,
       resetAdminPassword: resetAdminPassword2,
+      deleteAdminUser: deleteAdminUser2,
       setLinkedEmployee: setLinkedEmployee2,
       saveAdminFaceVectors: saveAdminFaceVectors2,
       hasAdminFaceEnrolled: hasAdminFaceEnrolled2,
@@ -1689,7 +1979,10 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     createEmployee: () => createEmployee,
     createFirstSchedule: () => createFirstSchedule,
     createUser: () => createUser,
+    deleteAdminUser: () => deleteAdminUser,
     deleteEmployee: () => deleteEmployee,
+    deleteLatePermissionById: () => deleteLatePermissionById,
+    deleteScheduleOverrideById: () => deleteScheduleOverrideById,
     ensureDefaultSettings: () => ensureDefaultSettings,
     ensureKioskSession: () => ensureKioskSession,
     exportBackupJson: () => exportBackupJson,
@@ -1718,8 +2011,10 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     listAllSchedules: () => listAllSchedules,
     listAttendanceForDate: () => listAttendanceForDate,
     listAttendanceForMonth: () => listAttendanceForMonth,
+    listAttendanceForRange: () => listAttendanceForRange,
     listAuditLogs: () => listAuditLogs,
     listDayStatusesForEmployee: () => listDayStatusesForEmployee,
+    listEmployeeIdsWithFace: () => listEmployeeIdsWithFace,
     listEmployees: () => listEmployees,
     listLatePermissionsForEmployee: () => listLatePermissionsForEmployee,
     listScheduleHistory: () => listScheduleHistory,
@@ -1739,6 +2034,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     setSetting: () => setSetting,
     setUserRole: () => setUserRole,
     updateEmployee: () => updateEmployee,
+    updateLatePermissionById: () => updateLatePermissionById,
+    updateScheduleOverrideById: () => updateScheduleOverrideById,
     writeCheckIn: () => writeCheckIn,
     writeCheckOut: () => writeCheckOut
   });
@@ -2023,6 +2320,10 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     const rows = await getAllByIndex("embeddings", "employeeId", employeeId);
     return rows.length > 0;
   }
+  async function listEmployeeIdsWithFace() {
+    const all = await getAll("embeddings");
+    return [...new Set(all.map((row) => row.employeeId))];
+  }
   async function getAllActiveEmbeddings() {
     const employees = await listEmployees({ activeOnly: true });
     const activeIds = new Set(employees.map((e) => e.id));
@@ -2103,6 +2404,10 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     const rows = await getAllByIndex("attendance", "employeeId", employeeId);
     return rows.filter((r) => r.dateKey.startsWith(prefix)).sort((a, b) => a.dateKey.localeCompare(b.dateKey));
   }
+  async function listAttendanceForRange(startDateKey, endDateKey) {
+    const rows = await getAll("attendance");
+    return rows.filter((r) => r.dateKey >= startDateKey && r.dateKey <= endDateKey);
+  }
   async function findDayStatusRow(employeeId, dateKey) {
     const rows = await getAllByIndex("dayStatuses", "employeeId", employeeId);
     return rows.find((r) => r.dateKey === dateKey) || null;
@@ -2165,6 +2470,51 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   async function listAllScheduleOverrides() {
     return getAll("scheduleOverrides");
   }
+  async function removeDayStatusIfMatches(employeeId, dateKey, expectedStatus) {
+    const row = await findDayStatusRow(employeeId, dateKey);
+    if (row && row.status === expectedStatus) await remove("dayStatuses", row.id);
+  }
+  async function updateScheduleOverrideById(id, fields, actorId) {
+    const old = await get("scheduleOverrides", id);
+    if (!old) throw new Error("Dam kuni ko'chirish yozuvi topilmadi.");
+    const employeeId = fields.employeeId || old.employeeId;
+    const originalDateKey = fields.originalDateKey || old.originalDateKey;
+    const newDateKey = fields.newDateKey || old.newDateKey;
+    if (!employeeId || !originalDateKey || !newDateKey) throw new Error("Xodim va sanalar to'liq kiritilishi kerak.");
+    if (originalDateKey === newDateKey) throw new Error("Asl dam kuni va yangi dam kuni bir xil bo'lishi mumkin emas.");
+
+    await removeDayStatusIfMatches(old.employeeId, old.originalDateKey, "ISH_KUNI");
+    await removeDayStatusIfMatches(old.employeeId, old.newDateKey, "KOCHIRILGAN_DAM");
+    await setDayStatus(employeeId, originalDateKey, "ISH_KUNI", `Dam kuni ${newDateKey} ga ko'chirildi`, actorId);
+    await setDayStatus(employeeId, newDateKey, "KOCHIRILGAN_DAM", `Asl dam kuni: ${originalDateKey}`, actorId);
+
+    const row = {
+      ...old,
+      employeeId,
+      originalDateKey,
+      newDateKey,
+      reason: fields.reason || "",
+      updatedBy: actorId,
+      updatedAt: nowIso()
+    };
+    await put("scheduleOverrides", row);
+    await addAuditLog(actorId, "", "SCHEDULE_OVERRIDE_EDITED", "scheduleOverride", id, `employeeId=${employeeId}, ${originalDateKey}->${newDateKey}`);
+    return row;
+  }
+  async function assertPermissionsDeleteOwner(actorId) {
+    const actor = actorId ? await get("users", actorId) : null;
+    const username = actor ? String(actor.username || "").trim().toLowerCase() : "";
+    if (username !== "admin11") throw new Error("Ruxsatlarni o'chirish faqat admin11 uchun ochilgan.");
+  }
+  async function deleteScheduleOverrideById(id, actorId) {
+    await assertPermissionsDeleteOwner(actorId);
+    const old = await get("scheduleOverrides", id);
+    if (!old) throw new Error("Dam kuni ko'chirish yozuvi topilmadi.");
+    await removeDayStatusIfMatches(old.employeeId, old.originalDateKey, "ISH_KUNI");
+    await removeDayStatusIfMatches(old.employeeId, old.newDateKey, "KOCHIRILGAN_DAM");
+    await remove("scheduleOverrides", id);
+    await addAuditLog(actorId, "", "SCHEDULE_OVERRIDE_DELETED", "scheduleOverride", id, `employeeId=${old.employeeId}, ${old.originalDateKey}->${old.newDateKey}`);
+  }
   async function findLatePermissionRow(employeeId, dateKey) {
     const rows = await getAllByIndex("latePermissions", "employeeId", employeeId);
     return rows.find((r) => r.dateKey === dateKey) || null;
@@ -2192,6 +2542,35 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     await put("latePermissions", row);
     return row;
   }
+  async function updateLatePermissionById(id, fields, actorId) {
+    const old = await get("latePermissions", id);
+    if (!old) throw new Error("Ruxsat yozuvi topilmadi.");
+    const employeeId = fields.employeeId || old.employeeId;
+    const dateKey = fields.dateKey || old.dateKey;
+    const allowedStartTime = fields.allowedStartTime || old.allowedStartTime;
+    if (!employeeId || !dateKey || !allowedStartTime) throw new Error("Xodim, sana va ruxsat soati to'liq kiritilishi kerak.");
+    const conflict = await findLatePermissionRow(employeeId, dateKey);
+    if (conflict && conflict.id !== id) throw new Error("Bu xodimga shu sanada boshqa ruxsat allaqachon mavjud.");
+    const row = {
+      ...old,
+      employeeId,
+      dateKey,
+      allowedStartTime,
+      reason: fields.reason || null,
+      updatedBy: actorId,
+      updatedAt: nowIso()
+    };
+    await put("latePermissions", row);
+    await addAuditLog(actorId, "", "LATE_PERMISSION_EDITED", "latePermission", id, `employeeId=${employeeId}, date=${dateKey}, time=${allowedStartTime}`);
+    return row;
+  }
+  async function deleteLatePermissionById(id, actorId) {
+    await assertPermissionsDeleteOwner(actorId);
+    const old = await get("latePermissions", id);
+    if (!old) throw new Error("Ruxsat yozuvi topilmadi.");
+    await remove("latePermissions", id);
+    await addAuditLog(actorId, "", "LATE_PERMISSION_DELETED", "latePermission", id, `employeeId=${old.employeeId}, date=${old.dateKey}`);
+  }
   async function anyAdminExists() {
     const all = await getAll("users");
     return all.length > 0;
@@ -2199,7 +2578,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   async function createUser(username, password, fullName, role, actorId, linkedEmployeeId = null) {
     username = username.trim();
     if (username.length < 3) throw new Error("Login kamida 3 ta belgidan iborat bo'lishi kerak.");
-    if (password.length < 6) throw new Error("Parol kamida 6 ta belgidan iborat bo'lishi kerak.");
+    if (password.length < MIN_PASSWORD_LENGTH) throw new Error(MIN_PASSWORD_MESSAGE);
     const all = await getAll("users");
     if (all.some((u) => u.username === username)) throw new Error(`'${username}' logini allaqachon band.`);
     const user = {
@@ -2289,7 +2668,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     await addAuditLog(actorId, "", "ADMIN_ROLE_CHANGED", "user", userId, `role=${role}`);
   }
   async function resetAdminPassword(userId, newPassword, actorId) {
-    if (newPassword.length < 6) throw new Error("Parol kamida 6 ta belgidan iborat bo'lishi kerak.");
+    if (newPassword.length < MIN_PASSWORD_LENGTH) throw new Error(MIN_PASSWORD_MESSAGE);
     const existing = await get("users", userId);
     if (!existing) throw new Error("Admin topilmadi.");
     await put("users", {
@@ -2299,12 +2678,18 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     });
     await addAuditLog(actorId, "", "ADMIN_PASSWORD_RESET", "user", userId, `username=${existing.username}`);
   }
+  async function deleteAdminUser(userId, actorId) {
+    const existing = await get("users", userId);
+    if (!existing) throw new Error("Admin topilmadi.");
+    await remove("users", userId);
+    addAuditLog(actorId, "", "ADMIN_DELETED", "user", userId, `username=${existing.username || ""}`).catch((err) => console.error("Audit log failed (non-fatal):", err));
+  }
   async function ensureDefaultSettings() {
     const existing = await getAll("settings");
     const existingKeys = new Set(existing.map((r) => r.key));
-    for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
-      if (!existingKeys.has(key)) await put("settings", { key, value: String(value) });
-    }
+    await Promise.all(
+      Object.entries(DEFAULT_SETTINGS).filter(([key]) => !existingKeys.has(key)).map(([key, value]) => put("settings", { key, value: String(value) }))
+    );
   }
   async function forceUpdateSpeedSettings() {
     await put("settings", { key: "recognition_hold_frames", value: String(DEFAULT_SETTINGS.recognition_hold_frames) });
@@ -2569,6 +2954,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     const hasSeconds = hhmmStr.split(":").length >= 3;
     const timePart = hasSeconds ? hhmmStr : `${hhmmStr}:00`;
     return /* @__PURE__ */ new Date(`${dateKey}T${timePart}+05:00`);
+  }
+  function addDaysToKey(dateKey, days) {
+    const d = /* @__PURE__ */ new Date(`${dateKey}T12:00:00+05:00`);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
   }
   function daysInMonth(year, month) {
     return new Date(year, month, 0).getDate();
@@ -2944,6 +3334,51 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     return fallback;
   }
 
+  // src/ui/busyIndicator.js
+  var el = null;
+  var labelEl = null;
+  var depth = 0;
+  function ensureEl() {
+    if (el) return el;
+    const style = document.createElement("style");
+    style.textContent = `
+    #shifoatBusy {
+      position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+      z-index: 500; display: none; align-items: center; gap: 8px;
+      background: #1B1F3B; color: #fff; padding: 8px 16px; border-radius: 999px;
+      font-size: 13px; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.22);
+      font-family: inherit; pointer-events: none; white-space: nowrap;
+    }
+    #shifoatBusy.active { display: flex; }
+    #shifoatBusy .sp {
+      width: 13px; height: 13px; border-radius: 50%; flex: none;
+      border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
+      animation: shifoatBusySpin .7s linear infinite;
+    }
+    @keyframes shifoatBusySpin { to { transform: rotate(360deg); } }
+  `;
+    document.head.appendChild(style);
+    el = document.createElement("div");
+    el.id = "shifoatBusy";
+    const spinner = document.createElement("span");
+    spinner.className = "sp";
+    labelEl = document.createElement("span");
+    el.appendChild(spinner);
+    el.appendChild(labelEl);
+    document.body.appendChild(el);
+    return el;
+  }
+  function showBusy(text = "Yangilanmoqda\u2026") {
+    ensureEl();
+    depth++;
+    labelEl.textContent = text;
+    el.classList.add("active");
+  }
+  function hideBusy() {
+    depth = Math.max(0, depth - 1);
+    if (depth === 0 && el) el.classList.remove("active");
+  }
+
   // src/ui/kiosk.js
   var screens = {
     home: document.getElementById("screen-home"),
@@ -2951,7 +3386,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     result: document.getElementById("screen-result")
   };
   function showScreen(name) {
-    for (const [key, el] of Object.entries(screens)) el.classList.toggle("active", key === name);
+    for (const [key, el2] of Object.entries(screens)) el2.classList.toggle("active", key === name);
   }
   function showKioskSessionWarning(message) {
     const banner = document.createElement("div");
@@ -2979,7 +3414,20 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   var overlayEl = document.getElementById("cameraOverlay");
   var cameraInstruction = document.getElementById("cameraInstruction");
   var cameraStatus = document.getElementById("cameraStatus");
+  var kioskReady = null;
   async function bootKiosk() {
+    wireHomeScreen();
+    wireCameraScreen();
+    wireAdminLoginModal();
+    wireAdminChoiceButtons();
+    wireFirstRunModal();
+    document.getElementById("kioskRoot").style.visibility = "visible";
+    kioskReady = bootKioskBackground();
+    showBusy("Yuklanmoqda\u2026");
+    kioskReady.finally(() => hideBusy());
+    return kioskReady;
+  }
+  async function bootKioskBackground() {
     db = await getDb();
     try {
       await db.ensureKioskSession();
@@ -2987,38 +3435,35 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       console.error("Kiosk session failed to start:", err);
       showKioskSessionWarning(uzError(err, "Kiosk kirish tizimi ishga tushmadi."));
     }
-    try {
-      await db.ensureDefaultSettings();
-    } catch (err) {
-      console.error("Default settings seed failed (non-fatal):", err);
-    }
     loadModels().catch((err) => console.error("Face models failed to preload:", err));
-    let hasAdmin = true;
-    try {
-      hasAdmin = await db.anyAdminExists();
-    } catch (err) {
-      console.error("Could not check for an existing admin:", err);
-    }
+    const [, hasAdmin, fullscreenSetting] = await Promise.all([
+      // Non-fatal by design: getSetting() already falls back to
+      // DEFAULT_SETTINGS (appConfig.js) whenever a settings doc doesn't
+      // exist, so failing to pre-seed them must never block boot.
+      db.ensureDefaultSettings().catch((err) => {
+        console.error("Default settings seed failed (non-fatal):", err);
+      }),
+      // fail-safe: if we can't tell, don't show the first-run wizard
+      db.anyAdminExists().catch((err) => {
+        console.error("Could not check for an existing admin:", err);
+        return true;
+      }),
+      db.getSetting("kiosk_fullscreen").catch((err) => {
+        console.error("Could not read kiosk_fullscreen setting:", err);
+        return null;
+      })
+    ]);
     if (!hasAdmin) {
       document.getElementById("firstRunModal").classList.add("active");
     }
-    document.getElementById("kioskRoot").style.visibility = "visible";
-    wireHomeScreen();
-    wireCameraScreen();
-    wireAdminLoginModal();
-    wireAdminChoiceButtons();
-    wireFirstRunModal();
-    try {
-      if (Number(await db.getSetting("kiosk_fullscreen")) === 1) {
-        document.body.addEventListener("click", requestFullscreenOnce, { once: true });
-      }
-    } catch (err) {
-      console.error("Could not read kiosk_fullscreen setting:", err);
+    if (Number(fullscreenSetting) === 1) {
+      document.body.addEventListener("click", requestFullscreenOnce, { once: true });
     }
+    db.getAllActiveEmbeddings().catch((err) => console.error("Embeddings prefetch failed (non-fatal):", err));
   }
   function requestFullscreenOnce() {
-    const el = document.documentElement;
-    if (el.requestFullscreen) el.requestFullscreen().catch(() => {
+    const el2 = document.documentElement;
+    if (el2.requestFullscreen) el2.requestFullscreen().catch(() => {
     });
   }
   function wireHomeScreen() {
@@ -3033,11 +3478,22 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     document.getElementById("btnCameraBack").addEventListener("click", stopCameraAndGoHome);
   }
   var SCAN_HINT_TEXT = "Iltimos, yuzingizni yaqinroq olib keling, qaddingizni tik tuting, kameraga tik qarang.";
+  async function ensureReady() {
+    if (kioskReady) {
+      try {
+        await kioskReady;
+      } catch (err) {
+        console.error("Kiosk background boot failed:", err);
+      }
+    }
+    if (!db) db = await getDb();
+  }
   async function startCamera(mode2) {
     currentMode2 = mode2;
     cameraInstruction.textContent = "Iltimos, kameraga qarab turing\u2026";
     cameraStatus.textContent = SCAN_HINT_TEXT;
     showScreen("camera");
+    await ensureReady();
     requiredFrames = numSetting(await db.getSetting("recognition_hold_frames"), 12);
     const requiredBlinks = numSetting(await db.getSetting("liveness_required_blinks"), 1);
     const minMovement = numSetting(await db.getSetting("liveness_min_movement"), 0.035);
@@ -3353,6 +3809,7 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
     async function doLoginInner() {
       const username = usernameInput.value;
       const password = passwordInput.value;
+      await ensureReady();
       try {
         const user = await db.login(username, password);
         sessionStorage.setItem("shifoat_admin_user_id", user.id);
@@ -3406,6 +3863,7 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
         return;
       }
       try {
+        await ensureReady();
         await db.createUser(username, password, username, "SUPER_ADMIN", null);
         document.getElementById("firstRunModal").classList.remove("active");
       } catch (err) {
@@ -3436,8 +3894,16 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
     export_word: "Word export",
     edit_attendance: "Davomatni tahrirlash (qo'lda o'zgartirish)",
     view_salary_rates: "Maosh/reference stavkalarni ko'rish",
-    manage_admins: "Adminlarni boshqarish"
+    manage_admins: "Adminlarni boshqarish",
+    // 01.09.2026 so'rovi: adminni butunlay O'CHIRISH — "Adminlarni
+    // boshqarish"dan alohida, chunki bu qaytarib bo'lmaydigan amal.
+    delete_admins: "Adminlarni o'chirish"
   };
+  var ADMIN_DELETE_OWNER_LOGINS = ["admin11", "M.Ali"];
+  function isDeleteOwnerLogin(username) {
+    const name = String(username || "").trim().toLowerCase();
+    return ADMIN_DELETE_OWNER_LOGINS.some((owner) => owner.toLowerCase() === name);
+  }
   async function hasPermission(db2, user, permissionKey) {
     if (user.role === ROLE_SUPER_ADMIN) return true;
     const perms = await db2.getPermissions(user.id);
@@ -3573,6 +4039,244 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
     });
   }
 
+  // src/config/disciplineConfig.js
+  var DISCIPLINE_CONFIG = {
+    // --- 1) Har bir mezonning maksimal balli (jami 100) ---
+    weights: {
+      onTimeArrival: 50,
+      // Ishga vaqtida kelish — eng asosiy mezon
+      earlyArrival: 20,
+      // Ishga oldinroq (5-15 daqiqa) kelish
+      onTimeLeave: 20,
+      // Ishdan vaqtida (erta emas) ketish
+      permissions: 10
+      // Ruxsat/intizom
+    },
+    // --- 2) Kechikish ---
+    // Belgilangan ish vaqtidan shu daqiqagacha kechikish — "grace period",
+    // kechikish hisoblanmaydi. 2 daqiqadan boshlab kechikish deb hisoblanadi.
+    lateGraceMinutes: 1,
+    // "Jiddiy kechikish" — shu qiymat yoki undan ko'p daqiqa kechikish.
+    // Bunday kechikish bo'lgan haftada xodim balli 90 dan yuqori bo'lsa ham
+    // "Namunali xodim" statusini OLMAYDI.
+    seriousLateMinutes: 15,
+    // --- 3) Erta kelish (ideal oraliq) ---
+    // Ish boshlanishidan shu oraliqda kelish ideal hisoblanadi. Bundan ham
+    // oldin kelish QO'SHIMCHA ball bermaydi — xodim ataylab juda erta kelib
+    // reytingni sun'iy oshira olmasin.
+    earlyArrivalIdealMinMinutes: 5,
+    earlyArrivalIdealMaxMinutes: 15,
+    // --- 4) Ruxsat/intizom ballari ---
+    // Oddiy shaxsiy ruxsatlar soniga qarab. Indeks = ruxsatlar soni,
+    // oxirgi qiymatdan keyingi hammasi (3 va undan ko'p) — 0 ball.
+    // DIQQAT: tasdiqlangan kasallik, ta'til, dam kuni, ko'chirilgan dam
+    // kuni va shu kabilar bu ballni TUSHIRMAYDI — ular umuman "oddiy
+    // shaxsiy ruxsat" deb hisoblanmaydi (qarang disciplineService.js).
+    permissionScoreByCount: [10, 8, 5, 0],
+    // --- 5) Haftalik toifalar (ball chegaralari) ---
+    categories: {
+      excellentMin: 90,
+      // 🟢 Namunali xodim — 90-100
+      mediumMin: 75
+      // 🟡 O'rta intizomli xodim — 75-89
+      // 🔴 Past intizomli xodim — 0-74 (qolgan hammasi)
+    },
+    // --- 6) Hafta uzunligi ---
+    weekLengthDays: 7,
+    // Dashboardda ko'rsatiladigan oxirgi haftalar soni (🟢🟢🟢🟢).
+    weeklyHistoryWeeks: 4,
+    // --- 7) "Oyning namunali xodimi" talablari ---
+    monthly: {
+      // Oylik intizom balli kamida shuncha bo'lishi kerak.
+      minScore: 90,
+      // "Yetarli miqdorda ish kuni ishlagan bo'lishi kerak" — o'sha oyda
+      // rejalashtirilgan ish kunlarining kamida shu ulushida (0.5 = 50%)
+      // haqiqatan kelgan bo'lishi shart.
+      minWorkedDaysRatio: 0.5,
+      // Va kamida shuncha ish kuni umuman rejalashtirilgan bo'lishi kerak
+      // (masalan oyning boshida hali 2 kun bo'lsa — g'olib tanlanmaydi).
+      minPlannedWorkDays: 5,
+      // Jiddiy kechikish bo'lmasligi kerak.
+      allowSeriousLate: false,
+      // Ruxsatsiz erta ketish bo'lmasligi kerak.
+      allowUnapprovedEarlyLeave: false
+    }
+  };
+  var DISCIPLINE_CATEGORY = {
+    EXCELLENT: "EXCELLENT",
+    MEDIUM: "MEDIUM",
+    LOW: "LOW"
+  };
+  var DISCIPLINE_CATEGORY_UZ = {
+    [DISCIPLINE_CATEGORY.EXCELLENT]: "Namunali xodim",
+    [DISCIPLINE_CATEGORY.MEDIUM]: "O'rta intizomli xodim",
+    [DISCIPLINE_CATEGORY.LOW]: "Past intizomli xodim"
+  };
+  var DISCIPLINE_CATEGORY_EMOJI = {
+    [DISCIPLINE_CATEGORY.EXCELLENT]: "\u{1F7E2}",
+    [DISCIPLINE_CATEGORY.MEDIUM]: "\u{1F7E1}",
+    [DISCIPLINE_CATEGORY.LOW]: "\u{1F534}"
+  };
+
+  // src/business/disciplineService.js
+  function weekStartKey(endDateKey, weekLength = DISCIPLINE_CONFIG.weekLengthDays) {
+    return addDaysToKey(endDateKey, -(weekLength - 1));
+  }
+  function categoryForScore(score, hasSeriousLate) {
+    const { excellentMin, mediumMin } = DISCIPLINE_CONFIG.categories;
+    if (score >= excellentMin) {
+      return hasSeriousLate ? DISCIPLINE_CATEGORY.MEDIUM : DISCIPLINE_CATEGORY.EXCELLENT;
+    }
+    if (score >= mediumMin) return DISCIPLINE_CATEGORY.MEDIUM;
+    return DISCIPLINE_CATEGORY.LOW;
+  }
+  function permissionScore(count) {
+    const table = DISCIPLINE_CONFIG.permissionScoreByCount;
+    return count < table.length ? table[count] : table[table.length - 1];
+  }
+  function computeDisciplineScore({
+    employee,
+    startDateKey,
+    endDateKey,
+    scheduleHistory,
+    attendanceByDate,
+    dayStatusByDate,
+    permissionByDate
+  }) {
+    const cfg = DISCIPLINE_CONFIG;
+    let plannedWorkDays = 0;
+    let workedDays = 0;
+    let onTimeDays = 0;
+    let idealEarlyDays = 0;
+    let earlyLeaveDays = 0;
+    let lateDays = 0;
+    let totalLateMinutes = 0;
+    let totalEarlyMinutes = 0;
+    let seriousLateDays = 0;
+    let permissionCount = 0;
+    for (let dateKey = startDateKey; dateKey <= endDateKey; dateKey = addDaysToKey(dateKey, 1)) {
+      const status = resolveDayStatusSync(dayStatusByDate.get(dateKey), scheduleHistory, dateKey);
+      const daysPermission = permissionByDate.get(dateKey) || null;
+      if (daysPermission && WORK_LIKE_STATUSES.has(status)) permissionCount++;
+      if (!WORK_LIKE_STATUSES.has(status)) continue;
+      plannedWorkDays++;
+      const record = attendanceByDate.get(dateKey);
+      if (!record || !record.checkInTime) continue;
+      workedDays++;
+      const lateMinutes = record.lateMinutes || 0;
+      if (lateMinutes === 0) {
+        onTimeDays++;
+      } else {
+        lateDays++;
+        totalLateMinutes += lateMinutes;
+        if (lateMinutes >= cfg.seriousLateMinutes) seriousLateDays++;
+      }
+      const scheduledStart = record.scheduledStart ? new Date(record.scheduledStart) : scheduledStartFromSchedule(scheduleHistory, dateKey);
+      if (scheduledStart) {
+        const earlyMinutes = computeEarlyArrival(scheduledStart, new Date(record.checkInTime));
+        if (earlyMinutes > 0) totalEarlyMinutes += earlyMinutes;
+        if (earlyMinutes >= cfg.earlyArrivalIdealMinMinutes && earlyMinutes <= cfg.earlyArrivalIdealMaxMinutes) {
+          idealEarlyDays++;
+        }
+      }
+      if (record.checkOutTime) {
+        const { undertimeMinutes } = deriveOvertimeUndertime(record);
+        if (undertimeMinutes > 0 && !daysPermission) earlyLeaveDays++;
+      }
+    }
+    if (plannedWorkDays === 0) {
+      return {
+        employeeId: employee.id,
+        employeeName: `${employee.firstName} ${employee.lastName || ""}`.trim(),
+        photoUrl: employee.photoUrl || null,
+        startDateKey,
+        endDateKey,
+        hasData: false,
+        score: null,
+        category: null,
+        plannedWorkDays: 0,
+        workedDays: 0,
+        onTimeDays: 0,
+        onTimePercent: 0,
+        idealEarlyDays: 0,
+        avgEarlyMinutes: 0,
+        lateDays: 0,
+        totalLateMinutes: 0,
+        seriousLateDays: 0,
+        earlyLeaveDays: 0,
+        permissionCount: 0
+      };
+    }
+    const w = cfg.weights;
+    const onTimeScore = onTimeDays / plannedWorkDays * w.onTimeArrival;
+    const earlyScore = idealEarlyDays / plannedWorkDays * w.earlyArrival;
+    const notLeftEarlyDays = plannedWorkDays - earlyLeaveDays;
+    const leaveScore = Math.max(0, notLeftEarlyDays) / plannedWorkDays * w.onTimeLeave;
+    const permScore = permissionScore(permissionCount);
+    const score = Math.round(onTimeScore + earlyScore + leaveScore + permScore);
+    const hasSeriousLate = seriousLateDays > 0;
+    return {
+      employeeId: employee.id,
+      employeeName: `${employee.firstName} ${employee.lastName || ""}`.trim(),
+      photoUrl: employee.photoUrl || null,
+      startDateKey,
+      endDateKey,
+      hasData: true,
+      score,
+      category: categoryForScore(score, hasSeriousLate),
+      breakdown: {
+        onTime: Math.round(onTimeScore * 10) / 10,
+        early: Math.round(earlyScore * 10) / 10,
+        leave: Math.round(leaveScore * 10) / 10,
+        permissions: permScore
+      },
+      plannedWorkDays,
+      workedDays,
+      onTimeDays,
+      onTimePercent: Math.round(onTimeDays / plannedWorkDays * 100),
+      idealEarlyDays,
+      avgEarlyMinutes: workedDays ? Math.round(totalEarlyMinutes / workedDays) : 0,
+      lateDays,
+      totalLateMinutes,
+      seriousLateDays,
+      hasSeriousLate,
+      earlyLeaveDays,
+      permissionCount
+    };
+  }
+  function scheduledStartFromSchedule(scheduleHistory, dateKey) {
+    const schedule = pickScheduleForDate(scheduleHistory, dateKey);
+    if (!schedule) return null;
+    return combineTashkent(dateKey, schedule.workStart);
+  }
+  function rankEmployees(scores) {
+    return [...scores].filter((s) => s.hasData).sort((a, b) => compareForRanking(a, b));
+  }
+  function compareForRanking(a, b) {
+    if (b.score !== a.score) return b.score - a.score;
+    if (a.lateDays !== b.lateDays) return a.lateDays - b.lateDays;
+    if (a.totalLateMinutes !== b.totalLateMinutes) return a.totalLateMinutes - b.totalLateMinutes;
+    if (a.earlyLeaveDays !== b.earlyLeaveDays) return a.earlyLeaveDays - b.earlyLeaveDays;
+    if (a.permissionCount !== b.permissionCount) return a.permissionCount - b.permissionCount;
+    if (a.idealEarlyDays !== b.idealEarlyDays) return b.idealEarlyDays - a.idealEarlyDays;
+    return a.employeeName.localeCompare(b.employeeName);
+  }
+  function qualifiesForMonthlyChampion(monthScore) {
+    const m = DISCIPLINE_CONFIG.monthly;
+    if (!monthScore || !monthScore.hasData) return false;
+    if (monthScore.score < m.minScore) return false;
+    if (!m.allowSeriousLate && monthScore.hasSeriousLate) return false;
+    if (!m.allowUnapprovedEarlyLeave && monthScore.earlyLeaveDays > 0) return false;
+    if (monthScore.plannedWorkDays < m.minPlannedWorkDays) return false;
+    if (monthScore.workedDays < monthScore.plannedWorkDays * m.minWorkedDaysRatio) return false;
+    return true;
+  }
+  function pickMonthlyChampion(monthlyScores) {
+    const qualified = monthlyScores.filter(qualifiesForMonthlyChampion);
+    if (!qualified.length) return null;
+    return [...qualified].sort(compareForRanking)[0];
+  }
+
   // src/ui/admin/dashboardSection.js
   var _db;
   async function initDashboard(db2, _user6) {
@@ -3705,6 +4409,153 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
       card.addEventListener("click", () => openDashboardList(label, list));
       container.appendChild(card);
     }
+    renderDisciplineBlocks(employees, allSchedules, allDayStatuses, allLatePermissions, selectedDateKey).catch((err) => console.error("Discipline block failed (non-fatal):", err));
+  }
+  async function renderDisciplineBlocks(employees, allSchedules, allDayStatuses, allLatePermissions, selectedDateKey) {
+    const championEl = document.getElementById("championCard");
+    const ratingEl = document.getElementById("weeklyRatingBlock");
+    if (!championEl || !ratingEl) return;
+    const cfg = DISCIPLINE_CONFIG;
+    const [yearStr, monthStr] = selectedDateKey.split("-");
+    const year = Number(yearStr), month = Number(monthStr);
+    const monthStart = monthDateKey(year, month, 1);
+    const monthEnd = monthDateKey(year, month, daysInMonth(year, month));
+    const monthEvalEnd = selectedDateKey < monthEnd ? selectedDateKey : monthEnd;
+    const historyStart = weekStartKey(selectedDateKey, cfg.weekLengthDays * cfg.weeklyHistoryWeeks);
+    const rangeStart = historyStart < monthStart ? historyStart : monthStart;
+    const rangeEnd = monthEvalEnd > selectedDateKey ? monthEvalEnd : selectedDateKey;
+    const attendanceRows = await _db.listAttendanceForRange(rangeStart, rangeEnd);
+    const schedulesByEmployee = /* @__PURE__ */ new Map();
+    for (const version of allSchedules) {
+      if (!schedulesByEmployee.has(version.employeeId)) schedulesByEmployee.set(version.employeeId, []);
+      schedulesByEmployee.get(version.employeeId).push(version);
+    }
+    const attendanceByEmployee = /* @__PURE__ */ new Map();
+    for (const row of attendanceRows) {
+      if (!attendanceByEmployee.has(row.employeeId)) attendanceByEmployee.set(row.employeeId, /* @__PURE__ */ new Map());
+      attendanceByEmployee.get(row.employeeId).set(row.dateKey, row);
+    }
+    const dayStatusesByEmployee = /* @__PURE__ */ new Map();
+    for (const row of allDayStatuses) {
+      if (!dayStatusesByEmployee.has(row.employeeId)) dayStatusesByEmployee.set(row.employeeId, /* @__PURE__ */ new Map());
+      dayStatusesByEmployee.get(row.employeeId).set(row.dateKey, row.status);
+    }
+    const permissionsByEmployee = /* @__PURE__ */ new Map();
+    for (const row of allLatePermissions) {
+      if (!permissionsByEmployee.has(row.employeeId)) permissionsByEmployee.set(row.employeeId, /* @__PURE__ */ new Map());
+      permissionsByEmployee.get(row.employeeId).set(row.dateKey, row);
+    }
+    const scoreFor = (employee, startKey, endKey) => computeDisciplineScore({
+      employee,
+      startDateKey: startKey,
+      endDateKey: endKey,
+      scheduleHistory: schedulesByEmployee.get(employee.id) || [],
+      attendanceByDate: attendanceByEmployee.get(employee.id) || /* @__PURE__ */ new Map(),
+      dayStatusByDate: dayStatusesByEmployee.get(employee.id) || /* @__PURE__ */ new Map(),
+      permissionByDate: permissionsByEmployee.get(employee.id) || /* @__PURE__ */ new Map()
+    });
+    const weekStart = weekStartKey(selectedDateKey);
+    const weeklyScores = employees.map((e) => scoreFor(e, weekStart, selectedDateKey));
+    const weeklyRanked = rankEmployees(weeklyScores);
+    const weeklyHistoryByEmployee = /* @__PURE__ */ new Map();
+    for (const employee of employees) {
+      const marks = [];
+      for (let i = cfg.weeklyHistoryWeeks - 1; i >= 0; i--) {
+        const endKey = addDaysToKey(selectedDateKey, -i * cfg.weekLengthDays);
+        const startKey = weekStartKey(endKey);
+        const weekScore = scoreFor(employee, startKey, endKey);
+        marks.push(weekScore.hasData ? DISCIPLINE_CATEGORY_EMOJI[weekScore.category] : "\u26AA");
+      }
+      weeklyHistoryByEmployee.set(employee.id, marks.join(" "));
+    }
+    const monthlyScores = employees.map((e) => scoreFor(e, monthStart, monthEvalEnd));
+    const monthlyRanked = rankEmployees(monthlyScores);
+    const champion = pickMonthlyChampion(monthlyScores);
+    renderChampionCard(championEl, champion, monthlyRanked, weeklyHistoryByEmployee, month, year);
+    renderWeeklyRating(ratingEl, weeklyRanked, weekStart, selectedDateKey);
+  }
+  var UZ_MONTHS = [
+    "",
+    "Yanvar",
+    "Fevral",
+    "Mart",
+    "Aprel",
+    "May",
+    "Iyun",
+    "Iyul",
+    "Avgust",
+    "Sentabr",
+    "Oktabr",
+    "Noyabr",
+    "Dekabr"
+  ];
+  function avatarHtml(entry, photoClass, placeholderClass) {
+    if (entry.photoUrl) {
+      return `<img class="${photoClass}" src="${entry.photoUrl}" alt="" />`;
+    }
+    const letter = (entry.employeeName[0] || "?").toUpperCase();
+    return `<div class="${placeholderClass}">${letter}</div>`;
+  }
+  function renderChampionCard(el2, champion, monthlyRanked, weeklyHistoryByEmployee, month, year) {
+    const monthLabel = `${UZ_MONTHS[month]} ${year}`;
+    if (!champion) {
+      el2.innerHTML = `
+      <div class="champion-card champion-empty">
+        <p class="champion-title">\u{1F3C6} Oyning namunali xodimi \u2014 ${monthLabel}</p>
+        <p class="muted" style="margin:0; font-size:14px;">Bu oy namunali xodim aniqlanmadi.</p>
+      </div>`;
+      return;
+    }
+    const place = monthlyRanked.findIndex((s) => s.employeeId === champion.employeeId) + 1;
+    const weeks = weeklyHistoryByEmployee.get(champion.employeeId) || "";
+    el2.innerHTML = `
+    <div class="champion-card">
+      <p class="champion-title">\u{1F3C6} Oyning namunali xodimi \u2014 ${monthLabel}</p>
+      <div class="champion-body">
+        ${avatarHtml(champion, "champion-photo", "champion-photo-placeholder")}
+        <div style="min-width:220px;">
+          <p class="champion-name">${champion.employeeName}</p>
+          <p class="champion-score">${champion.score}/100 ball</p>
+          <div class="champion-stats">
+            <span>Vaqtida kelish: <b>${champion.onTimePercent}%</b></span>
+            <span>Kechikish: <b>${champion.lateDays}</b></span>
+            <span>Erta ketish: <b>${champion.earlyLeaveDays}</b></span>
+            <span>Ruxsat: <b>${champion.permissionCount}</b></span>
+            <span>O'rtacha kelish: <b>${champion.avgEarlyMinutes} daqiqa oldin</b></span>
+            <span>Reyting: <b>${place}/${monthlyRanked.length}</b></span>
+          </div>
+          <div class="champion-weeks" title="Oxirgi haftalar natijasi">Haftalik natijalar: ${weeks}</div>
+        </div>
+      </div>
+    </div>`;
+  }
+  function renderWeeklyRating(el2, ranked, weekStart, weekEnd) {
+    if (!ranked.length) {
+      el2.innerHTML = `
+      <div class="rating-block">
+        <h3>Haftalik intizom reytingi (${ddmmyyyy(weekStart)} \u2014 ${ddmmyyyy(weekEnd)})</h3>
+        <p class="muted" style="font-size:13px;">Bu hafta uchun baholanadigan ish kuni topilmadi.</p>
+      </div>`;
+      return;
+    }
+    const rows = ranked.map((s, i) => `
+    <div class="rating-row">
+      <div class="rating-place">${i + 1}.</div>
+      ${avatarHtml(s, "rating-photo", "rating-photo-placeholder")}
+      <div>
+        <div class="rating-name">${s.employeeName}</div>
+        <div class="rating-sub">Vaqtida: ${s.onTimePercent}% \xB7 Kechikish: ${s.lateDays} \xB7 Erta ketish: ${s.earlyLeaveDays} \xB7 Ruxsat: ${s.permissionCount}</div>
+      </div>
+      <div class="rating-score">
+        <b>${s.score}/100</b>
+        <div class="rating-status">${DISCIPLINE_CATEGORY_EMOJI[s.category]} ${DISCIPLINE_CATEGORY_UZ[s.category]}</div>
+      </div>
+    </div>`).join("");
+    el2.innerHTML = `
+    <div class="rating-block">
+      <h3>Haftalik intizom reytingi (${ddmmyyyy(weekStart)} \u2014 ${ddmmyyyy(weekEnd)})</h3>
+      <div>${rows}</div>
+    </div>`;
   }
   function openDashboardList(title, list) {
     document.getElementById("dashboardListTitle").textContent = `${title} (${list.length})`;
@@ -3776,6 +4627,9 @@ ${origLine}${reasonLine}` });
   }
 
   // src/business/employeeService.js
+  function logInBackground(db2, ...args) {
+    db2.addAuditLog(...args).catch((err) => console.error("Audit log failed (non-fatal):", err));
+  }
   async function createEmployeeWithSchedule(db2, fields, actorId) {
     const employee = await db2.createEmployee(fields);
     await db2.createFirstSchedule(employee.id, {
@@ -3785,7 +4639,8 @@ ${origLine}${reasonLine}` });
       avgMonthlySalary: fields.avgMonthlySalary,
       workDaysPerMonth: fields.workDaysPerMonth
     }, actorId);
-    await db2.addAuditLog(
+    logInBackground(
+      db2,
       actorId,
       fields.actorName || "",
       "EMPLOYEE_CREATED",
@@ -3797,16 +4652,19 @@ ${origLine}${reasonLine}` });
   }
   async function deleteEmployeeCompletely(db2, employeeId, actorId, employeeName) {
     await db2.deleteEmployee(employeeId);
-    await db2.addAuditLog(actorId, "", "EMPLOYEE_DELETED", "employee", employeeId, employeeName || "");
+    logInBackground(db2, actorId, "", "EMPLOYEE_DELETED", "employee", employeeId, employeeName || "");
   }
   async function updateEmployeeAndMaybeSchedule(db2, employeeId, patch, scheduleFields, todayKey, actorId) {
-    await db2.updateEmployee(employeeId, patch);
+    const [, current] = await Promise.all([
+      db2.updateEmployee(employeeId, patch),
+      scheduleFields ? db2.getCurrentSchedule(employeeId, todayKey) : Promise.resolve(null)
+    ]);
     if (scheduleFields) {
-      const current = await db2.getCurrentSchedule(employeeId, todayKey);
       const changed = !current || current.workStart !== scheduleFields.workStart || current.workEnd !== scheduleFields.workEnd || current.weeklyRestDay !== scheduleFields.weeklyRestDay || current.avgMonthlySalary !== scheduleFields.avgMonthlySalary || current.workDaysPerMonth !== scheduleFields.workDaysPerMonth;
       if (changed) {
         await db2.addScheduleVersion(employeeId, todayKey, scheduleFields, actorId);
-        await db2.addAuditLog(
+        logInBackground(
+          db2,
           actorId,
           "",
           "SCHEDULE_CHANGED",
@@ -4060,14 +4918,20 @@ ${origLine}${reasonLine}` });
     const thPassword = document.getElementById("thEmployeePassword");
     if (thPassword) thPassword.style.display = viewerIsPrimary ? "" : "none";
     const todayKey = tashkentDateKey();
-    const [schedules, faceFlags] = await Promise.all([
-      Promise.all(employees.map((e) => _db2.getCurrentSchedule(e.id, todayKey))),
-      Promise.all(employees.map((e) => _db2.hasFaceEnrolled(e.id)))
+    const [allSchedules, faceIds] = await Promise.all([
+      _db2.listAllSchedules(),
+      _db2.listEmployeeIdsWithFace()
     ]);
-    employees.forEach((employee, i) => {
-      const schedule = schedules[i];
+    const schedulesByEmployee = /* @__PURE__ */ new Map();
+    for (const version of allSchedules) {
+      if (!schedulesByEmployee.has(version.employeeId)) schedulesByEmployee.set(version.employeeId, []);
+      schedulesByEmployee.get(version.employeeId).push(version);
+    }
+    const faceIdSet = new Set(faceIds);
+    employees.forEach((employee) => {
+      const schedule = pickScheduleForDate(schedulesByEmployee.get(employee.id) || [], todayKey);
       const scheduleText = schedule ? `${schedule.workStart}-${schedule.workEnd}` : "\u2014";
-      const hasFace = faceFlags[i];
+      const hasFace = faceIdSet.has(employee.id);
       const fullName = `${employee.firstName} ${employee.lastName || ""}`.trim();
       const passwordCellStyle = viewerIsPrimary ? "" : ' style="display:none;"';
       const passwordCellText = viewerIsPrimary ? employee.password || "\u2014" : "";
@@ -4168,6 +5032,20 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       errorEl.textContent = "Login kiritilishi shart.";
       return;
     }
+    const saveBtn = document.getElementById("employeeModalSave");
+    const originalText = saveBtn.textContent;
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saqlanmoqda\u2026";
+    showBusy("Saqlanmoqda\u2026");
+    try {
+      await onSaveInner(errorEl, firstName);
+    } finally {
+      hideBusy();
+      saveBtn.disabled = false;
+      saveBtn.textContent = originalText;
+    }
+  }
+  async function onSaveInner(errorEl, firstName) {
     const password = document.getElementById("empPassword").value;
     try {
       const taken = await _db2.isLoginTaken(firstName, _editingId);
@@ -4353,10 +5231,10 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     const employeeId = employeeSelect.value;
     if (!employeeId) return;
     ["Du", "Se", "Cho", "Pa", "Ju", "Sha", "Yak"].forEach((label) => {
-      const el = document.createElement("div");
-      el.className = "calendar-day-header";
-      el.textContent = label;
-      grid.appendChild(el);
+      const el2 = document.createElement("div");
+      el2.className = "calendar-day-header";
+      el2.textContent = label;
+      grid.appendChild(el2);
     });
     const year = Number(yearInput.value);
     const month = Number(monthInput.value);
@@ -4562,6 +5440,20 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     const tbody2 = document.querySelector("#reportTable tbody");
     summaryEl.textContent = "Hisoblanmoqda\u2026";
     tbody2.innerHTML = "";
+    const calcBtn = document.getElementById("btnCalcReport");
+    const calcBtnText = calcBtn.textContent;
+    calcBtn.disabled = true;
+    calcBtn.textContent = "Hisoblanmoqda\u2026";
+    showBusy("Hisoblanmoqda\u2026");
+    try {
+      await calculateInner(employeeId);
+    } finally {
+      hideBusy();
+      calcBtn.disabled = false;
+      calcBtn.textContent = calcBtnText;
+    }
+  }
+  async function calculateInner(employeeId) {
     try {
       _lastReport = await buildMonthlyReport(_db5, employeeId, Number(yearInput2.value), Number(monthInput2.value));
     } catch (err) {
@@ -4646,6 +5538,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     const btn = document.getElementById("btnEditReport");
     btn.disabled = true;
     btn.textContent = "Saqlanmoqda\u2026";
+    showBusy("Saqlanmoqda\u2026");
     try {
       const rows = [...document.querySelectorAll("#reportTable tbody tr")];
       let changedCount = 0;
@@ -4670,6 +5563,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         changedCount++;
       }
       exitEditMode();
+      hideBusy();
       btn.disabled = false;
       if (changedCount > 0) {
         await onCalculate();
@@ -4677,6 +5571,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         renderReportRows();
       }
     } catch (err) {
+      hideBusy();
       console.error("manuallySetAttendance failed:", err);
       await alertDialog({ title: "Xatolik", message: `Saqlashda xatolik: ${uzError(err)}` });
       btn.disabled = false;
@@ -4765,6 +5660,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
   }
 
   // src/ui/admin/adminsSection.js
+  init_appConfig();
   var _db7;
   var _user4;
   async function initAdmins(db2, user) {
@@ -4819,6 +5715,9 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       (u) => u.role === ROLE_SUPER_ADMIN ? Promise.resolve(null) : _db7.getPermissions(u.id)
     ));
     const permCountByUserId = new Map(users.map((u, i) => [u.id, permCounts[i]]));
+    const viewerIsDeleteOwner = isDeleteOwnerLogin(_user4.username);
+    const viewerPerms = _user4.role === ROLE_SUPER_ADMIN ? await _db7.getPermissions(_user4.id).catch(() => /* @__PURE__ */ new Set()) : await _db7.getPermissions(_user4.id);
+    const canDeleteAdmins = viewerIsDeleteOwner || viewerPerms.has("delete_admins");
     for (const u of users) {
       const isSuper = u.role === ROLE_SUPER_ADMIN;
       const permCount = isSuper ? "\u2014" : permCountByUserId.get(u.id).size;
@@ -4859,12 +5758,12 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         changePwBtn.addEventListener("click", async () => {
           const newPassword = await promptDialog({
             title: "Parolni almashtirish",
-            message: `"${u.username}" uchun yangi parol kiriting (kamida 6 ta belgi):`,
+            message: `"${u.username}" uchun yangi parol kiriting (kamida ${MIN_PASSWORD_LENGTH} ta belgi):`,
             placeholder: "Yangi parol"
           });
           if (newPassword === null) return;
-          if (newPassword.length < 6) {
-            await alertDialog({ title: "Xatolik", message: "Parol kamida 6 ta belgidan iborat bo'lishi kerak." });
+          if (newPassword.length < MIN_PASSWORD_LENGTH) {
+            await alertDialog({ title: "Xatolik", message: MIN_PASSWORD_MESSAGE });
             return;
           }
           try {
@@ -4876,6 +5775,31 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
           }
         });
         actionsCell.appendChild(changePwBtn);
+      }
+      if (canDeleteAdmins && u.id !== _user4.id) {
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "btn btn-secondary admin-delete-btn";
+        deleteBtn.textContent = "\u{1F5D1} O'chirish";
+        deleteBtn.style.color = "var(--shifoat-red)";
+        deleteBtn.addEventListener("click", async () => {
+          const ok = await confirmDialog({
+            title: "Adminni o'chirish",
+            message: `"${u.username}" admin hisobini butunlay o'chirmoqchimisiz?
+Bu amalni orqaga qaytarib bo'lmaydi.`,
+            okText: "Ha, o'chirish",
+            cancelText: "Bekor qilish",
+            danger: true
+          });
+          if (!ok) return;
+          try {
+            await _db7.deleteAdminUser(u.id, _user4.id);
+            await refreshAdmins();
+            await alertDialog({ title: "Bajarildi", message: `"${u.username}" o'chirildi.` });
+          } catch (err) {
+            await alertDialog({ title: "Xatolik", message: uzError(err) });
+          }
+        });
+        actionsCell.appendChild(deleteBtn);
       }
       tbody2.appendChild(tr);
     }
@@ -4929,7 +5853,10 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
   var _db8;
   var _user5;
   var _lastRows = [];
-  var UZ_MONTHS2 = [
+  var _permissionsEditMode = false;
+  var _permissionsCanDelete = false;
+  var _permissionsEmployees = [];
+  var UZ_MONTHS3 = [
     "",
     "Yanvar",
     "Fevral",
@@ -4951,9 +5878,19 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
   function tbody() {
     return document.querySelector("#permissionsLogTable tbody");
   }
+  function permissionsEscape(value) {
+    return String(value == null ? "" : value).replace(/[&<>"']/g, (ch) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    })[ch]);
+  }
   async function initPermissionsLog(db2, user) {
     _db8 = db2;
     _user5 = user;
+    _permissionsCanDelete = String(user && user.username || "").trim().toLowerCase() === "admin11";
     const today = /* @__PURE__ */ new Date();
     yearInput3.value = today.getFullYear();
     monthInput3.value = today.getMonth() + 1;
@@ -4962,11 +5899,14 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
     dateInput2.addEventListener("change", renderLog);
     yearInput3.addEventListener("change", renderLog);
     monthInput3.addEventListener("change", renderLog);
+    document.getElementById("btnEditPermissionsLog").addEventListener("click", onTogglePermissionsEdit);
     document.getElementById("btnExportPermissionsWord").addEventListener("click", onExportWord);
+    tbody().addEventListener("click", onPermissionRowAction);
   }
   async function refreshPermissionsLog() {
     const currentId = employeeSelect3.value;
     const employees = await _db8.listEmployees();
+    _permissionsEmployees = employees;
     employeeSelect3.innerHTML = "";
     const allOption = document.createElement("option");
     allOption.value = "";
@@ -4981,34 +5921,47 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
     employeeSelect3.value = currentId && employees.some((e) => e.id === currentId) ? currentId : "";
     await renderLog();
   }
+  function onTogglePermissionsEdit() {
+    _permissionsEditMode = !_permissionsEditMode;
+    const btn = document.getElementById("btnEditPermissionsLog");
+    btn.textContent = _permissionsEditMode ? "✅ Tahrirlashni yopish" : "✏️ Tahrirlash";
+    document.getElementById("permissionsLogActionsHead").style.display = _permissionsEditMode ? "table-cell" : "none";
+    renderLog();
+  }
   async function renderLog() {
     const body = tbody();
-    body.innerHTML = `<tr><td colspan="6" class="muted">Yuklanmoqda\u2026</td></tr>`;
+    body.innerHTML = `<tr><td colspan="${_permissionsEditMode ? 7 : 6}" class="muted">Yuklanmoqda…</td></tr>`;
     const [latePermissions, scheduleOverrides, employees, users] = await Promise.all([
       _db8.listAllLatePermissions(),
       _db8.listAllScheduleOverrides(),
       _db8.listEmployees(),
       _db8.listUsers()
     ]);
+    _permissionsEmployees = employees;
     const employeeById = new Map(employees.map((e) => [e.id, e]));
     const userById = new Map(users.map((u) => [u.id, u]));
     const merged = [
       ...latePermissions.map((p) => ({
+        recordType: "latePermission",
+        recordId: p.id,
         sortDateKey: p.dateKey,
         employeeId: p.employeeId,
+        dateKey: p.dateKey,
+        allowedStartTime: p.allowedStartTime || "",
         type: "Kechikishga ruxsat",
-        detail: `${p.allowedStartTime || "\u2014"} gacha kelishi mumkin`,
+        detail: `${p.allowedStartTime || "—"} gacha kelishi mumkin`,
         reason: p.reason,
         createdBy: p.createdBy
       })),
       ...scheduleOverrides.map((o) => ({
-        // Yangi (ko'chirilgan) dam kuni — bugungi/kelajakdagi jadvalga
-        // taalluqli asosiy sana shu, shuning uchun "Sana" ustunida shu
-        // ko'rsatiladi, asl sana esa "Tafsilot"da.
+        recordType: "scheduleOverride",
+        recordId: o.id,
         sortDateKey: o.newDateKey,
         employeeId: o.employeeId,
+        originalDateKey: o.originalDateKey,
+        newDateKey: o.newDateKey,
         type: "Dam kuni ko'chirildi",
-        detail: `Asl dam kuni: ${ddmmyyyy(o.originalDateKey)} \u2192 Yangi dam kuni: ${ddmmyyyy(o.newDateKey)}`,
+        detail: `Asl dam kuni: ${ddmmyyyy(o.originalDateKey)} → Yangi dam kuni: ${ddmmyyyy(o.newDateKey)}`,
         reason: o.reason,
         createdBy: o.createdBy
       }))
@@ -5030,36 +5983,148 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
       const employee = employeeById.get(r.employeeId);
       const employeeName = employee ? `${employee.firstName} ${employee.lastName || ""}`.trim() : "(o'chirilgan xodim)";
       const grantedByUser = userById.get(r.createdBy);
-      const grantedByName = grantedByUser ? grantedByUser.fullName || grantedByUser.username : "\u2014";
+      const grantedByName = grantedByUser ? grantedByUser.fullName || grantedByUser.username : "—";
       return {
+        ...r,
         dateLabel: ddmmyyyy(r.sortDateKey),
-        type: r.type,
         employeeName,
-        detail: r.detail,
-        reason: r.reason || "\u2014",
+        reason: r.reason || "—",
         grantedByName
       };
     });
     _lastRows = displayRows;
     if (!displayRows.length) {
-      body.innerHTML = `<tr><td colspan="6" class="muted">Bu davrda hech qanday ruxsat berilmagan.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="${_permissionsEditMode ? 7 : 6}" class="muted">Bu davrda hech qanday ruxsat berilmagan.</td></tr>`;
       return;
     }
-    body.innerHTML = displayRows.map((r) => `<tr>
-      <td>${r.dateLabel}</td>
-      <td>${r.type}</td>
-      <td>${r.employeeName}</td>
-      <td>${r.detail}</td>
-      <td>${r.reason}</td>
-      <td>${r.grantedByName}</td>
-    </tr>`).join("");
+    body.innerHTML = displayRows.map((r) => {
+      const rowKey = `${r.recordType}:${r.recordId}`;
+      const actions = _permissionsEditMode ? `<td style="white-space:nowrap;">
+        <button type="button" class="btn btn-secondary" data-permission-action="edit" data-row-key="${permissionsEscape(rowKey)}" style="padding:5px 9px; font-size:12px;">✏️ O'zgartirish</button>
+        ${_permissionsCanDelete ? `<button type="button" class="btn btn-primary" data-permission-action="delete" data-row-key="${permissionsEscape(rowKey)}" style="padding:5px 9px; font-size:12px; margin-left:5px; background:var(--shifoat-red-dark);">🗑️ O'chirish</button>` : ""}
+      </td>` : "";
+      return `<tr>
+        <td>${permissionsEscape(r.dateLabel)}</td>
+        <td>${permissionsEscape(r.type)}</td>
+        <td>${permissionsEscape(r.employeeName)}</td>
+        <td>${permissionsEscape(r.detail)}</td>
+        <td>${permissionsEscape(r.reason)}</td>
+        <td>${permissionsEscape(r.grantedByName)}</td>
+        ${actions}
+      </tr>`;
+    }).join("");
+  }
+  function findPermissionRow(rowKey) {
+    return _lastRows.find((r) => `${r.recordType}:${r.recordId}` === rowKey) || null;
+  }
+  async function onPermissionRowAction(ev) {
+    const btn = ev.target.closest("[data-permission-action]");
+    if (!btn) return;
+    const row = findPermissionRow(btn.dataset.rowKey);
+    if (!row) return;
+    const action = btn.dataset.permissionAction;
+    if (action === "edit") await openPermissionEditDialog(row);
+    else if (action === "delete") await deletePermissionRow(row);
+  }
+  function employeeOptionsHtml(selectedId) {
+    return _permissionsEmployees.map((employee) => {
+      const fullName = `${employee.firstName} ${employee.lastName || ""}`.trim();
+      return `<option value="${permissionsEscape(employee.id)}"${employee.id === selectedId ? " selected" : ""}>${permissionsEscape(fullName)}</option>`;
+    }).join("");
+  }
+  function openPermissionEditDialog(row) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.className = "modal-overlay active";
+      overlay.style.zIndex = "230";
+      const box = document.createElement("div");
+      box.className = "modal-box";
+      box.style.maxWidth = "520px";
+      const isLate = row.recordType === "latePermission";
+      box.innerHTML = `
+        <h3>Ruxsatni tahrirlash</h3>
+        <div class="form-row"><label>Xodim</label><select id="permissionEditEmployee">${employeeOptionsHtml(row.employeeId)}</select></div>
+        ${isLate ? `
+          <div class="form-row"><label>Ruxsat berilgan sana</label><input type="date" id="permissionEditDate" value="${permissionsEscape(row.dateKey)}" /></div>
+          <div class="form-row"><label>Ruxsat berilgan soat</label><input type="time" id="permissionEditTime" value="${permissionsEscape(row.allowedStartTime)}" /></div>
+        ` : `
+          <div class="form-row"><label>Asl dam olish kuni</label><input type="date" id="permissionEditOriginalDate" value="${permissionsEscape(row.originalDateKey)}" /></div>
+          <div class="form-row"><label>Yangi dam olish kuni</label><input type="date" id="permissionEditNewDate" value="${permissionsEscape(row.newDateKey)}" /></div>
+        `}
+        <div class="form-row"><label>Sabab</label><input type="text" id="permissionEditReason" value="${permissionsEscape(row.reason === "—" ? "" : row.reason)}" /></div>
+        <p class="error-text" id="permissionEditError"></p>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:18px;">
+          <button type="button" class="btn btn-secondary" id="permissionEditCancel">Bekor qilish</button>
+          <button type="button" class="btn btn-primary" id="permissionEditSave">Saqlash</button>
+        </div>`;
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+      const close = () => {
+        overlay.remove();
+        resolve();
+      };
+      box.querySelector("#permissionEditCancel").addEventListener("click", close);
+      overlay.addEventListener("click", (ev) => {
+        if (ev.target === overlay) close();
+      });
+      box.querySelector("#permissionEditSave").addEventListener("click", async () => {
+        const saveBtn = box.querySelector("#permissionEditSave");
+        const errorEl = box.querySelector("#permissionEditError");
+        errorEl.textContent = "";
+        const employeeId = box.querySelector("#permissionEditEmployee").value;
+        const reason = box.querySelector("#permissionEditReason").value.trim();
+        try {
+          saveBtn.disabled = true;
+          saveBtn.textContent = "Saqlanmoqda…";
+          if (isLate) {
+            const dateKey = box.querySelector("#permissionEditDate").value;
+            const allowedStartTime = box.querySelector("#permissionEditTime").value;
+            if (!employeeId || !dateKey || !allowedStartTime) throw new Error("Xodim, sana va soatni to'liq kiriting.");
+            await _db8.updateLatePermissionById(row.recordId, { employeeId, dateKey, allowedStartTime, reason }, _user5.id);
+          } else {
+            const originalDateKey = box.querySelector("#permissionEditOriginalDate").value;
+            const newDateKey = box.querySelector("#permissionEditNewDate").value;
+            if (!employeeId || !originalDateKey || !newDateKey) throw new Error("Xodim va ikkala sanani to'liq kiriting.");
+            await _db8.updateScheduleOverrideById(row.recordId, { employeeId, originalDateKey, newDateKey, reason }, _user5.id);
+          }
+          overlay.remove();
+          await renderLog();
+          resolve();
+        } catch (err) {
+          errorEl.textContent = uzError(err);
+          saveBtn.disabled = false;
+          saveBtn.textContent = "Saqlash";
+        }
+      });
+    });
+  }
+  async function deletePermissionRow(row) {
+    if (!_permissionsCanDelete) {
+      await alertDialog({ title: "Ruxsat yo'q", message: "Ruxsatlarni o'chirish faqat admin11 uchun ochilgan." });
+      return;
+    }
+    const ok = await confirmDialog({
+      title: "Ruxsatni o'chirish",
+      message: `${row.employeeName} — ${row.dateLabel}\n${row.type}\n\nBu yozuv butunlay o'chiriladi. Davom etilsinmi?`,
+      okText: "O'chirish",
+      cancelText: "Bekor qilish",
+      danger: true
+    });
+    if (!ok) return;
+    try {
+      if (row.recordType === "latePermission") await _db8.deleteLatePermissionById(row.recordId, _user5.id);
+      else await _db8.deleteScheduleOverrideById(row.recordId, _user5.id);
+      await renderLog();
+    } catch (err) {
+      await alertDialog({ title: "O'chirib bo'lmadi", message: uzError(err) });
+    }
   }
   function currentPeriodLabel() {
     const exactDate = dateInput2.value;
     if (exactDate) return `Aniq kun: ${ddmmyyyy(exactDate)}`;
     const year = Number(yearInput3.value);
     const month = Number(monthInput3.value);
-    if (year && month >= 1 && month <= 12) return `${UZ_MONTHS2[month]} ${year}`;
+    if (year && month >= 1 && month <= 12) return `${UZ_MONTHS3[month]} ${year}`;
     return "Barcha davr";
   }
   function currentFilenameSuffix() {
@@ -5098,13 +6163,19 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
     { key: "reports", title: "Hisobotlar", permission: "view_reports", refresh: refreshReports },
     { key: "settings", title: "Sozlamalar", permission: null, refresh: refreshSettings },
     { key: "admins", title: "Administratorlar", permission: "manage_admins", refresh: refreshAdmins },
-    // 31.08.2026 so'rovi: "Ruxsatlar kitobi" — Grafik/Kalendar orqali
-    // berilgan barcha "Kechikishga ruxsat"larning yagona jurnali. Xuddi
-    // ruxsat BERISH bilan bir xil ruxsat (manage_schedule) — kim
-    // belgilay olsa, o'sha jurnalni ham ko'ra oladi.
-    { key: "permissionsLog", title: "Ruxsatlar kitobi", permission: "manage_schedule", refresh: refreshPermissionsLog }
+    // 03.09.2026: Ruxsatlar kitobi barcha adminlarga ko'rinadi va tahrirlash
+    // barcha adminlarda ochiq. O'chirish esa UI va amalda faqat admin11 uchun.
+    { key: "permissionsLog", title: "Ruxsatlar kitobi", permission: null, refresh: refreshPermissionsLog }
   ];
   async function bootAdmin() {
+    showBusy("Yuklanmoqda\u2026");
+    try {
+      await bootAdminInner();
+    } finally {
+      hideBusy();
+    }
+  }
+  async function bootAdminInner() {
     const db2 = await getDb();
     const userId = sessionStorage.getItem("shifoat_admin_user_id");
     if (!userId) return showNotLoggedIn();
@@ -5153,14 +6224,16 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
     window.__shifoatActivateSection = (key) => activateSectionInternal(key, visibleSections);
   }
   function activateSectionInternal(key, visibleSections) {
-    document.querySelectorAll(".admin-section").forEach((el) => {
-      el.classList.toggle("active", el.dataset.section === key);
+    document.querySelectorAll(".admin-section").forEach((el2) => {
+      el2.classList.toggle("active", el2.dataset.section === key);
     });
     document.querySelectorAll(".nav-button").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.sectionKey === key);
     });
     const section = visibleSections.find((s) => s.key === key);
-    if (section) section.refresh();
+    if (!section) return;
+    showBusy("Yangilanmoqda\u2026");
+    Promise.resolve(section.refresh()).catch((err) => console.error(`Section "${key}" refresh failed:`, err)).finally(() => hideBusy());
   }
   function activateSection(key) {
     window.__shifoatActivateSection(key);
@@ -5170,7 +6243,7 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-09-01 12:00 UTC";
+  var BUILD_STAMP = "2026-09-01 15:00 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
