@@ -178,6 +178,10 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
 #photoLightboxPosition:empty { display: none; }
 #photoLightboxSchedule { font-size: 14px; font-weight: 700; color: var(--shifoat-red-dark); margin: 0 0 18px; }
 #photoLightboxSchedule:empty { display: none; }
+#photoLightboxQuality {
+  font-size: 12px; font-weight: 600; color: #7A5B00; background: #FFF6E5;
+  border-radius: 8px; padding: 8px 10px; margin: -8px 0 14px; line-height: 1.35;
+}
 
 .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
 .pill-work { background: #EEF0FB; color: var(--navy); }
@@ -266,6 +270,22 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   margin: 16px 0 6px; padding-top: 12px; border-top: 2px solid #E3E5F0;
 }
 .range-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+/* 13.09.2026: haftalik ish vaqti istisnolari (xodim oynasida). */
+.weekday-ov-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.weekday-ov-add select, .weekday-ov-add input {
+  padding: 7px 8px; border-radius: 8px; border: 1px solid #C9CCE6; font-size: 13px;
+}
+.weekday-ov-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.weekday-ov-chip {
+  display: inline-flex; align-items: center; gap: 7px; background: #EEF0FB;
+  color: var(--deep-navy); border-radius: 999px; padding: 4px 6px 4px 11px;
+  font-size: 12px; font-weight: 700;
+}
+.weekday-ov-chip button {
+  border: none; background: none; cursor: pointer; color: var(--shifoat-red-dark);
+  font-weight: 700; font-size: 15px; line-height: 1; padding: 0 4px;
+}
+.weekday-ov-empty { font-size: 12px; color: #8A8EA8; }
 .range-add-label { font-size: 12px; color: #6B6F91; font-weight: 600; }
 .range-add input { padding: 6px 8px; border-radius: 8px; border: 1px solid #C9CCE6; font-size: 13px; width: 118px; }
 /* Belgilanayotgan kunlar kalendarda ko'rinib tursin. */
@@ -621,6 +641,9 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       <div class="toolbar">
         <p class="section-title" id="dashboardHeading" style="margin:0;">Dashboard</p>
         <div style="flex:1"></div>
+        <!-- 13.09.2026: filial bo'yicha ajratish (200 tagacha filial) -->
+        <label class="muted" id="dashboardBranchLabel" style="display:none;">Filial:</label>
+        <select id="dashboardBranch" style="display:none; max-width:220px;"></select>
         <label class="muted">Sana:</label>
         <input type="date" id="dashboardDate" />
       </div>
@@ -736,6 +759,9 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     <section class="admin-section" data-section="reports">
       <p class="section-title">Hisobotlar</p>
       <div class="toolbar">
+        <!-- 13.09.2026: avval filial, keyin o'sha filialning xodimlari -->
+        <label class="muted" id="reportBranchLabel" style="display:none;">Filial:</label>
+        <select id="reportBranchSelect" style="display:none; max-width:220px;"></select>
         <label class="muted">Xodim:</label>
         <select id="reportEmployeeSelect"></select>
         <label class="muted">Yil:</label>
@@ -750,6 +776,44 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       <p id="reportSummary" style="line-height:1.7;"></p>
       <div style="overflow-x:auto;"><table class="data-table" id="reportTable">
         <thead><tr><th>Sana</th><th>Status</th><th>Keldi</th><th>Ketdi</th><th>Kechikish</th><th>Ko'p ishlagan</th><th>Kam ishlagan</th><th>Erta kelgan</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </section>
+
+    <!-- BRANCHES (13.09.2026: filiallar) -->
+    <section class="admin-section" data-section="branches">
+      <p class="section-title">Filiallar</p>
+      <p class="muted" style="margin-top:-8px;">
+        Har bir filialga alohida lokatsiya va radius beriladi. Xodim
+        Xodimlar bo'limida o'z filialiga biriktiriladi va face id faqat
+        filial hududida ishlaydi.
+      </p>
+
+      <div class="card" style="max-width:560px; margin-bottom:18px;" id="branchFormCard">
+        <h3 style="margin-top:0;" id="branchFormTitle">Yangi filial</h3>
+        <div class="form-row"><label>Filial nomi</label><input type="text" id="branchName" placeholder="masalan: 1-filial — Chilonzor" /></div>
+        <div class="form-row">
+          <label>Google Maps havolasi (yoki "41.311081, 69.240562")</label>
+          <input type="text" id="branchLink" placeholder="https://www.google.com/maps/@41.311081,69.240562,17z" />
+        </div>
+        <button class="btn btn-secondary" type="button" id="btnBranchFromLink">🔗 Havoladan olish</button>
+        <button class="btn btn-secondary" type="button" id="btnBranchUseCurrent" style="margin-left:6px;">📍 Hozirgi joylashuv</button>
+        <div class="form-row" style="margin-top:12px;"><label>Kenglik (lat)</label><input type="text" id="branchLat" /></div>
+        <div class="form-row"><label>Uzunlik (lng)</label><input type="text" id="branchLng" /></div>
+        <div class="form-row"><label id="branchRadiusLabel">Radius (metr)</label><input type="number" id="branchRadius" min="20" max="1000" step="10" value="200" /></div>
+        <p class="form-error" id="branchError" style="white-space:pre-line;"></p>
+        <p class="muted" id="branchStatus" style="white-space:pre-line; font-size:12px;"></p>
+        <button class="btn btn-primary" id="btnBranchSave">Saqlash</button>
+        <button class="btn btn-secondary" type="button" id="btnBranchCancel" style="margin-left:6px; display:none;">Bekor qilish</button>
+      </div>
+
+      <div class="toolbar">
+        <label class="muted">Qidirish:</label>
+        <input type="text" id="branchSearch" placeholder="filial nomi" style="padding:8px 10px; border-radius:8px; border:1px solid #C9CCE6;" />
+        <span class="muted" id="branchCount"></span>
+      </div>
+      <div style="overflow-x:auto;"><table class="data-table" id="branchesTable">
+        <thead><tr><th>Filial</th><th>Koordinata</th><th>Radius</th><th>Xodimlar</th><th></th></tr></thead>
         <tbody></tbody>
       </table></div>
     </section>
@@ -1021,9 +1085,29 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     <div class="form-row"><label>Login</label><input type="text" id="empFirstName" /></div>
     <div class="form-row"><label>Parol</label><input type="text" id="empPassword" /></div>
     <div class="form-row"><label>Lavozim (ixtiyoriy)</label><input type="text" id="empPosition" placeholder="masalan: Hamshira, Shifokor" /></div>
+    <!-- 13.09.2026: xodim qaysi filialda ishlaydi -->
+    <div class="form-row" id="empBranchRow"><label>Filial</label><select id="empBranch"></select></div>
     <div class="form-row"><label>Telefon (ixtiyoriy)</label><input type="text" id="empPhone" /></div>
     <div class="form-row"><label>Ish boshlanish vaqti</label><input type="time" id="empWorkStart" value="08:00" /></div>
     <div class="form-row"><label>Ish tugash vaqti</label><input type="time" id="empWorkEnd" value="18:00" /></div>
+    <!-- 13.09.2026: haftaning ayrim kunlarida boshqa ish vaqti
+         (masalan: doim 14:00-24:00, lekin yakshanba 10:00-24:00) -->
+    <div class="form-row">
+      <label>Haftalik istisno (ixtiyoriy) — ayrim kunda boshqa vaqt</label>
+      <div class="weekday-ov-add">
+        <select id="empOvDay">
+          <option value="0">Dushanba</option><option value="1">Seshanba</option>
+          <option value="2">Chorshanba</option><option value="3">Payshanba</option>
+          <option value="4">Juma</option><option value="5">Shanba</option>
+          <option value="6">Yakshanba</option>
+        </select>
+        <input type="time" id="empOvStart" />
+        <span>—</span>
+        <input type="time" id="empOvEnd" />
+        <button class="btn btn-secondary" type="button" id="btnEmpOvAdd">Qo'shish</button>
+      </div>
+      <div class="weekday-ov-list" id="empOvList"></div>
+    </div>
     <div class="form-row"><label>Haftalik dam kuni</label>
       <select id="empRestDay">
         <option value="0">Dushanba</option><option value="1">Seshanba</option>
@@ -1083,6 +1167,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     <p id="photoLightboxName"></p>
     <p id="photoLightboxPosition"></p>
     <p id="photoLightboxSchedule"></p>
+    <p id="photoLightboxQuality" style="display:none;">⚠️ Bu rasm past sifatda saqlangan — tiniq bo'lishi uchun Xodimlar bo'limidan qaytadan yuklang.</p>
     <button class="btn btn-secondary" id="photoLightboxClose">Yopish</button>
   </div>
 </div>
@@ -1569,6 +1654,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         // 30.08.2026 so'rovi: xodim rasmi (kichraytirilgan data: URL) —
         // qarang localAdapter.js'dagi bir xil izoh.
         photoUrl: fields.photoUrl || null,
+        // 13.09.2026: xodim biriktirilgan filial (bo'sh bo'lishi mumkin).
+        branchId: fields.branchId || null,
         isActive: true,
         createdAt: nowIso2(),
         updatedAt: nowIso2()
@@ -1619,6 +1706,34 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       const snap = await getDoc(doc(dbFs, "employees", id));
       return snap.exists() ? docToObject(snap) : null;
     }
+    async function listBranches2({ activeOnly = false } = {}) {
+      const snap = await getDocs(collection(dbFs, "branches"));
+      const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const filtered = activeOnly ? all.filter((b) => b.isActive !== false) : all;
+      return filtered.sort((a, b) => (a.name || "").localeCompare(b.name || "", "uz", { numeric: true }));
+    }
+    async function createBranch2(fields) {
+      const ref = doc(collection(dbFs, "branches"));
+      const branch = {
+        name: (fields.name || "").trim(),
+        lat: Number(fields.lat),
+        lng: Number(fields.lng),
+        radiusM: Number(fields.radiusM),
+        isActive: true,
+        createdAt: nowIso2(),
+        updatedAt: nowIso2()
+      };
+      await setDoc(ref, branch);
+      return { id: ref.id, ...branch };
+    }
+    async function updateBranch2(id, patch) {
+      const fields = { ...patch, updatedAt: nowIso2() };
+      await updateDoc(doc(dbFs, "branches", id), fields);
+      return { id, ...fields };
+    }
+    async function deleteBranch2(id) {
+      await deleteDoc(doc(dbFs, "branches", id));
+    }
     async function listEmployees2({ activeOnly = false } = {}) {
       const base = collection(dbFs, "employees");
       const q = activeOnly ? query(base, where("isActive", "==", true)) : base;
@@ -1636,6 +1751,9 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         weeklyRestDay: fields.weeklyRestDay,
         avgMonthlySalary: fields.avgMonthlySalary,
         workDaysPerMonth: fields.workDaysPerMonth,
+        // 13.09.2026: haftaning ayrim kunlari uchun boshqa ish vaqti —
+        // qarang localAdapter.js'dagi bir xil izoh.
+        weekdayOverrides: fields.weekdayOverrides || null,
         createdAt: nowIso2(),
         createdBy: actorId || null
       };
@@ -2468,6 +2586,10 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     }
     return {
       docToObject,
+      listBranches: listBranches2,
+      createBranch: createBranch2,
+      updateBranch: updateBranch2,
+      deleteBranch: deleteBranch2,
       createEmployee: createEmployee2,
       updateEmployee: updateEmployee2,
       getEmployee: getEmployee2,
@@ -2557,10 +2679,12 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     allSettings: () => allSettings,
     anyAdminExists: () => anyAdminExists,
     clearDayStatus: () => clearDayStatus,
+    createBranch: () => createBranch,
     createEmployee: () => createEmployee,
     createFirstSchedule: () => createFirstSchedule,
     createUser: () => createUser,
     deleteAdminUser: () => deleteAdminUser,
+    deleteBranch: () => deleteBranch,
     deleteEmployee: () => deleteEmployee,
     deleteLatePermission: () => deleteLatePermission,
     deleteScheduleOverride: () => deleteScheduleOverride,
@@ -2595,6 +2719,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     listAttendanceForMonth: () => listAttendanceForMonth,
     listAttendanceForRange: () => listAttendanceForRange,
     listAuditLogs: () => listAuditLogs,
+    listBranches: () => listBranches,
     listDayStatusesForEmployee: () => listDayStatusesForEmployee,
     listEmployeeIdsWithFace: () => listEmployeeIdsWithFace,
     listEmployees: () => listEmployees,
@@ -2619,6 +2744,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     setSetting: () => setSetting,
     setUserRole: () => setUserRole,
     updateAdminUsername: () => updateAdminUsername,
+    updateBranch: () => updateBranch,
     updateEmployee: () => updateEmployee,
     updateLatePermission: () => updateLatePermission,
     updateScheduleOverride: () => updateScheduleOverride,
@@ -2628,7 +2754,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
 
   // src/data/indexedDbHelper.js
   var DB_NAME = "shifoat_attendance";
-  var DB_VERSION = 4;
+  var DB_VERSION = 5;
   var STORES = [
     { name: "employees", keyPath: "id" },
     { name: "schedules", keyPath: "id", indexes: [["employeeId", "employeeId"]] },
@@ -2644,7 +2770,9 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     // 04.09.2026: tizim tanimagan yuzlar jurnali (rasm + vaqt).
     { name: "unknownFaces", keyPath: "id", indexes: [["dateKey", "dateKey"]] },
     // 05.09.2026: oylik maosh hisobi (bitta xodim + bitta oy).
-    { name: "payrolls", keyPath: "id", indexes: [["periodKey", "periodKey"]] }
+    { name: "payrolls", keyPath: "id", indexes: [["periodKey", "periodKey"]] },
+    // 13.09.2026: filiallar — har birining nomi, koordinatasi va radiusi.
+    { name: "branches", keyPath: "id" }
   ];
   var dbPromise = null;
   function openDb() {
@@ -2805,6 +2933,9 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       // ekranida ko'rsatish uchun. Kichraytirilgan/siqilgan data: URL
       // sifatida saqlanadi (qarang employeesSection.js resizeImageFile()).
       photoUrl: fields.photoUrl || null,
+      // 13.09.2026: xodim qaysi filialga biriktirilgan (bo'sh bo'lishi ham
+      // mumkin — u holda hamma filialda ishlay oladi).
+      branchId: fields.branchId || null,
       isActive: true,
       createdAt: nowIso(),
       updatedAt: nowIso()
@@ -2847,6 +2978,35 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     const embeddings = await getAllByIndex("embeddings", "employeeId", id);
     for (const row of embeddings) await remove("embeddings", row.id);
   }
+  async function listBranches({ activeOnly = false } = {}) {
+    const all = await getAll("branches");
+    const filtered = activeOnly ? all.filter((b) => b.isActive !== false) : all;
+    return filtered.sort((a, b) => a.name.localeCompare(b.name, "uz", { numeric: true }));
+  }
+  async function createBranch(fields) {
+    const branch = {
+      id: newId(),
+      name: (fields.name || "").trim(),
+      lat: Number(fields.lat),
+      lng: Number(fields.lng),
+      radiusM: Number(fields.radiusM),
+      isActive: true,
+      createdAt: nowIso(),
+      updatedAt: nowIso()
+    };
+    await put("branches", branch);
+    return branch;
+  }
+  async function updateBranch(id, patch) {
+    const existing = await get("branches", id);
+    if (!existing) throw new Error("Filial topilmadi.");
+    const branch = { ...existing, ...patch, updatedAt: nowIso() };
+    await put("branches", branch);
+    return branch;
+  }
+  async function deleteBranch(id) {
+    await remove("branches", id);
+  }
   async function listEmployees({ activeOnly = false } = {}) {
     const all = await getAll("employees");
     const filtered = activeOnly ? all.filter((e) => e.isActive) : all;
@@ -2861,6 +3021,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       workStart: fields.workStart,
       workEnd: fields.workEnd,
       weeklyRestDay: fields.weeklyRestDay,
+      // 13.09.2026 so'rovi: "bitta xodim doim 14:00-24:00 ishlaydi, lekin
+      // YAKSHANBA kunlari 10:00-24:00". Ya'ni haftaning ayrim kunlari
+      // uchun boshqa vaqt. Bu yerda { "6": { workStart, workEnd } }
+      // ko'rinishida saqlanadi (dushanba=0 ... yakshanba=6).
+      weekdayOverrides: fields.weekdayOverrides || null,
       avgMonthlySalary: fields.avgMonthlySalary,
       workDaysPerMonth: fields.workDaysPerMonth,
       createdAt: nowIso(),
@@ -3712,9 +3877,19 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   }
 
   // src/business/scheduleService.js
+  function applyWeekdayOverride(version, dateKey) {
+    if (!version || !version.weekdayOverrides) return version;
+    const key = String(weekdayIndexMonday0(dateKey));
+    const override = version.weekdayOverrides[key];
+    if (!override) return version;
+    const workStart = override.workStart || version.workStart;
+    const workEnd = override.workEnd || version.workEnd;
+    if (workStart === version.workStart && workEnd === version.workEnd) return version;
+    return { ...version, workStart, workEnd, weekdayOverrideApplied: key };
+  }
   function pickScheduleForDate(scheduleHistory, dateKey) {
     const applicable = scheduleHistory.filter((v) => v.effectiveFrom <= dateKey).sort((a, b) => a.effectiveFrom < b.effectiveFrom ? 1 : -1);
-    return applicable[0] || null;
+    return applyWeekdayOverride(applicable[0] || null, dateKey);
   }
   function computeDayStatusFromSchedule(schedule, dateKey) {
     if (!schedule) return DAY_STATUS_WORK;
@@ -3784,7 +3959,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     ALREADY_CHECKED_OUT: "ALREADY_CHECKED_OUT",
     NO_CHECKIN_TODAY: "NO_CHECKIN_TODAY"
   };
-  async function checkIn(db2, employeeId, employeeName, at = /* @__PURE__ */ new Date()) {
+  async function checkIn(db2, employeeId, employeeName, at = /* @__PURE__ */ new Date(), branch = null) {
     const dateKey = tashkentDateKey(at);
     const existing = await db2.getAttendanceForDate(employeeId, dateKey);
     if (existing && existing.checkInTime) {
@@ -3797,7 +3972,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         message: `Siz bugun ${existingTime} da ishga kelgansiz.`
       };
     }
-    const [explicitStatus, schedule, latePermission] = await Promise.all([
+    const [explicitStatus, rawSchedule, latePermission] = await Promise.all([
       db2.getExplicitDayStatus(employeeId, dateKey),
       db2.getScheduleForDate(employeeId, dateKey),
       db2.getLatePermission(employeeId, dateKey).catch((err) => {
@@ -3805,6 +3980,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         return null;
       })
     ]);
+    const schedule = applyWeekdayOverride(rawSchedule, dateKey);
     const dayStatus = explicitStatus || computeDayStatusFromSchedule(schedule, dateKey);
     let scheduledStart = null, scheduledEnd = null, expectedMinutes = null;
     let lateMinutes = 0, latePenalty = 0;
@@ -3831,7 +4007,12 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       expectedWorkMinutes: expectedMinutes,
       dayStatus,
       lateMinutes,
-      latePenalty
+      latePenalty,
+      // Filial nomi ham saqlanadi: filial keyinchalik o'chirib yuborilsa
+      // ham, hisobotda "qaysi filialda kelgan edi" degan savolga javob
+      // qolsin (faqat id qolsa, nomi yo'qolib ketardi).
+      branchId: branch ? branch.id : null,
+      branchName: branch ? branch.name : null
     });
     return {
       status: AttendanceStatus.CHECKED_IN,
@@ -3842,7 +4023,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       latePenalty
     };
   }
-  async function checkOut(db2, employeeId, employeeName, at = /* @__PURE__ */ new Date()) {
+  async function checkOut(db2, employeeId, employeeName, at = /* @__PURE__ */ new Date(), branch = null) {
     const dateKey = tashkentDateKey(at);
     const existing = await db2.getAttendanceForDate(employeeId, dateKey);
     if (!existing || !existing.checkInTime) {
@@ -3893,7 +4074,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     let dayStatus = existing ? existing.dayStatus : null;
     let expectedWorkMinutes = existing ? existing.expectedWorkMinutes : null;
     if (!scheduledStart || !scheduledEnd || !dayStatus) {
-      const [explicitStatus, schedule, latePermission] = await Promise.all([
+      const [explicitStatus, rawSchedule, latePermission] = await Promise.all([
         db2.getExplicitDayStatus(employeeId, dateKey),
         db2.getScheduleForDate(employeeId, dateKey),
         // Xuddi checkIn()dagi kabi — qarang shu faylning yuqoridagi izohi
@@ -3904,6 +4085,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
           return null;
         })
       ]);
+      const schedule = applyWeekdayOverride(rawSchedule, dateKey);
       dayStatus = dayStatus || explicitStatus || computeDayStatusFromSchedule(schedule, dateKey);
       if (schedule) {
         const startDate = latePermission ? combineTashkent(dateKey, latePermission.allowedStartTime) : combineTashkent(dateKey, schedule.workStart);
@@ -4252,6 +4434,62 @@ Masofa: ~${distanceM} metr (ruxsat: ${cfg.radiusM} metr).`,
       distanceM,
       radiusM: cfg.radiusM,
       accuracyM: position.accuracy
+    };
+  }
+  function matchBranchesForPosition(branches, position) {
+    const matches = [];
+    for (const branch of branches) {
+      const lat = Number(branch.lat), lng = Number(branch.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      const radius = clampRadius(branch.radiusM);
+      const distanceM = haversineMeters(lat, lng, position.lat, position.lng);
+      const effectiveRadius = Math.min(
+        GEOFENCE_MAX_RADIUS_M,
+        radius + Math.min(position.accuracy || 0, 150)
+      );
+      matches.push({ branch, distanceM, radiusM: radius, inside: distanceM <= effectiveRadius });
+    }
+    matches.sort((a, b) => a.distanceM - b.distanceM);
+    return matches;
+  }
+  async function resolveBranchByLocation(db2) {
+    let branches = [];
+    try {
+      branches = await db2.listBranches({ activeOnly: true });
+    } catch (err) {
+      console.error("listBranches failed (non-fatal):", err);
+      return { hasBranches: false, rulesError: true };
+    }
+    const usable = branches.filter(
+      (b) => Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng))
+    );
+    if (!usable.length) return { hasBranches: false };
+    let position;
+    try {
+      position = await getBestPosition({ maxWaitMs: 6e3, targetAccuracyM: 30 });
+    } catch (err) {
+      return { hasBranches: true, allowed: false, unavailable: true, reason: err.message };
+    }
+    const matches = matchBranchesForPosition(usable, position);
+    const inside = matches.find((m) => m.inside);
+    if (inside) {
+      return {
+        hasBranches: true,
+        allowed: true,
+        branch: inside.branch,
+        distanceM: inside.distanceM,
+        accuracyM: position.accuracy
+      };
+    }
+    const nearest = matches[0];
+    return {
+      hasBranches: true,
+      allowed: false,
+      nearest: nearest ? nearest.branch : null,
+      distanceM: nearest ? nearest.distanceM : null,
+      accuracyM: position.accuracy,
+      reason: nearest ? `Siz hech qaysi filial hududida emassiz.
+Eng yaqini: ${nearest.branch.name} \u2014 ~${nearest.distanceM} metr (ruxsat: ${nearest.radiusM} metr).` : "Siz hech qaysi filial hududida emassiz."
     };
   }
 
@@ -4628,7 +4866,7 @@ Masofa: ~${distanceM} metr (ruxsat: ${cfg.radiusM} metr).`,
     cameraStatus.textContent = "Joylashuv tekshirilmoqda\u2026";
     let geo;
     try {
-      geo = await checkGeofence(db);
+      geo = await checkLocationGate();
     } catch (err) {
       console.error("Geofence check failed:", err);
       geo = { allowed: true };
@@ -4652,7 +4890,8 @@ Masofa: ~${distanceM} metr (ruxsat: ${cfg.radiusM} metr).`,
       });
       return;
     }
-    cameraStatus.textContent = SCAN_HINT_TEXT;
+    cameraStatus.textContent = currentBranch ? `${SCAN_HINT_TEXT}
+\u{1F4CD} ${currentBranch.name}` : SCAN_HINT_TEXT;
     requiredFrames = numSetting(await db.getSetting("recognition_hold_frames"), 12);
     const requiredBlinks = numSetting(await db.getSetting("liveness_required_blinks"), 1);
     const minMovement = numSetting(await db.getSetting("liveness_min_movement"), 0.035);
@@ -4797,8 +5036,12 @@ Masofa: ~${distanceM} metr (ruxsat: ${cfg.radiusM} metr).`,
         return;
       }
       const fullName = `${employee.firstName} ${employee.lastName || ""}`.trim();
-      const result = currentMode2 === "IN" ? await checkIn(db, employee.id, fullName) : await checkOut(db, employee.id, fullName);
-      showAttendanceResult(result, employee.photoUrl);
+      let branches = [];
+      if (currentBranch && employee.branchId && employee.branchId !== currentBranch.id) {
+        branches = await db.listBranches({ activeOnly: true }).catch(() => []);
+      }
+      const result = currentMode2 === "IN" ? await checkIn(db, employee.id, fullName, /* @__PURE__ */ new Date(), currentBranch) : await checkOut(db, employee.id, fullName, /* @__PURE__ */ new Date(), currentBranch);
+      showAttendanceResult(result, employee.photoUrl, branchNoteFor(employee, branches));
     } catch (err) {
       console.error("finishRecognition failed:", err);
       showResultError("Xatolik yuz berdi", uzError(err));
@@ -4884,11 +5127,55 @@ Masofa: ~${distanceM} metr (ruxsat: ${cfg.radiusM} metr).`,
     const fullName = `${employee.firstName} ${employee.lastName || ""}`.trim();
     try {
       const todayRecord = await getTodayRecord(db, employee.id);
-      const result = !todayRecord || !todayRecord.checkInTime ? await checkIn(db, employee.id, fullName) : await checkOut(db, employee.id, fullName);
-      showAttendanceResult(result, employee.photoUrl);
+      let branches = [];
+      if (currentBranch && employee.branchId && employee.branchId !== currentBranch.id) {
+        branches = await db.listBranches({ activeOnly: true }).catch(() => []);
+      }
+      const result = !todayRecord || !todayRecord.checkInTime ? await checkIn(db, employee.id, fullName, /* @__PURE__ */ new Date(), currentBranch) : await checkOut(db, employee.id, fullName, /* @__PURE__ */ new Date(), currentBranch);
+      showAttendanceResult(result, employee.photoUrl, branchNoteFor(employee, branches));
     } catch (err) {
       showResultError("Xatolik yuz berdi", uzError(err));
     }
+  }
+  var currentBranch = null;
+  async function checkLocationGate() {
+    let branchResult;
+    try {
+      branchResult = await resolveBranchByLocation(db);
+    } catch (err) {
+      console.error("Branch geofence failed (non-fatal):", err);
+      branchResult = { hasBranches: false };
+    }
+    if (branchResult.hasBranches) {
+      if (branchResult.allowed) {
+        currentBranch = branchResult.branch;
+        return { allowed: true, branch: branchResult.branch };
+      }
+      currentBranch = null;
+      return {
+        allowed: false,
+        unavailable: !!branchResult.unavailable,
+        reason: branchResult.reason || "Siz hech qaysi filial hududida emassiz."
+      };
+    }
+    currentBranch = null;
+    const geo = await checkGeofence(db);
+    return {
+      allowed: geo.allowed,
+      unavailable: !!geo.unavailable,
+      reason: geo.reason || "Siz ish joyidan tashqaridasiz."
+    };
+  }
+  function branchNoteFor(employee, branches) {
+    if (!currentBranch) return null;
+    if (!employee.branchId) {
+      return `\u{1F4CD} ${currentBranch.name}`;
+    }
+    if (employee.branchId === currentBranch.id) {
+      return `\u{1F4CD} ${currentBranch.name}`;
+    }
+    const own = branches.find((b) => b.id === employee.branchId);
+    return `\u{1F4CD} ${currentBranch.name} (o'z filialingiz: ${own ? own.name : "boshqa filial"})`;
   }
   var resultCard = document.getElementById("resultCard");
   var resultTitle = document.getElementById("resultTitle");
@@ -4933,7 +5220,7 @@ Masofa: ~${distanceM} metr (ruxsat: ${cfg.radiusM} metr).`,
     showScreen("result");
     scheduleReturnHome();
   }
-  function showAttendanceResult(result, photoUrl) {
+  function showAttendanceResult(result, photoUrl, branchNote) {
     stopCamera();
     adminChoiceRow.style.display = "none";
     setResultPhoto(photoUrl);
@@ -4963,6 +5250,10 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
       resultBody.textContent = "Avval KELYAPMAN orqali ro'yxatdan o'ting.";
       resultBadge.textContent = "";
     }
+    if (branchNote) {
+      resultBadge.textContent = resultBadge.textContent ? `${resultBadge.textContent}
+${branchNote}` : branchNote;
+    }
     showScreen("result");
     scheduleReturnHome();
   }
@@ -4970,7 +5261,7 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
     if (username && isDeleteOwnerLogin(username)) return { allowed: true };
     showBusy("Joylashuv tekshirilmoqda");
     try {
-      const geo = await checkGeofence(db);
+      const geo = await checkLocationGate();
       if (geo.allowed) return { allowed: true };
       if (geo.unavailable) {
         const firstLine = String(geo.reason || "").split("\n")[0];
@@ -5417,8 +5708,9 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
 
   // src/ui/admin/dashboardSection.js
   var _db;
-  async function initDashboard(db2, _user9) {
+  async function initDashboard(db2, _user10) {
     _db = db2;
+    document.getElementById("dashboardBranch").addEventListener("change", refreshDashboard);
     document.getElementById("dashboardListClose").addEventListener("click", () => {
       document.getElementById("dashboardListModal").classList.remove("active");
     });
@@ -5432,7 +5724,14 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
   function openPhotoLightbox(photoUrl, name, scheduleText, positionText) {
     const img = document.getElementById("photoLightboxImg");
     const initial = document.getElementById("photoLightboxInitial");
+    const quality = document.getElementById("photoLightboxQuality");
+    if (quality) quality.style.display = "none";
     if (photoUrl) {
+      img.onload = () => {
+        if (!quality) return;
+        const low = img.naturalWidth > 0 && img.naturalWidth < 700;
+        quality.style.display = low ? "" : "none";
+      };
       img.src = photoUrl;
       img.style.display = "";
       if (initial) initial.style.display = "none";
@@ -5450,12 +5749,39 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
     document.getElementById("photoLightboxSchedule").textContent = scheduleText || "";
     document.getElementById("photoLightboxModal").classList.add("active");
   }
+  function syncBranchPicker(branches) {
+    const select = document.getElementById("dashboardBranch");
+    const label = document.getElementById("dashboardBranchLabel");
+    if (!select) return "";
+    const show = branches.length > 0;
+    select.style.display = show ? "" : "none";
+    label.style.display = show ? "" : "none";
+    if (!show) return "";
+    const signature = branches.map((b) => `${b.id}:${b.name}`).join("|");
+    if (select.dataset.signature !== signature) {
+      const previous = select.value;
+      select.dataset.signature = signature;
+      select.innerHTML = "";
+      const all = document.createElement("option");
+      all.value = "";
+      all.textContent = `Hamma filiallar (${branches.length} ta)`;
+      select.appendChild(all);
+      for (const branch of branches) {
+        const option = document.createElement("option");
+        option.value = branch.id;
+        option.textContent = branch.name;
+        select.appendChild(option);
+      }
+      select.value = branches.some((b) => b.id === previous) ? previous : "";
+    }
+    return select.value;
+  }
   async function refreshDashboard() {
     const dateInput3 = document.getElementById("dashboardDate");
     const selectedDateKey = dateInput3.value || tashkentDateKey();
     const actualTodayKey = tashkentDateKey();
     document.getElementById("dashboardHeading").textContent = selectedDateKey === actualTodayKey ? `Bugun \u2014 ${ddmmyyyy(selectedDateKey)}` : ddmmyyyy(selectedDateKey);
-    const [employees, dayRecords, allSchedules, allDayStatuses, allLatePermissions, allScheduleOverrides] = await Promise.all([
+    const [allEmployees, dayRecords, allSchedules, allDayStatuses, allLatePermissions, allScheduleOverrides] = await Promise.all([
       _db.listEmployees({ activeOnly: true }),
       // Avval listTodayRecords(_db) chaqirilardi — bu ICHKARIDA hozirgi
       // vaqtdan tashkentDateKey() hisoblab, xuddi shu db.listAttendanceForDate()
@@ -5478,6 +5804,12 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
       // kerak (Ruxsatlar kitobida ishlatilgani bilan bir xil manba).
       _db.listAllScheduleOverrides()
     ]);
+    const branches = await _db.listBranches({ activeOnly: true }).catch((err) => {
+      console.error("listBranches failed (non-fatal):", err);
+      return [];
+    });
+    const selectedBranchId = syncBranchPicker(branches);
+    const employees = selectedBranchId ? allEmployees.filter((e) => e.branchId === selectedBranchId) : allEmployees;
     const byEmployee = new Map(dayRecords.map((r) => [r.employeeId, r]));
     const schedulesByEmployee = /* @__PURE__ */ new Map();
     for (const s of allSchedules) {
@@ -5986,6 +6318,7 @@ ${origLine}${reasonLine}` });
       workStart: fields.workStart,
       workEnd: fields.workEnd,
       weeklyRestDay: fields.weeklyRestDay,
+      weekdayOverrides: fields.weekdayOverrides || null,
       avgMonthlySalary: fields.avgMonthlySalary,
       workDaysPerMonth: fields.workDaysPerMonth
     }, actorId);
@@ -6010,7 +6343,10 @@ ${origLine}${reasonLine}` });
       scheduleFields ? db2.getCurrentSchedule(employeeId, todayKey) : Promise.resolve(null)
     ]);
     if (scheduleFields) {
-      const changed = !current || current.workStart !== scheduleFields.workStart || current.workEnd !== scheduleFields.workEnd || current.weeklyRestDay !== scheduleFields.weeklyRestDay || current.avgMonthlySalary !== scheduleFields.avgMonthlySalary || current.workDaysPerMonth !== scheduleFields.workDaysPerMonth;
+      const changed = !current || current.workStart !== scheduleFields.workStart || current.workEnd !== scheduleFields.workEnd || current.weeklyRestDay !== scheduleFields.weeklyRestDay || current.avgMonthlySalary !== scheduleFields.avgMonthlySalary || current.workDaysPerMonth !== scheduleFields.workDaysPerMonth || // 13.09.2026: haftalik istisnolar o'zgargan bo'lsa ham yangi
+      // versiya yozilishi kerak (JSON.stringify — tartibi bir xil
+      // bo'lgani uchun ishonchli: ikkalasi ham shu yerda yasaladi).
+      JSON.stringify(current.weekdayOverrides || null) !== JSON.stringify(scheduleFields.weekdayOverrides || null);
       if (changed) {
         await db2.addScheduleVersion(employeeId, todayKey, scheduleFields, actorId);
         logInBackground(
@@ -6198,8 +6534,75 @@ ${origLine}${reasonLine}` });
   var _canEdit;
   var _editingId = null;
   var _pendingPhotoUrl = null;
-  var MAX_PHOTO_DIM = 480;
-  var PHOTO_JPEG_QUALITY = 0.85;
+  var _branches = [];
+  var _weekdayOverrides = {};
+  var WEEKDAY_NAMES_UZ = [
+    "Dushanba",
+    "Seshanba",
+    "Chorshanba",
+    "Payshanba",
+    "Juma",
+    "Shanba",
+    "Yakshanba"
+  ];
+  function renderWeekdayOverrides() {
+    const box = document.getElementById("empOvList");
+    if (!box) return;
+    box.innerHTML = "";
+    const keys = Object.keys(_weekdayOverrides).sort((a, b) => Number(a) - Number(b));
+    if (!keys.length) {
+      const empty = document.createElement("span");
+      empty.className = "weekday-ov-empty";
+      empty.textContent = "Istisno yo'q \u2014 hamma kuni yuqoridagi vaqt bo'yicha.";
+      box.appendChild(empty);
+      return;
+    }
+    for (const key of keys) {
+      const ov = _weekdayOverrides[key];
+      const chip = document.createElement("span");
+      chip.className = "weekday-ov-chip";
+      chip.dataset.day = key;
+      const label = document.createElement("span");
+      label.textContent = `${WEEKDAY_NAMES_UZ[Number(key)]}: ${ov.workStart} - ${ov.workEnd}`;
+      chip.appendChild(label);
+      const remove2 = document.createElement("button");
+      remove2.type = "button";
+      remove2.title = "Olib tashlash";
+      remove2.textContent = "\xD7";
+      remove2.addEventListener("click", () => {
+        delete _weekdayOverrides[key];
+        renderWeekdayOverrides();
+      });
+      chip.appendChild(remove2);
+      box.appendChild(chip);
+    }
+  }
+  function onAddWeekdayOverride() {
+    const errorEl = document.getElementById("employeeModalError");
+    const day = document.getElementById("empOvDay").value;
+    const start = document.getElementById("empOvStart").value;
+    const end = document.getElementById("empOvEnd").value;
+    if (!start || !end) {
+      errorEl.textContent = "Istisno uchun boshlanish va tugash vaqtini kiriting.";
+      return;
+    }
+    errorEl.textContent = "";
+    _weekdayOverrides[String(day)] = { workStart: start, workEnd: end };
+    document.getElementById("empOvStart").value = "";
+    document.getElementById("empOvEnd").value = "";
+    renderWeekdayOverrides();
+  }
+  var PHOTO_DIM_STEPS = [1200, 1e3, 850, 700, 560];
+  var PHOTO_QUALITY_STEPS = [0.92, 0.86, 0.8, 0.74, 0.68];
+  var TARGET_PHOTO_DATA_URL_CHARS = 38e4;
+  var MAX_PHOTO_DATA_URL_CHARS = 7e5;
+  function fitWithin(width, height, maxDim) {
+    if (width <= maxDim && height <= maxDim) return { width, height };
+    if (width >= height) {
+      return { width: maxDim, height: Math.round(height * maxDim / width) };
+    }
+    return { width: Math.round(width * maxDim / height), height: maxDim };
+  }
   function resizeImageFile(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -6208,19 +6611,30 @@ ${origLine}${reasonLine}` });
         const img = new Image();
         img.onerror = () => reject(new Error("Rasm formatini tanib bo'lmadi."));
         img.onload = () => {
-          let { width, height } = img;
-          if (width > height && width > MAX_PHOTO_DIM) {
-            height = Math.round(height * MAX_PHOTO_DIM / width);
-            width = MAX_PHOTO_DIM;
-          } else if (height > MAX_PHOTO_DIM) {
-            width = Math.round(width * MAX_PHOTO_DIM / height);
-            height = MAX_PHOTO_DIM;
-          }
           const canvas = document.createElement("canvas");
-          canvas.width = width;
-          canvas.height = height;
-          canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL("image/jpeg", PHOTO_JPEG_QUALITY));
+          const ctx = canvas.getContext("2d");
+          let smallest = null;
+          for (const maxDim of PHOTO_DIM_STEPS) {
+            const { width, height } = fitWithin(img.width, img.height, maxDim);
+            canvas.width = width;
+            canvas.height = height;
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+            ctx.drawImage(img, 0, 0, width, height);
+            for (const quality of PHOTO_QUALITY_STEPS) {
+              const url = canvas.toDataURL("image/jpeg", quality);
+              if (url.length <= TARGET_PHOTO_DATA_URL_CHARS) {
+                resolve(url);
+                return;
+              }
+              if (!smallest || url.length < smallest.length) smallest = url;
+            }
+            if (width < maxDim && height < maxDim) break;
+          }
+          resolve(smallest);
+          if (smallest && smallest.length > MAX_PHOTO_DATA_URL_CHARS) {
+            console.warn("Rasm hajmi kutilganidan katta:", smallest.length);
+          }
         };
         img.src = reader.result;
       };
@@ -6245,6 +6659,7 @@ ${origLine}${reasonLine}` });
     document.getElementById("btnAddEmployee").addEventListener("click", () => openModal(null));
     document.getElementById("employeeModalCancel").addEventListener("click", closeModal);
     document.getElementById("employeeModalSave").addEventListener("click", onSave);
+    document.getElementById("btnEmpOvAdd").addEventListener("click", onAddWeekdayOverride);
     document.getElementById("empPhotoInput").addEventListener("change", async (e) => {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
@@ -6257,7 +6672,17 @@ ${origLine}${reasonLine}` });
     });
   }
   async function refreshEmployees() {
-    const [employees, users] = await Promise.all([_db2.listEmployees(), _db2.listUsers()]);
+    const [employees, users, branches] = await Promise.all([
+      _db2.listEmployees(),
+      _db2.listUsers(),
+      // Firestore qoidalari hali yangilanmagan bo'lsa ham Xodimlar bo'limi
+      // ishlayversin — filial ro'yxati shunchaki bo'sh bo'ladi.
+      _db2.listBranches({ activeOnly: true }).catch((err) => {
+        console.error("listBranches failed (non-fatal):", err);
+        return [];
+      })
+    ]);
+    _branches = branches;
     const tbody2 = document.querySelector("#employeesTable tbody");
     tbody2.innerHTML = "";
     const sortedByAge = [...users].sort(
@@ -6347,6 +6772,21 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     document.getElementById("empPassword").value = employee ? employee.password || "" : "";
     document.getElementById("empPosition").value = employee ? employee.position || "" : "";
     document.getElementById("empPhone").value = employee ? employee.phone || "" : "";
+    const branchRow = document.getElementById("empBranchRow");
+    const branchSelect2 = document.getElementById("empBranch");
+    branchRow.style.display = _branches.length ? "" : "none";
+    branchSelect2.innerHTML = "";
+    const none = document.createElement("option");
+    none.value = "";
+    none.textContent = "\u2014 biriktirilmagan (hamma filialda ishlaydi)";
+    branchSelect2.appendChild(none);
+    for (const branch of _branches) {
+      const option = document.createElement("option");
+      option.value = branch.id;
+      option.textContent = branch.name;
+      branchSelect2.appendChild(option);
+    }
+    branchSelect2.value = employee && employee.branchId || "";
     document.getElementById("empActive").checked = employee ? employee.isActive : true;
     document.getElementById("empPhotoInput").value = "";
     _pendingPhotoUrl = employee ? employee.photoUrl || null : null;
@@ -6358,6 +6798,8 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         document.getElementById("empRestDay").value = "2";
         document.getElementById("empSalary").value = "";
         document.getElementById("empWorkDays").value = "26";
+        _weekdayOverrides = {};
+        renderWeekdayOverrides();
         return;
       }
       const schedule = await _db2.getCurrentSchedule(employee.id, tashkentDateKey());
@@ -6365,6 +6807,8 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         document.getElementById("empWorkStart").value = schedule.workStart;
         document.getElementById("empWorkEnd").value = schedule.workEnd;
         document.getElementById("empRestDay").value = String(schedule.weeklyRestDay);
+        _weekdayOverrides = schedule.weekdayOverrides ? JSON.parse(JSON.stringify(schedule.weekdayOverrides)) : {};
+        renderWeekdayOverrides();
         document.getElementById("empSalary").value = schedule.avgMonthlySalary;
         document.getElementById("empWorkDays").value = schedule.workDaysPerMonth;
       }
@@ -6415,7 +6859,9 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       // bermaydi, shuning uchun xodimni saqlash/yaratish hech qachon shu
       // sabab bilan to'xtab qolmaydi.
       avgMonthlySalary: Number(document.getElementById("empSalary").value) || 0,
-      workDaysPerMonth: Number(document.getElementById("empWorkDays").value) || 0
+      workDaysPerMonth: Number(document.getElementById("empWorkDays").value) || 0,
+      // Bo'sh bo'lsa null — bazada ortiqcha bo'sh obyekt yotmasin.
+      weekdayOverrides: Object.keys(_weekdayOverrides).length ? JSON.parse(JSON.stringify(_weekdayOverrides)) : null
     };
     const fields = {
       firstName,
@@ -6425,6 +6871,8 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       phone: document.getElementById("empPhone").value.trim() || null,
       password,
       photoUrl: _pendingPhotoUrl || null,
+      // 13.09.2026: xodim biriktirilgan filial (bo'sh = hamma filialda).
+      branchId: document.getElementById("empBranch").value || null,
       ...scheduleFields
     };
     try {
@@ -6434,6 +6882,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
           phone: fields.phone,
           position: fields.position,
           isActive: document.getElementById("empActive").checked,
+          branchId: fields.branchId,
           photoUrl: fields.photoUrl
         };
         if (password) patch.password = password;
@@ -6470,7 +6919,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
   // src/ui/admin/attendanceSection.js
   var _db3;
   var dateInput = document.getElementById("attendanceDate");
-  async function initAttendance(db2, _user9) {
+  async function initAttendance(db2, _user10) {
     _db3 = db2;
     dateInput.value = tashkentDateKey();
     dateInput.addEventListener("change", refreshAttendance);
@@ -6950,6 +7399,7 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
   var _lastReport = null;
   var _editMode = false;
   var employeeSelect2 = document.getElementById("reportEmployeeSelect");
+  var branchSelect = document.getElementById("reportBranchSelect");
   var yearInput2 = document.getElementById("reportYear");
   var monthInput2 = document.getElementById("reportMonth");
   var summaryEl = document.getElementById("reportSummary");
@@ -6969,18 +7419,63 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
     document.getElementById("btnExportWord").addEventListener("click", onExport);
     document.getElementById("btnEditReport").addEventListener("click", onToggleEdit);
     document.getElementById("btnEditCancel").addEventListener("click", onCancelEdit);
+    if (branchSelect) branchSelect.addEventListener("change", fillEmployeeSelect);
   }
-  async function refreshReports() {
+  var _allEmployees = [];
+  function fillEmployeeSelect() {
+    const branchId = branchSelect ? branchSelect.value : "";
     const currentId = employeeSelect2.value;
-    const employees = await _db5.listEmployees();
+    const list = branchId ? _allEmployees.filter((e) => e.branchId === branchId) : _allEmployees;
     employeeSelect2.innerHTML = "";
-    for (const employee of employees) {
+    if (!list.length) {
+      const empty = document.createElement("option");
+      empty.value = "";
+      empty.textContent = branchId ? "\u2014 bu filialda xodim yo'q" : "\u2014 xodim yo'q";
+      employeeSelect2.appendChild(empty);
+      return;
+    }
+    for (const employee of list) {
       const option = document.createElement("option");
       option.value = employee.id;
       option.textContent = `${employee.firstName} ${employee.lastName || ""}`.trim();
       employeeSelect2.appendChild(option);
     }
-    if (currentId && employees.some((e) => e.id === currentId)) employeeSelect2.value = currentId;
+    if (currentId && list.some((e) => e.id === currentId)) employeeSelect2.value = currentId;
+  }
+  async function refreshReports() {
+    const [employees, branches] = await Promise.all([
+      _db5.listEmployees(),
+      _db5.listBranches({ activeOnly: true }).catch((err) => {
+        console.error("listBranches failed (non-fatal):", err);
+        return [];
+      })
+    ]);
+    _allEmployees = employees;
+    if (branchSelect) {
+      const show = branches.length > 0;
+      branchSelect.style.display = show ? "" : "none";
+      document.getElementById("reportBranchLabel").style.display = show ? "" : "none";
+      if (show) {
+        const signature = branches.map((b) => `${b.id}:${b.name}`).join("|");
+        if (branchSelect.dataset.signature !== signature) {
+          const previous = branchSelect.value;
+          branchSelect.dataset.signature = signature;
+          branchSelect.innerHTML = "";
+          const all = document.createElement("option");
+          all.value = "";
+          all.textContent = `Hamma filiallar (${branches.length} ta)`;
+          branchSelect.appendChild(all);
+          for (const branch of branches) {
+            const option = document.createElement("option");
+            option.value = branch.id;
+            option.textContent = branch.name;
+            branchSelect.appendChild(option);
+          }
+          branchSelect.value = branches.some((b) => b.id === previous) ? previous : "";
+        }
+      }
+    }
+    fillEmployeeSelect();
   }
   async function onCalculate() {
     const employeeId = employeeSelect2.value;
@@ -8738,6 +9233,233 @@ Agar bu 'Ruxsat yo'q' bo'lsa \u2014 Firebase Console > Firestore > Rules bo'limi
     }
   }
 
+  // src/ui/admin/branchesSection.js
+  init_appConfig();
+  var _db11;
+  var _user9;
+  var _canManage2;
+  var _editingId2 = null;
+  var _branches2 = [];
+  var _employees = [];
+  async function initBranches(db2, user) {
+    _db11 = db2;
+    _user9 = user;
+    _canManage2 = isDeleteOwnerLogin(user.username);
+    document.getElementById("branchFormCard").style.display = _canManage2 ? "" : "none";
+    document.getElementById("btnBranchFromLink").addEventListener("click", onFromLink);
+    document.getElementById("btnBranchUseCurrent").addEventListener("click", onUseCurrent);
+    document.getElementById("btnBranchSave").addEventListener("click", onSave3);
+    document.getElementById("btnBranchCancel").addEventListener("click", resetForm);
+    document.getElementById("branchSearch").addEventListener("input", renderTable);
+    const radiusInput = document.getElementById("branchRadius");
+    radiusInput.min = GEOFENCE_MIN_RADIUS_M;
+    radiusInput.max = GEOFENCE_MAX_RADIUS_M;
+    document.getElementById("branchRadiusLabel").textContent = `Radius (metr) \u2014 ${GEOFENCE_MIN_RADIUS_M} dan ${GEOFENCE_MAX_RADIUS_M} gacha`;
+  }
+  async function refreshBranches() {
+    const [branches, employees] = await Promise.all([
+      _db11.listBranches().catch((err) => {
+        console.error("listBranches failed:", err);
+        return null;
+      }),
+      _db11.listEmployees({ activeOnly: true }).catch(() => [])
+    ]);
+    if (branches === null) {
+      document.getElementById("branchCount").textContent = "";
+      document.getElementById("branchesTable").querySelector("tbody").innerHTML = `<tr><td colspan="5" class="muted">\u26A0\uFE0F Filiallar ro'yxatini o'qib bo'lmadi. Firebase Console'dagi Firestore rules'ni yangi (branches qo'shilgan) versiyaga almashtiring.</td></tr>`;
+      return;
+    }
+    _branches2 = branches;
+    _employees = employees;
+    renderTable();
+  }
+  function employeeCountFor(branchId) {
+    return _employees.filter((e) => e.branchId === branchId).length;
+  }
+  function renderTable() {
+    const search = (document.getElementById("branchSearch").value || "").trim().toLowerCase();
+    const rows = search ? _branches2.filter((b) => (b.name || "").toLowerCase().includes(search)) : _branches2;
+    document.getElementById("branchCount").textContent = search ? `${rows.length} / ${_branches2.length} ta filial` : `${_branches2.length} ta filial`;
+    const tbody2 = document.getElementById("branchesTable").querySelector("tbody");
+    tbody2.innerHTML = "";
+    if (!rows.length) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="5" class="muted">${_branches2.length ? "Qidiruvga mos filial topilmadi." : "Hali filial qo'shilmagan. Yuqoridagi formadan qo'shing."}</td>`;
+      tbody2.appendChild(tr);
+      return;
+    }
+    for (const branch of rows) {
+      const tr = document.createElement("tr");
+      const count = employeeCountFor(branch.id);
+      tr.innerHTML = `<td><strong>${escapeHtml(branch.name || "\u2014")}</strong></td><td class="muted" style="font-size:12px;">${Number(branch.lat).toFixed(6)}, ${Number(branch.lng).toFixed(6)}</td><td>${clampRadius(branch.radiusM)} m</td><td>${count} ta</td>`;
+      const actions = document.createElement("td");
+      if (_canManage2) {
+        const edit = document.createElement("button");
+        edit.className = "btn btn-secondary";
+        edit.type = "button";
+        edit.textContent = "\u270F\uFE0F";
+        edit.title = "Tahrirlash";
+        edit.addEventListener("click", () => startEdit(branch));
+        actions.appendChild(edit);
+        const del = document.createElement("button");
+        del.className = "btn btn-secondary";
+        del.type = "button";
+        del.style.marginLeft = "6px";
+        del.textContent = "\u{1F5D1}";
+        del.title = "O'chirish";
+        del.addEventListener("click", () => onDelete3(branch, count));
+        actions.appendChild(del);
+      }
+      tr.appendChild(actions);
+      tbody2.appendChild(tr);
+    }
+  }
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  }
+  function startEdit(branch) {
+    _editingId2 = branch.id;
+    document.getElementById("branchFormTitle").textContent = `Tahrirlash: ${branch.name}`;
+    document.getElementById("branchName").value = branch.name || "";
+    document.getElementById("branchLat").value = branch.lat;
+    document.getElementById("branchLng").value = branch.lng;
+    document.getElementById("branchRadius").value = clampRadius(branch.radiusM);
+    document.getElementById("branchLink").value = "";
+    document.getElementById("branchError").textContent = "";
+    document.getElementById("branchStatus").textContent = "";
+    document.getElementById("btnBranchCancel").style.display = "";
+    document.getElementById("branchFormCard").scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+  function resetForm() {
+    _editingId2 = null;
+    document.getElementById("branchFormTitle").textContent = "Yangi filial";
+    for (const id of ["branchName", "branchLink", "branchLat", "branchLng"]) {
+      document.getElementById(id).value = "";
+    }
+    document.getElementById("branchRadius").value = 200;
+    document.getElementById("branchError").textContent = "";
+    document.getElementById("branchStatus").textContent = "";
+    document.getElementById("btnBranchCancel").style.display = "none";
+  }
+  function onFromLink() {
+    const errorEl = document.getElementById("branchError");
+    const statusEl = document.getElementById("branchStatus");
+    errorEl.textContent = "";
+    const text = document.getElementById("branchLink").value.trim();
+    if (!text) {
+      errorEl.textContent = "Avval havolani (yoki koordinatani) qo'ying.";
+      return;
+    }
+    if (isShortMapLink(text)) {
+      errorEl.textContent = `Bu qisqartirilgan havola \u2014 uning ichida koordinata YO'Q.
+
+Telefonda: Google Maps ilovasini oching \u2192 kerakli joyni topib barmoqni bosib turing \u2192 pastda chiqqan "41.311081, 69.240562" kabi raqamlarni nusxalab, aynan shu maydonga qo'ying.`;
+      return;
+    }
+    const point = parseLocationLink(text);
+    if (!point) {
+      errorEl.textContent = `Havoladan koordinata topilmadi. Google Maps, Yandex yoki 2GIS havolasini, yoki "41.311081, 69.240562" ko'rinishidagi raqamlarni qo'ying.`;
+      return;
+    }
+    document.getElementById("branchLat").value = point.lat.toFixed(6);
+    document.getElementById("branchLng").value = point.lng.toFixed(6);
+    statusEl.textContent = `Havoladan olindi: ${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}.`;
+  }
+  async function onUseCurrent() {
+    const errorEl = document.getElementById("branchError");
+    const statusEl = document.getElementById("branchStatus");
+    errorEl.textContent = "";
+    statusEl.textContent = "Joylashuv o'lchanmoqda\u2026";
+    try {
+      const pos = await getBestPosition({ maxWaitMs: 8e3, targetAccuracyM: 15 });
+      document.getElementById("branchLat").value = pos.lat.toFixed(6);
+      document.getElementById("branchLng").value = pos.lng.toFixed(6);
+      statusEl.textContent = `Joylashuv olindi (GPS aniqligi ~${pos.accuracy} metr).`;
+    } catch (err) {
+      statusEl.textContent = "";
+      errorEl.textContent = err.message;
+    }
+  }
+  async function onSave3() {
+    const errorEl = document.getElementById("branchError");
+    errorEl.textContent = "";
+    const name = document.getElementById("branchName").value.trim();
+    const latRaw = document.getElementById("branchLat").value.trim();
+    const lngRaw = document.getElementById("branchLng").value.trim();
+    const radius = Number(document.getElementById("branchRadius").value);
+    if (!name) {
+      errorEl.textContent = "Filial nomini yozing.";
+      return;
+    }
+    const duplicate = _branches2.some(
+      (b) => b.id !== _editingId2 && (b.name || "").trim().toLowerCase() === name.toLowerCase()
+    );
+    if (duplicate) {
+      errorEl.textContent = `"${name}" nomli filial allaqachon bor. Boshqa nom bering.`;
+      return;
+    }
+    if (!latRaw || !lngRaw || !Number.isFinite(Number(latRaw)) || !Number.isFinite(Number(lngRaw))) {
+      errorEl.textContent = "Koordinata belgilanmagan. Havoladan oling yoki hozirgi joylashuvni oling.";
+      return;
+    }
+    if (!Number.isFinite(radius) || radius < GEOFENCE_MIN_RADIUS_M) {
+      errorEl.textContent = `Radius kamida ${GEOFENCE_MIN_RADIUS_M} metr bo'lishi kerak.`;
+      return;
+    }
+    if (radius > GEOFENCE_MAX_RADIUS_M) {
+      errorEl.textContent = `Radius ${GEOFENCE_MAX_RADIUS_M} metrdan oshmasligi kerak. Siz ${radius} metr kiritdingiz.`;
+      return;
+    }
+    const lat = Number(latRaw), lng = Number(lngRaw);
+    const overlap = _branches2.find((b) => {
+      if (b.id === _editingId2) return false;
+      const d = haversineMeters(Number(b.lat), Number(b.lng), lat, lng);
+      return d < 30;
+    });
+    if (overlap) {
+      errorEl.textContent = `Bu nuqta "${overlap.name}" filiali bilan deyarli bir xil joyda (30 metrdan yaqin). Koordinatani tekshiring.`;
+      return;
+    }
+    showBusy("Saqlanmoqda\u2026");
+    try {
+      if (_editingId2) {
+        await _db11.updateBranch(_editingId2, { name, lat, lng, radiusM: radius });
+      } else {
+        await _db11.createBranch({ name, lat, lng, radiusM: radius });
+      }
+    } catch (err) {
+      hideBusy();
+      errorEl.textContent = uzError(err);
+      return;
+    }
+    hideBusy();
+    resetForm();
+    await refreshBranches();
+  }
+  async function onDelete3(branch, employeeCount) {
+    const extra = employeeCount ? `
+
+DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular hech qaysi filialga bog'lanmagan bo'lib qoladi va istalgan filialda face id qila oladi.` : "";
+    const ok = await confirmDialog({
+      title: "Filialni o'chirish",
+      message: `"${branch.name}" filiali o'chirilsinmi?${extra}`,
+      okText: "O'chirish",
+      cancelText: "Bekor qilish"
+    });
+    if (!ok) return;
+    showBusy("O'chirilmoqda\u2026");
+    try {
+      await _db11.deleteBranch(branch.id);
+    } catch (err) {
+      hideBusy();
+      await alertDialog({ title: "Xatolik", message: uzError(err) });
+      return;
+    }
+    hideBusy();
+    if (_editingId2 === branch.id) resetForm();
+    await refreshBranches();
+  }
+
   // src/ui/admin/adminApp.js
   var SECTIONS = [
     { key: "dashboard", title: "Dashboard", permission: "view_attendance", refresh: refreshDashboard },
@@ -8750,6 +9472,10 @@ Agar bu 'Ruxsat yo'q' bo'lsa \u2014 Firebase Console > Firestore > Rules bo'limi
     // admin11/M.Ali yoki "Maosh paneli" ptichkasi ataylab belgilangan
     // admin ko'radi (qarang payrollSection.js:canSeePayroll).
     { key: "payroll", title: "Maosh", permission: null, customCheck: canSeePayroll, refresh: refreshPayroll },
+    // 13.09.2026 so'rovi: filiallar (har biriga alohida lokatsiya).
+    // Ko'rishga hamma adminning haqqi bor, o'zgartirishga esa faqat
+    // admin11/M.Ali (qarang branchesSection.js).
+    { key: "branches", title: "Filiallar", permission: null, refresh: refreshBranches },
     { key: "settings", title: "Sozlamalar", permission: null, refresh: refreshSettings },
     { key: "admins", title: "Administratorlar", permission: "manage_admins", refresh: refreshAdmins },
     // 31.08.2026 so'rovi: "Ruxsatlar kitobi" — Grafik/Kalendar orqali
@@ -8821,7 +9547,8 @@ Agar bu 'Ruxsat yo'q' bo'lsa \u2014 Firebase Console > Firestore > Rules bo'limi
       initAdmins(db2, user),
       initPermissionsLog(db2, user),
       initSecurity(db2, user),
-      initPayroll(db2, user)
+      initPayroll(db2, user),
+      initBranches(db2, user)
     ]);
     if (visibleSections.length) {
       activateSectionInternal(visibleSections[0].key, visibleSections);
@@ -8848,7 +9575,7 @@ Agar bu 'Ruxsat yo'q' bo'lsa \u2014 Firebase Console > Firestore > Rules bo'limi
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-09-12 14:10 UTC";
+  var BUILD_STAMP = "2026-09-13 14:15 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
