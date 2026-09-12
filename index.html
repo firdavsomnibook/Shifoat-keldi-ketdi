@@ -167,8 +167,12 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
    endi employeesSection.js'da yuqoriroq o'lcham/sifatda saqlanadi (480px /
    0.85), shuning uchun bu kattalikda ham piksellanib qolmaydi. */
 #photoLightboxModal { z-index: 200; background: rgba(20, 22, 60, 0.72); }
-#photoLightboxModal .modal-box { width: auto; max-width: 460px; text-align: center; padding: 24px; }
-#photoLightboxImg { width: 100%; max-width: 400px; max-height: 68vh; object-fit: cover; border-radius: 16px; display: block; margin: 0 auto 16px; box-shadow: 0 10px 28px rgba(20,22,60,0.3); }
+#photoLightboxModal .modal-box { width: min(92vw, 420px); max-width: 420px; text-align: center; padding: 24px; }
+#photoLightboxImg {
+  width: 100%; aspect-ratio: 3 / 4; max-height: 62vh; object-fit: cover;
+  border-radius: 16px; display: block; margin: 0 auto 16px; background: #EEF0FB;
+  box-shadow: 0 10px 28px rgba(20,22,60,0.3);
+}
 #photoLightboxName { font-size: 19px; font-weight: 700; color: var(--deep-navy); margin: 0 0 4px; }
 #photoLightboxPosition { font-size: 14px; font-weight: 700; color: var(--shifoat-red-dark); margin: 0 0 4px; }
 #photoLightboxPosition:empty { display: none; }
@@ -221,6 +225,46 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   font-weight: 700; font-size: 15px; line-height: 1; padding: 0 4px;
 }
 .picked-days-empty { font-size: 12px; color: #8A8EA8; margin-top: 8px; }
+/* 12.09.2026: "Dam" oynasidagi haftalik jadval — kim qaysi kuni dam oladi. */
+.week-rest { margin: 0 0 14px; }
+.week-rest-title { font-size: 13px; font-weight: 700; color: var(--deep-navy); margin: 0 0 8px; }
+.week-rest-row {
+  display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: flex-start;
+  padding: 7px 8px; border-radius: 8px; border-bottom: 1px solid #EEF0F7;
+}
+.week-rest-row.is-selected { background: #FFF6E5; }
+.week-rest-day { display: flex; flex-direction: column; min-width: 92px; line-height: 1.25; }
+.week-rest-dayname { font-size: 13px; font-weight: 700; color: var(--deep-navy); }
+.week-rest-date { font-size: 11px; color: #8A8EA8; font-weight: 600; }
+.week-rest-people { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 180px; }
+.week-rest-person {
+  display: inline-flex; align-items: center; gap: 6px; background: #FDE3E7;
+  color: #B3121F; border-radius: 999px; padding: 3px 10px 3px 3px;
+  font-size: 12px; font-weight: 700; max-width: 100%;
+  /* 12.09.2026: endi bu <button> — bosilsa rasm kattalashadi. */
+  border: none; font-family: inherit; cursor: pointer; text-align: left;
+}
+.week-rest-person:hover { background: #F9C9D2; }
+.week-rest-person:focus-visible { outline: 2px solid var(--shifoat-red); outline-offset: 1px; }
+/* Rasmi yo'q xodim uchun kattalashtirilgan oynada ism harfi. */
+#photoLightboxInitial {
+  width: 100%; aspect-ratio: 3 / 4; max-height: 62vh; border-radius: 16px;
+  margin: 0 auto 16px; background: #EEF0FB; color: #6B6F91; font-size: 72px;
+  font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+.week-rest-person img {
+  width: 24px; height: 24px; border-radius: 50%; object-fit: cover; flex: none;
+}
+.week-rest-initial {
+  width: 24px; height: 24px; border-radius: 50%; flex: none; background: #FFFFFF;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 11px;
+}
+.week-rest-moved { font-size: 13px; }
+.week-rest-none { font-size: 12px; color: #8A8EA8; font-weight: 600; padding-top: 4px; }
+.week-rest-subtitle {
+  font-size: 13px; font-weight: 700; color: var(--deep-navy);
+  margin: 16px 0 6px; padding-top: 12px; border-top: 2px solid #E3E5F0;
+}
 .range-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
 .range-add-label { font-size: 12px; color: #6B6F91; font-weight: 600; }
 .range-add input { padding: 6px 8px; border-radius: 8px; border: 1px solid #C9CCE6; font-size: 13px; width: 118px; }
@@ -1035,6 +1079,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
 <div class="modal-overlay" id="photoLightboxModal">
   <div class="modal-box">
     <img id="photoLightboxImg" src="" alt="" />
+    <div id="photoLightboxInitial" style="display:none;"></div>
     <p id="photoLightboxName"></p>
     <p id="photoLightboxPosition"></p>
     <p id="photoLightboxSchedule"></p>
@@ -5385,7 +5430,20 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
     dateInput3.addEventListener("change", refreshDashboard);
   }
   function openPhotoLightbox(photoUrl, name, scheduleText, positionText) {
-    document.getElementById("photoLightboxImg").src = photoUrl;
+    const img = document.getElementById("photoLightboxImg");
+    const initial = document.getElementById("photoLightboxInitial");
+    if (photoUrl) {
+      img.src = photoUrl;
+      img.style.display = "";
+      if (initial) initial.style.display = "none";
+    } else {
+      img.removeAttribute("src");
+      img.style.display = "none";
+      if (initial) {
+        initial.textContent = (name && name[0] ? name[0] : "?").toUpperCase();
+        initial.style.display = "";
+      }
+    }
     document.getElementById("photoLightboxName").textContent = name;
     const positionEl = document.getElementById("photoLightboxPosition");
     if (positionEl) positionEl.textContent = positionText || "";
@@ -5491,22 +5549,28 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
         }
       }
     }
+    const weekRest = buildWeekRestSummary(
+      employees,
+      schedulesByEmployee,
+      allDayStatuses,
+      selectedDateKey
+    );
     const cards = [
       ["Ishda bo'lishi kerak", shouldWork],
       ["Kelgan", checkedIn],
       ["Ketgan", checkedOut],
       ["Hali kelmagan", notYet],
       ["Kechikkan", late],
-      ["Dam", resting],
+      ["Dam", resting, { weekRest, selectedDateKey }],
       ["Ruxsatli", permission]
     ];
     const container = document.getElementById("dashboardStats");
     container.innerHTML = "";
-    for (const [label, list] of cards) {
+    for (const [label, list, extra] of cards) {
       const card = document.createElement("div");
       card.className = "card card-clickable";
       card.innerHTML = `<p class="card-value">${list.length}</p><p class="card-label">${label}</p>`;
-      card.addEventListener("click", () => openDashboardList(label, list));
+      card.addEventListener("click", () => openDashboardList(label, list, extra));
       container.appendChild(card);
     }
     renderDisciplineBlocks(employees, allSchedules, allDayStatuses, allLatePermissions, selectedDateKey).catch((err) => console.error("Discipline block failed (non-fatal):", err));
@@ -5715,13 +5779,136 @@ Qo'shimcha ishlagan vaqt: ${result.overtimeMinutes} daqiqa`;
       </div>
     </div>`;
   }
-  function openDashboardList(title, list) {
+  function buildWeekRestSummary(employees, schedulesByEmployee, allDayStatuses, selectedDateKey) {
+    const monday = addDaysToKey(selectedDateKey, -weekdayIndexMonday0(selectedDateKey));
+    const todayKey = tashkentDateKey();
+    const explicitByKey = /* @__PURE__ */ new Map();
+    for (const row of allDayStatuses) {
+      explicitByKey.set(`${row.employeeId}|${row.dateKey}`, row.status);
+    }
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const dateKey = addDaysToKey(monday, i);
+      const people = [];
+      for (const employee of employees) {
+        const status = resolveDayStatusSync(
+          explicitByKey.get(`${employee.id}|${dateKey}`),
+          schedulesByEmployee.get(employee.id) || [],
+          dateKey
+        );
+        if (status === DAY_STATUS_REST || status === DAY_STATUS_MOVED_REST) {
+          const daysSchedule = pickScheduleForDate(schedulesByEmployee.get(employee.id) || [], dateKey);
+          people.push({
+            name: `${employee.firstName} ${employee.lastName || ""}`.trim(),
+            photoUrl: employee.photoUrl || null,
+            position: (employee.position || "").trim(),
+            scheduleText: daysSchedule ? `${daysSchedule.workStart} - ${daysSchedule.workEnd}` : null,
+            moved: status === DAY_STATUS_MOVED_REST
+          });
+        }
+      }
+      people.sort((a, b) => a.name.localeCompare(b.name, "uz"));
+      days.push({
+        dateKey,
+        weekdayName: weekdayNameUz(dateKey),
+        isToday: dateKey === todayKey,
+        isSelected: dateKey === selectedDateKey,
+        people
+      });
+    }
+    return days;
+  }
+  function renderWeekRestSummary(body, weekRest, selectedDateKey) {
+    const box = document.createElement("div");
+    box.className = "week-rest";
+    const title = document.createElement("p");
+    title.className = "week-rest-title";
+    const from = weekRest[0].dateKey, to = weekRest[6].dateKey;
+    title.textContent = `Hafta davomida kim dam oladi (${ddmmyyyy(from)} \u2014 ${ddmmyyyy(to)})`;
+    box.appendChild(title);
+    for (const day of weekRest) {
+      const row = document.createElement("div");
+      row.className = "week-rest-row" + (day.isSelected ? " is-selected" : "");
+      const label = document.createElement("div");
+      label.className = "week-rest-day";
+      const nameEl = document.createElement("span");
+      nameEl.className = "week-rest-dayname";
+      nameEl.textContent = day.weekdayName;
+      const dateEl = document.createElement("span");
+      dateEl.className = "week-rest-date";
+      dateEl.textContent = ddmm(day.dateKey) + (day.isToday ? " \u2022 bugun" : "");
+      label.appendChild(nameEl);
+      label.appendChild(dateEl);
+      row.appendChild(label);
+      const people = document.createElement("div");
+      people.className = "week-rest-people";
+      if (!day.people.length) {
+        const none = document.createElement("span");
+        none.className = "week-rest-none";
+        none.textContent = "\u2014 hech kim";
+        people.appendChild(none);
+      } else {
+        for (const person of day.people) {
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = "week-rest-person";
+          chip.title = "Batafsil ko'rish";
+          chip.addEventListener("click", () => openPhotoLightbox(
+            person.photoUrl,
+            person.name,
+            person.scheduleText,
+            person.position
+          ));
+          if (person.photoUrl) {
+            const img = document.createElement("img");
+            img.src = person.photoUrl;
+            img.alt = "";
+            chip.appendChild(img);
+          } else {
+            const initial = document.createElement("span");
+            initial.className = "week-rest-initial";
+            initial.textContent = (person.name[0] || "?").toUpperCase();
+            chip.appendChild(initial);
+          }
+          const who = document.createElement("span");
+          who.textContent = person.name;
+          chip.appendChild(who);
+          if (person.moved) {
+            const mark = document.createElement("span");
+            mark.className = "week-rest-moved";
+            mark.textContent = "\u2194";
+            mark.title = "Ko'chirilgan dam kuni";
+            chip.appendChild(mark);
+          }
+          people.appendChild(chip);
+        }
+      }
+      row.appendChild(people);
+      box.appendChild(row);
+    }
+    body.appendChild(box);
+    const heading = document.createElement("p");
+    heading.className = "week-rest-subtitle";
+    heading.textContent = selectedDateKey === tashkentDateKey() ? "Bugun dam olayotganlar" : `${ddmmyyyy(selectedDateKey)} \u2014 dam olayotganlar`;
+    body.appendChild(heading);
+  }
+  function ddmm(dateKey) {
+    const [, m, d] = dateKey.split("-");
+    return `${d}.${m}`;
+  }
+  function openDashboardList(title, list, extra) {
     document.getElementById("dashboardListTitle").textContent = `${title} (${list.length})`;
     const body = document.getElementById("dashboardListBody");
+    body.innerHTML = "";
+    if (extra && extra.weekRest) {
+      renderWeekRestSummary(body, extra.weekRest, extra.selectedDateKey);
+    }
     if (!list.length) {
-      body.innerHTML = `<p class="muted">Bu ro'yxat bo'sh.</p>`;
+      const empty = document.createElement("p");
+      empty.className = "muted";
+      empty.textContent = "Bu ro'yxat bo'sh.";
+      body.appendChild(empty);
     } else {
-      body.innerHTML = "";
       for (const e of list) {
         const row = document.createElement("div");
         row.style.cssText = "display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #EEF0F7;";
@@ -6439,7 +6626,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       chip.className = "picked-day-chip";
       chip.dataset.key = dateKey;
       const label = document.createElement("span");
-      label.textContent = ddmm(dateKey);
+      label.textContent = ddmm2(dateKey);
       chip.appendChild(label);
       const remove2 = document.createElement("button");
       remove2.type = "button";
@@ -6454,7 +6641,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       box.appendChild(chip);
     }
   }
-  function ddmm(dateKey) {
+  function ddmm2(dateKey) {
     const [, m, d] = dateKey.split("-");
     return `${d}.${m}`;
   }
@@ -8661,7 +8848,7 @@ Agar bu 'Ruxsat yo'q' bo'lsa \u2014 Firebase Console > Firestore > Rules bo'limi
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-09-10 16:05 UTC";
+  var BUILD_STAMP = "2026-09-12 14:10 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
