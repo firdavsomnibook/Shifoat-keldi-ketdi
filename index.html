@@ -331,6 +331,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
    ketmasin (chiziqcha bir qatorda, vaqtlar boshqa qatorda qolib,
    qaysi vaqt qaysiga tegishli ekani chalkashib ketardi). */
 .ov-pair { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+/* 15.09.2026: logotip o'lchami maydonlari uchun kichkina yorliq. */
+.ov-lbl { font-size: 12px; font-weight: 700; color: #5A5E80; }
 .weekday-ov-add select, .weekday-ov-add input {
   padding: 7px 8px; border-radius: 8px; border: 1px solid #C9CCE6; font-size: 13px;
 }
@@ -921,6 +923,16 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
           <input type="file" id="brandLogoFile" accept="image/*" />
           <img id="brandLogoPreview" alt="" style="display:none; margin-top:8px; height:60px; object-fit:contain;" />
           <button class="btn btn-secondary" id="btnBrandLogoClear" style="margin-top:8px; display:none;">Logotipni olib tashlash</button>
+        </div>
+        <!-- 15.09.2026 so'rovi: "bo'yiga 100 kiritsam 100 px bo'yi chiqsin,
+             eniga 200 kiritsam 200 px chiqsin - o'lchamni o'zimiz tanlaylik". -->
+        <div class="form-row">
+          <label>Logotip o'lchami (ixtiyoriy, piksel)</label>
+          <div class="weekday-ov-add">
+            <span class="ov-pair"><span class="ov-lbl">Eni</span><input type="number" id="brandLogoW" min="20" max="10000" step="10" placeholder="avto" style="width:96px;" /></span>
+            <span class="ov-pair"><span class="ov-lbl">Bo&#39;yi</span><input type="number" id="brandLogoH" min="20" max="10000" step="10" placeholder="avto" style="width:96px;" /></span>
+          </div>
+          <div class="weekday-ov-list"><span class="weekday-ov-empty">Bo&#39;sh qoldirilsa &mdash; ekran o&#39;lchamiga qarab o&#39;zi moslashadi. Faqat bittasini kiritsangiz, ikkinchisi rasm nisbatiga qarab o&#39;zi hisoblanadi. Telefonda ekrandan chiqib ketmasligi uchun eni baribir ekran kengligidan oshmaydi.</span></div>
         </div>
         <p class="form-error" id="brandError"></p>
         <button class="btn btn-primary" id="btnSaveBranding">Brendni saqlash</button>
@@ -4616,7 +4628,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     const style = document.createElement("style");
     style.textContent = `
     #shifoatBusy {
-      position: fixed; inset: 0; z-index: 900; display: none;
+      /* 15.09.2026 da topilgan xato: z-index 900 edi, ya'ni dialog
+         oynasidan (200) BALAND - natijada "Bajarildi ... OK" oynasi
+         belgi ostida qolib ketardi. Endi past: belgi hech qachon
+         oynani to'smaydi. */
+      position: fixed; inset: 0; z-index: 90; display: none;
       flex-direction: column; align-items: center; justify-content: center;
       gap: 18px; background: rgba(255,255,255,.88);
       font-family: inherit; pointer-events: none;
@@ -4665,7 +4681,9 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     return el;
   }
   var SHOW_DELAY_MS = 220;
+  var WATCHDOG_MS = 3e4;
   var showTimer = null;
+  var watchdog = null;
   function showBusy(text = "Yangilanmoqda\u2026") {
     ensureEl();
     depth++;
@@ -4676,15 +4694,31 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       showTimer = null;
       if (depth > 0) el.classList.add("active");
     }, SHOW_DELAY_MS);
+    if (watchdog) clearTimeout(watchdog);
+    watchdog = setTimeout(() => {
+      console.warn("Busy belgisi 30 soniyadan oshdi - majburan yopildi.");
+      clearAll();
+    }, WATCHDOG_MS);
   }
   function hideBusy() {
     depth = Math.max(0, depth - 1);
     if (depth > 0) return;
+    clearAll();
+  }
+  function clearAll() {
+    depth = 0;
     if (showTimer) {
       clearTimeout(showTimer);
       showTimer = null;
     }
+    if (watchdog) {
+      clearTimeout(watchdog);
+      watchdog = null;
+    }
     if (el) el.classList.remove("active");
+  }
+  function forceHideBusy() {
+    clearAll();
   }
 
   // src/business/geofenceService.js
@@ -4973,17 +5007,27 @@ Eng yaqini: ${nearest.branch.name} \u2014 ~${nearest.distanceM} metr (ruxsat: ${
   // src/ui/branding.js
   var _cached = null;
   async function loadBranding(db2) {
-    const [name, since, logo, color] = await Promise.all([
+    const [name, since, logo, color, logoW, logoH] = await Promise.all([
       db2.getSetting("brand_name"),
       db2.getSetting("brand_since"),
       db2.getSetting("brand_logo"),
-      db2.getSetting("brand_color")
+      db2.getSetting("brand_color"),
+      // 15.09.2026 so'rovi: logotipning EKRANDAGI o'lchamini admin o'zi
+      // kiritadi (piksel). Bo'sh bo'lsa - avtomatik.
+      db2.getSetting("brand_logo_w"),
+      db2.getSetting("brand_logo_h")
     ]);
+    const size = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 20 && n <= 1e4 ? Math.round(n) : null;
+    };
     _cached = {
       name: (name || "Shifoat").trim(),
       since: (since || "").trim(),
       logo: logo || "",
-      color: (color || "#ED2040").trim()
+      color: (color || "#ED2040").trim(),
+      logoW: size(logoW),
+      logoH: size(logoH)
     };
     return _cached;
   }
@@ -5012,10 +5056,18 @@ Eng yaqini: ${nearest.branch.name} \u2014 ~${nearest.distanceM} metr (ruxsat: ${
         const img = document.createElement("img");
         img.src = brand.logo;
         img.alt = brand.name || "";
-        img.style.cssText = // 15.09.2026 so'rovi: "kattaroq qilib qo'y". Kvadrat logotip
-        // (masalan FD belgisi) balandlik bo'yicha cheklanadi, shuning
-        // uchun 150px da kichkina ko'rinardi. Endi 200px gacha.
-        "height:auto; width:auto; max-height:clamp(120px, 22vh, 200px); max-width:min(92vw, 560px); object-fit:contain; display:block;";
+        const W = brand.logoW, H = brand.logoH;
+        let sizeCss;
+        if (W && H) {
+          sizeCss = `width:${W}px; height:${H}px; object-fit:contain;`;
+        } else if (W) {
+          sizeCss = `width:${W}px; height:auto;`;
+        } else if (H) {
+          sizeCss = `height:${H}px; width:auto;`;
+        } else {
+          sizeCss = "height:auto; width:auto; max-height:clamp(120px, 22vh, 200px); max-width:min(92vw, 560px); object-fit:contain;";
+        }
+        img.style.cssText = sizeCss + " max-width:100%; display:block;";
         header.appendChild(img);
         const builtIn = document.querySelector(".kiosk-header img");
         if (builtIn) builtIn.style.display = "none";
@@ -5074,6 +5126,7 @@ Eng yaqini: ${nearest.branch.name} \u2014 ~${nearest.distanceM} metr (ruxsat: ${
 
   // src/ui/admin/confirmDialog.js
   function buildModalShell(title, message) {
+    forceHideBusy();
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay active";
     overlay.style.zIndex = "200";
@@ -8256,17 +8309,23 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
     document.getElementById("settingGrace").value = await _db6.getSetting("late_grace_minutes");
     document.getElementById("settingPenalty").value = await _db6.getSetting("late_penalty_per_minute");
     document.getElementById("settingFullscreen").checked = Number(await _db6.getSetting("kiosk_fullscreen")) === 1;
-    const [brandName, brandSince, brandLogo, brandColor] = await Promise.all([
+    const [brandName, brandSince, brandLogo, brandColor, logoW, logoH] = await Promise.all([
       _db6.getSetting("brand_name"),
       _db6.getSetting("brand_since"),
       _db6.getSetting("brand_logo"),
-      _db6.getSetting("brand_color")
+      _db6.getSetting("brand_color"),
+      // 15.09.2026: logotipning EKRANDAGI o'lchami (piksel). Bo'sh bo'lsa
+      // avvalgidek ekranga qarab o'zi moslashadi.
+      _db6.getSetting("brand_logo_w"),
+      _db6.getSetting("brand_logo_h")
     ]);
     document.getElementById("brandName").value = brandName || "";
     document.getElementById("brandSince").value = brandSince || "";
     document.getElementById("brandColor").value = brandColor || "#ED2040";
     _pendingLogo = null;
     showLogoPreview(brandLogo || "");
+    document.getElementById("brandLogoW").value = logoW ? String(logoW) : "";
+    document.getElementById("brandLogoH").value = logoH ? String(logoH) : "";
     const canEditGeofence = isDeleteOwnerLogin(_user4.username);
     const geofenceCard = document.getElementById("geofenceCard");
     geofenceCard.style.display = canEditGeofence ? "" : "none";
@@ -8420,12 +8479,31 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
       errorEl.textContent = "Tashkilot nomi kiritilishi shart.";
       return;
     }
+    const sizeOrNull = (id, nom) => {
+      const raw = document.getElementById(id).value.trim();
+      if (!raw) return null;
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 20 || n > 1e4) {
+        throw new Error(`${nom} 20 dan 10000 gacha bo'lishi kerak (yoki bo'sh qoldiring).`);
+      }
+      return Math.round(n);
+    };
+    let logoW, logoH;
+    try {
+      logoW = sizeOrNull("brandLogoW", "Logotip eni");
+      logoH = sizeOrNull("brandLogoH", "Logotip bo'yi");
+    } catch (err) {
+      errorEl.textContent = err.message;
+      return;
+    }
     showBusy("Saqlanmoqda\u2026");
     try {
       const writes = [
         _db6.setSetting("brand_name", name),
         _db6.setSetting("brand_since", document.getElementById("brandSince").value.trim()),
-        _db6.setSetting("brand_color", document.getElementById("brandColor").value)
+        _db6.setSetting("brand_color", document.getElementById("brandColor").value),
+        _db6.setSetting("brand_logo_w", logoW == null ? "" : String(logoW)),
+        _db6.setSetting("brand_logo_h", logoH == null ? "" : String(logoH))
       ];
       if (_pendingLogo !== null) writes.push(_db6.setSetting("brand_logo", _pendingLogo));
       await Promise.all(writes);
@@ -10279,7 +10357,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-09-15 19:35 UTC";
+  var BUILD_STAMP = "2026-09-15 20:50 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
