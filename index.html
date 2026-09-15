@@ -5012,9 +5012,16 @@ Eng yaqini: ${nearest.branch.name} \u2014 ~${nearest.distanceM} metr (ruxsat: ${
         const img = document.createElement("img");
         img.src = brand.logo;
         img.alt = brand.name || "";
-        img.style.cssText = "height:auto; width:auto; max-height:clamp(88px, 15vh, 150px); max-width:min(92vw, 560px); object-fit:contain; display:block;";
+        img.style.cssText = // 15.09.2026 so'rovi: "kattaroq qilib qo'y". Kvadrat logotip
+        // (masalan FD belgisi) balandlik bo'yicha cheklanadi, shuning
+        // uchun 150px da kichkina ko'rinardi. Endi 200px gacha.
+        "height:auto; width:auto; max-height:clamp(120px, 22vh, 200px); max-width:min(92vw, 560px); object-fit:contain; display:block;";
         header.appendChild(img);
+        const builtIn = document.querySelector(".kiosk-header img");
+        if (builtIn) builtIn.style.display = "none";
       } else {
+        const builtIn = document.querySelector(".kiosk-header img");
+        if (builtIn) builtIn.style.display = "";
         const nameEl = document.createElement("div");
         nameEl.textContent = brand.name;
         nameEl.style.cssText = "font-size:30px; font-weight:800; color:var(--navy-deep, #212355); line-height:1.15;";
@@ -10272,7 +10279,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-09-15 18:30 UTC";
+  var BUILD_STAMP = "2026-09-15 19:35 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
