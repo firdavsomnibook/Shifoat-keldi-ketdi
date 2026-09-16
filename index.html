@@ -322,6 +322,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   margin: 16px 0 6px; padding-top: 12px; border-top: 2px solid #E3E5F0;
 }
 .range-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+/* 16.09.2026: Dashboard'dagi "Xodimlar tarkibi" qatori - kunlik
+   kartochkalardan ajralib tursin (ular bugungi holat, bu esa tarkib). */
+.staff-mix-title { font-size: 13px; font-weight: 700; color: #5A5E80;
+  margin: 18px 0 8px; text-transform: uppercase; letter-spacing: .04em; }
+.card-staff { background: #F7F8FC; }
 /* ------------------------------------------------------------------ */
 /* 16.09.2026 so'rovi: "bir qarashda nechta xodim, qanchasi ayol,       */
 /* qanchasi erkak" - Xodimlar bo'limi tepasidagi hisob paneli.          */
@@ -738,6 +743,12 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         <input type="date" id="dashboardDate" />
       </div>
       <div class="stat-grid" id="dashboardStats"></div>
+
+      <!-- 16.09.2026 so'rovi: "bir qarashda nechta xodim, qanchasi ayol,
+           qanchasi erkak". Bosilsa - kimlar ekani ro'yxati chiqadi.
+           Filial tanlansa, faqat o'sha filial bo'yicha hisoblanadi. -->
+      <p class="staff-mix-title" id="dashboardStaffTitle" style="display:none;">Xodimlar tarkibi</p>
+      <div class="stat-grid" id="dashboardStaffStats"></div>
 
       <!-- 01.09.2026 so'rovi: haftalik intizom baholash + oyning namunali
            xodimi. Ikkalasi ham dashboardSection.js tomonidan to'ldiriladi. -->
@@ -6408,6 +6419,7 @@ ${branchNote}` : branchNote;
       if (o.newDateKey === selectedDateKey) moveOverrideByEmployeeAndDate.set(`${o.employeeId}|${o.newDateKey}`, o);
     }
     const shouldWork = [], checkedIn = [], checkedOut = [], notYet = [], late = [], resting = [], permission = [];
+    const staffAll = [], staffMale = [], staffFemale = [], staffUnset = [];
     for (const employee of employees) {
       const status = resolveDayStatusSync(
         dayStatusByEmployee.get(employee.id),
@@ -6424,6 +6436,10 @@ ${branchNote}` : branchNote;
         scheduleText,
         position: (employee.position || "").trim()
       };
+      staffAll.push(entry);
+      if (employee.gender === "male") staffMale.push(entry);
+      else if (employee.gender === "female") staffFemale.push(entry);
+      else staffUnset.push(entry);
       const daysPermission = latePermissionByEmployee.get(employee.id);
       if (daysPermission) {
         const note = `Ruxsat: ${daysPermission.allowedStartTime} gacha kelishi mumkin` + (daysPermission.reason ? ` \u2014 ${daysPermission.reason}` : "");
@@ -6483,6 +6499,29 @@ ${branchNote}` : branchNote;
       card.innerHTML = `<p class="card-value">${list.length}</p><p class="card-label">${label}</p>`;
       card.addEventListener("click", () => openDashboardList(label, list, extra));
       container.appendChild(card);
+    }
+    const staffCards = [
+      ["Jami xodim", staffAll],
+      ["Erkak", staffMale],
+      ["Ayol", staffFemale]
+    ];
+    if (staffUnset.length) staffCards.push(["Jinsi belgilanmagan", staffUnset]);
+    const staffContainer = document.getElementById("dashboardStaffStats");
+    const staffTitle = document.getElementById("dashboardStaffTitle");
+    if (staffContainer) {
+      staffContainer.innerHTML = "";
+      const show = staffAll.length > 0;
+      staffContainer.style.display = show ? "" : "none";
+      if (staffTitle) staffTitle.style.display = show ? "" : "none";
+      if (show) {
+        for (const [label, list] of staffCards) {
+          const card = document.createElement("div");
+          card.className = "card card-clickable card-staff";
+          card.innerHTML = `<p class="card-value">${list.length}</p><p class="card-label">${label}</p>`;
+          card.addEventListener("click", () => openDashboardList(label, list));
+          staffContainer.appendChild(card);
+        }
+      }
     }
     renderDisciplineBlocks(employees, allSchedules, allDayStatuses, allLatePermissions, selectedDateKey).catch((err) => console.error("Discipline block failed (non-fatal):", err));
   }
@@ -10526,7 +10565,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-09-16 09:40 UTC";
+  var BUILD_STAMP = "2026-09-16 10:15 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
