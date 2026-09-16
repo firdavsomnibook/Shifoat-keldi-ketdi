@@ -348,6 +348,24 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   font-size: 13px; min-width: 150px; }
 .gender-guess { font-size: 11px; color: #9A6B00; background: #FFF4D6;
   border-radius: 6px; padding: 2px 7px; white-space: nowrap; }
+/* 16.09.2026 so'rovi: "erkak och yashil, ayol och pushti bo'lsin".
+   Bitta joyda belgilanadi - Dashboard ham, Xodimlar bo'limi ham shu
+   ranglardan foydalanadi, shuning uchun ikkalasi doim bir xil bo'ladi. */
+:root {
+  --jins-erkak-fon: #E7F6EC;
+  --jins-erkak-chek: #A8DCB9;
+  --jins-ayol-fon: #FDECF3;
+  --jins-ayol-chek: #F3C2D6;
+}
+.card-male { background: var(--jins-erkak-fon); border-color: var(--jins-erkak-chek); }
+.card-female { background: var(--jins-ayol-fon); border-color: var(--jins-ayol-chek); }
+.emp-stat-male { background: var(--jins-erkak-fon); border-color: var(--jins-erkak-chek); }
+.emp-stat-female { background: var(--jins-ayol-fon); border-color: var(--jins-ayol-chek); }
+/* Xodimlar jadvalidagi "Jinsi" ustuni - kichkina rangli belgi. */
+.gender-pill { display: inline-block; padding: 3px 11px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; color: #33374F; white-space: nowrap; }
+.gender-pill-male { background: var(--jins-erkak-fon); border: 1px solid var(--jins-erkak-chek); }
+.gender-pill-female { background: var(--jins-ayol-fon); border: 1px solid var(--jins-ayol-chek); }
 /* 13.09.2026: haftalik ish vaqti istisnolari (xodim oynasida). */
 .weekday-ov-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 /* 15.09.2026: haftalik istisnodagi IKKINCHI ish vaqti ajralib tursin. */
@@ -6501,11 +6519,11 @@ ${branchNote}` : branchNote;
       container.appendChild(card);
     }
     const staffCards = [
-      ["Jami xodim", staffAll],
-      ["Erkak", staffMale],
-      ["Ayol", staffFemale]
+      ["Jami xodim", staffAll, ""],
+      ["Erkak", staffMale, " card-male"],
+      ["Ayol", staffFemale, " card-female"]
     ];
-    if (staffUnset.length) staffCards.push(["Jinsi belgilanmagan", staffUnset]);
+    if (staffUnset.length) staffCards.push(["Jinsi belgilanmagan", staffUnset, ""]);
     const staffContainer = document.getElementById("dashboardStaffStats");
     const staffTitle = document.getElementById("dashboardStaffTitle");
     if (staffContainer) {
@@ -6514,9 +6532,9 @@ ${branchNote}` : branchNote;
       staffContainer.style.display = show ? "" : "none";
       if (staffTitle) staffTitle.style.display = show ? "" : "none";
       if (show) {
-        for (const [label, list] of staffCards) {
+        for (const [label, list, tone] of staffCards) {
           const card = document.createElement("div");
-          card.className = "card card-clickable card-staff";
+          card.className = "card card-clickable card-staff" + tone;
           card.innerHTML = `<p class="card-value">${list.length}</p><p class="card-label">${label}</p>`;
           card.addEventListener("click", () => openDashboardList(label, list));
           staffContainer.appendChild(card);
@@ -7207,13 +7225,13 @@ ${origLine}${reasonLine}` });
     const female = employees.filter((e) => e.gender === "female").length;
     const unset = total - male - female;
     const chips = [
-      { value: total, label: "Jami xodim" },
-      { value: active, label: "Faol" },
-      { value: male, label: "Erkak" },
-      { value: female, label: "Ayol" }
+      { value: total, label: "Jami xodim", tone: "" },
+      { value: active, label: "Faol", tone: "" },
+      { value: male, label: "Erkak", tone: " emp-stat-male" },
+      { value: female, label: "Ayol", tone: " emp-stat-female" }
     ];
-    if (unset > 0) chips.push({ value: unset, label: "Belgilanmagan", warn: true });
-    box.innerHTML = chips.map((chip) => `<div class="emp-stat${chip.warn ? " emp-stat-warn" : ""}"><b>${chip.value}</b><span>${chip.label}</span></div>`).join("");
+    if (unset > 0) chips.push({ value: unset, label: "Belgilanmagan", tone: " emp-stat-warn" });
+    box.innerHTML = chips.map((chip) => `<div class="emp-stat${chip.tone}"><b>${chip.value}</b><span>${chip.label}</span></div>`).join("");
     const bulkBtn = document.getElementById("btnGenderBulk");
     if (bulkBtn) bulkBtn.style.display = _canEdit && total ? "inline-block" : "none";
   }
@@ -7488,7 +7506,7 @@ ${origLine}${reasonLine}` });
       const passwordCellText = viewerIsPrimary ? employee.password || "\u2014" : "";
       const photoCell = employee.photoUrl ? `<img src="${employee.photoUrl}" style="width:32px; height:32px; border-radius:50%; object-fit:cover; display:block;" />` : `<span class="muted">\u2014</span>`;
       const tr = document.createElement("tr");
-      const genderText = GENDER_LABEL[employee.gender] || `<span class="muted">\u2014</span>`;
+      const genderText = employee.gender && GENDER_LABEL[employee.gender] ? `<span class="gender-pill gender-pill-${employee.gender}">${GENDER_LABEL[employee.gender]}</span>` : `<span class="muted">\u2014</span>`;
       tr.innerHTML = `
       <td>${photoCell}</td>
       <td>${fullName}</td><td>${employee.position || ""}</td>
@@ -10565,7 +10583,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-09-16 10:15 UTC";
+  var BUILD_STAMP = "2026-09-16 11:00 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
