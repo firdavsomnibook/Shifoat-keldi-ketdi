@@ -322,6 +322,27 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   margin: 16px 0 6px; padding-top: 12px; border-top: 2px solid #E3E5F0;
 }
 .range-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+/* ------------------------------------------------------------------ */
+/* 16.09.2026 so'rovi: "bir qarashda nechta xodim, qanchasi ayol,       */
+/* qanchasi erkak" - Xodimlar bo'limi tepasidagi hisob paneli.          */
+/* ------------------------------------------------------------------ */
+.emp-stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 14px; }
+.emp-stat { background: #fff; border: 1px solid #E3E5F0; border-radius: 12px;
+  padding: 10px 18px; min-width: 104px; }
+.emp-stat b { display: block; font-size: 24px; font-weight: 800; line-height: 1.1;
+  color: #212355; }
+.emp-stat span { font-size: 12px; color: #6B6F91; }
+/* Hali jinsi belgilanmagan xodimlar - ko'zga tashlanib tursin. */
+.emp-stat-warn { border-color: #F3C64B; background: #FFFBEF; }
+/* "Jinsini belgilash" oynasidagi qatorlar. */
+.gender-row { display: flex; align-items: center; gap: 10px; padding: 7px 0;
+  border-bottom: 1px solid #F0F1F7; }
+.gender-row:last-child { border-bottom: none; }
+.gender-name { flex: 1; font-weight: 600; }
+.gender-row select { padding: 7px 8px; border-radius: 8px; border: 1px solid #C9CCE6;
+  font-size: 13px; min-width: 150px; }
+.gender-guess { font-size: 11px; color: #9A6B00; background: #FFF4D6;
+  border-radius: 6px; padding: 2px 7px; white-space: nowrap; }
 /* 13.09.2026: haftalik ish vaqti istisnolari (xodim oynasida). */
 .weekday-ov-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 /* 15.09.2026: haftalik istisnodagi IKKINCHI ish vaqti ajralib tursin. */
@@ -729,10 +750,15 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       <div class="toolbar">
         <p class="section-title" style="margin:0;">Xodimlar</p>
         <div style="flex:1"></div>
+        <!-- 16.09.2026 so'rovi: "bir qarashda nechta xodim, qanchasi ayol,
+             qanchasi erkak". Eski xodimlarni birma-bir tahrirlamaslik
+             uchun - hammasini bitta oynadan belgilash tugmasi. -->
+        <button class="btn btn-secondary" id="btnGenderBulk" style="display:none;">Jinsini belgilash</button>
         <button class="btn btn-primary" id="btnAddEmployee">+ Yangi xodim</button>
       </div>
+      <div class="emp-stats" id="employeeStats"></div>
       <div style="overflow-x:auto;"><table class="data-table" id="employeesTable">
-        <thead><tr><th>Rasmi</th><th>Login</th><th>Lavozim</th><th>Grafik</th><th>Faol</th><th>Yuz</th><th id="thEmployeePassword" style="display:none;">Parol</th><th></th></tr></thead>
+        <thead><tr><th>Rasmi</th><th>Login</th><th>Lavozim</th><th>Jinsi</th><th>Grafik</th><th>Faol</th><th>Yuz</th><th id="thEmployeePassword" style="display:none;">Parol</th><th></th></tr></thead>
         <tbody></tbody>
       </table></div>
     </section>
@@ -1164,6 +1190,14 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     <div class="form-row"><label>Login</label><input type="text" id="empFirstName" /></div>
     <div class="form-row"><label>Parol</label><input type="text" id="empPassword" /></div>
     <div class="form-row"><label>Lavozim (ixtiyoriy)</label><input type="text" id="empPosition" placeholder="masalan: Hamshira, Shifokor" /></div>
+    <!-- 16.09.2026: jinsi - Xodimlar bo'limidagi Jami/Erkak/Ayol hisobi uchun -->
+    <div class="form-row"><label>Jinsi</label>
+      <select id="empGender">
+        <option value="">&mdash; belgilanmagan</option>
+        <option value="male">Erkak</option>
+        <option value="female">Ayol</option>
+      </select>
+    </div>
     <!-- 13.09.2026: xodim qaysi filialda ishlaydi -->
     <div class="form-row" id="empBranchRow"><label>Filial</label><select id="empBranch"></select></div>
     <div class="form-row"><label>Telefon (ixtiyoriy)</label><input type="text" id="empPhone" /></div>
@@ -1221,6 +1255,20 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     <div style="display:flex; gap:10px; justify-content:flex-end;">
       <button class="btn btn-secondary" id="employeeModalCancel">Bekor qilish</button>
       <button class="btn btn-primary" id="employeeModalSave">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- 16.09.2026: hamma xodimning jinsini bitta oynadan tez belgilash -->
+<div class="modal-overlay" id="genderBulkModal">
+  <div class="modal-box" style="width:520px;">
+    <h3>Jinsini belgilash</h3>
+    <p class="muted" style="margin-top:0;">Dastur ismga qarab <b>taxmin</b> qilib belgiladi &mdash; tekshirib chiqing, kerak bo'lsa o'zgartiring. Bir marta saqlansa, keyin har bir xodimni alohida tahrirlash shart emas.</p>
+    <div id="genderBulkList" style="max-height:52vh; overflow-y:auto;"></div>
+    <p class="error-text" id="genderBulkError"></p>
+    <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
+      <button class="btn btn-secondary" id="genderBulkCancel">Bekor qilish</button>
+      <button class="btn btn-primary" id="genderBulkSave">Saqlash</button>
     </div>
   </div>
 </div>
@@ -1751,6 +1799,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         photoUrl: fields.photoUrl || null,
         // 13.09.2026: xodim biriktirilgan filial (bo'sh bo'lishi mumkin).
         branchId: fields.branchId || null,
+        // 16.09.2026: "male" | "female" | null (Jami/Erkak/Ayol hisobi).
+        gender: fields.gender || null,
         isActive: true,
         createdAt: nowIso2(),
         updatedAt: nowIso2()
@@ -3049,6 +3099,9 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       // 13.09.2026: xodim qaysi filialga biriktirilgan (bo'sh bo'lishi ham
       // mumkin — u holda hamma filialda ishlay oladi).
       branchId: fields.branchId || null,
+      // 16.09.2026: "male" | "female" | null — Xodimlar bo'limidagi
+      // Jami/Erkak/Ayol hisobi uchun.
+      gender: fields.gender || null,
       isActive: true,
       createdAt: nowIso(),
       updatedAt: nowIso()
@@ -7077,6 +7130,105 @@ ${origLine}${reasonLine}` });
     "Shanba",
     "Yakshanba"
   ];
+  var GENDER_LABEL = { male: "Erkak", female: "Ayol" };
+  var _employees = [];
+  function guessGender(rawName) {
+    const name = String(rawName || "").trim().toLowerCase().replace(/['’`ʻʼ]/g, "");
+    if (!name) return "";
+    const ambiguous = ["xon", "hon", "bibi"];
+    if (ambiguous.some((suffix) => name.endsWith(suffix))) return "";
+    const male = [
+      "bek",
+      "jon",
+      "boy",
+      "murod",
+      "illo",
+      "ulla",
+      "iddin",
+      "aziz",
+      "jamol",
+      "qul",
+      "mir",
+      "shoh",
+      "sher",
+      "bosh"
+    ];
+    if (male.some((suffix) => name.endsWith(suffix))) return "male";
+    const female = ["oy", "gul", "niso", "nisa", "noza", "bonu", "moh"];
+    if (female.some((suffix) => name.endsWith(suffix))) return "female";
+    if (name.endsWith("a")) return "female";
+    return "";
+  }
+  function renderEmployeeStats(employees) {
+    const box = document.getElementById("employeeStats");
+    if (!box) return;
+    const total = employees.length;
+    const active = employees.filter((e) => e.isActive).length;
+    const male = employees.filter((e) => e.gender === "male").length;
+    const female = employees.filter((e) => e.gender === "female").length;
+    const unset = total - male - female;
+    const chips = [
+      { value: total, label: "Jami xodim" },
+      { value: active, label: "Faol" },
+      { value: male, label: "Erkak" },
+      { value: female, label: "Ayol" }
+    ];
+    if (unset > 0) chips.push({ value: unset, label: "Belgilanmagan", warn: true });
+    box.innerHTML = chips.map((chip) => `<div class="emp-stat${chip.warn ? " emp-stat-warn" : ""}"><b>${chip.value}</b><span>${chip.label}</span></div>`).join("");
+    const bulkBtn = document.getElementById("btnGenderBulk");
+    if (bulkBtn) bulkBtn.style.display = _canEdit && total ? "inline-block" : "none";
+  }
+  function openGenderBulk() {
+    const list = document.getElementById("genderBulkList");
+    const errorEl = document.getElementById("genderBulkError");
+    errorEl.textContent = "";
+    list.innerHTML = "";
+    if (!_employees.length) {
+      list.innerHTML = `<p class="muted">Xodim yo'q.</p>`;
+    }
+    for (const employee of _employees) {
+      const fullName = `${employee.firstName} ${employee.lastName || ""}`.trim();
+      const current = employee.gender || "";
+      const value = current || guessGender(employee.firstName);
+      const row = document.createElement("div");
+      row.className = "gender-row";
+      row.innerHTML = `<span class="gender-name">${fullName}</span><select data-employee-id="${employee.id}"><option value="">\u2014 belgilanmagan</option><option value="male">Erkak</option><option value="female">Ayol</option></select>` + (current ? "" : `<span class="gender-guess">${value ? "taxmin" : "tanlang"}</span>`);
+      row.querySelector("select").value = value;
+      list.appendChild(row);
+    }
+    document.getElementById("genderBulkModal").classList.add("active");
+  }
+  async function onGenderBulkSave() {
+    const errorEl = document.getElementById("genderBulkError");
+    errorEl.textContent = "";
+    const selects = document.querySelectorAll("#genderBulkList select");
+    const byId = new Map(_employees.map((e) => [e.id, e]));
+    const changes = [];
+    selects.forEach((select) => {
+      const id = select.getAttribute("data-employee-id");
+      const employee = byId.get(id);
+      if (!employee) return;
+      const next = select.value || null;
+      if ((employee.gender || null) !== next) changes.push({ id, gender: next });
+    });
+    if (!changes.length) {
+      document.getElementById("genderBulkModal").classList.remove("active");
+      return;
+    }
+    const saveBtn = document.getElementById("genderBulkSave");
+    saveBtn.disabled = true;
+    showBusy("Saqlanmoqda\u2026");
+    try {
+      await Promise.all(changes.map((change) => _db2.updateEmployee(change.id, { gender: change.gender })));
+      document.getElementById("genderBulkModal").classList.remove("active");
+      await refreshEmployees();
+    } catch (err) {
+      errorEl.textContent = uzError(err);
+    } finally {
+      hideBusy();
+      saveBtn.disabled = false;
+    }
+  }
   function renderWeekdayOverrides() {
     const box = document.getElementById("empOvList");
     if (!box) return;
@@ -7225,6 +7377,15 @@ ${origLine}${reasonLine}` });
     document.getElementById("btnAddEmployee").addEventListener("click", () => openModal(null));
     document.getElementById("employeeModalCancel").addEventListener("click", closeModal);
     document.getElementById("employeeModalSave").addEventListener("click", onSave);
+    const bulkBtn = document.getElementById("btnGenderBulk");
+    if (bulkBtn) {
+      bulkBtn.style.display = "none";
+      bulkBtn.addEventListener("click", openGenderBulk);
+      document.getElementById("genderBulkCancel").addEventListener("click", () => {
+        document.getElementById("genderBulkModal").classList.remove("active");
+      });
+      document.getElementById("genderBulkSave").addEventListener("click", onGenderBulkSave);
+    }
     document.getElementById("btnEmpOvAdd").addEventListener("click", onAddWeekdayOverride);
     const shift2Clear = document.getElementById("btnEmpShift2Clear");
     if (shift2Clear) {
@@ -7257,6 +7418,8 @@ ${origLine}${reasonLine}` });
       })
     ]);
     _branches = branches;
+    _employees = employees;
+    renderEmployeeStats(employees);
     const tbody2 = document.querySelector("#employeesTable tbody");
     tbody2.innerHTML = "";
     const sortedByAge = [...users].sort(
@@ -7286,9 +7449,11 @@ ${origLine}${reasonLine}` });
       const passwordCellText = viewerIsPrimary ? employee.password || "\u2014" : "";
       const photoCell = employee.photoUrl ? `<img src="${employee.photoUrl}" style="width:32px; height:32px; border-radius:50%; object-fit:cover; display:block;" />` : `<span class="muted">\u2014</span>`;
       const tr = document.createElement("tr");
+      const genderText = GENDER_LABEL[employee.gender] || `<span class="muted">\u2014</span>`;
       tr.innerHTML = `
       <td>${photoCell}</td>
       <td>${fullName}</td><td>${employee.position || ""}</td>
+      <td>${genderText}</td>
       <td>${scheduleText}</td><td>${employee.isActive ? "Ha" : "Yo'q"}</td>
       <td>${hasFace ? "\u2705" : "\u2014"}</td>
       <td class="employee-password-cell"${passwordCellStyle}>${passwordCellText}</td><td></td>`;
@@ -7345,6 +7510,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     document.getElementById("empFirstName").value = employee ? employee.firstName : "";
     document.getElementById("empPassword").value = employee ? employee.password || "" : "";
     document.getElementById("empPosition").value = employee ? employee.position || "" : "";
+    document.getElementById("empGender").value = employee ? employee.gender || "" : "";
     document.getElementById("empPhone").value = employee ? employee.phone || "" : "";
     const branchRow = document.getElementById("empBranchRow");
     const branchSelect2 = document.getElementById("empBranch");
@@ -7458,6 +7624,8 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       position: document.getElementById("empPosition").value.trim(),
       department: "",
       phone: document.getElementById("empPhone").value.trim() || null,
+      // 16.09.2026: "male" | "female" | null.
+      gender: document.getElementById("empGender").value || null,
       password,
       photoUrl: _pendingPhotoUrl || null,
       // 13.09.2026: xodim biriktirilgan filial (bo'sh = hamma filialda).
@@ -7470,6 +7638,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
           firstName: fields.firstName,
           phone: fields.phone,
           position: fields.position,
+          gender: fields.gender,
           isActive: document.getElementById("empActive").checked,
           branchId: fields.branchId,
           photoUrl: fields.photoUrl
@@ -9932,7 +10101,7 @@ Agar bu 'Ruxsat yo'q' bo'lsa \u2014 Firebase Console > Firestore > Rules bo'limi
   var _canManage2;
   var _editingId2 = null;
   var _branches2 = [];
-  var _employees = [];
+  var _employees2 = [];
   async function initBranches(db2, user) {
     _db11 = db2;
     _user9 = user;
@@ -9962,11 +10131,11 @@ Agar bu 'Ruxsat yo'q' bo'lsa \u2014 Firebase Console > Firestore > Rules bo'limi
       return;
     }
     _branches2 = branches;
-    _employees = employees;
+    _employees2 = employees;
     renderTable();
   }
   function employeeCountFor(branchId) {
-    return _employees.filter((e) => e.branchId === branchId).length;
+    return _employees2.filter((e) => e.branchId === branchId).length;
   }
   function renderTable() {
     const search = (document.getElementById("branchSearch").value || "").trim().toLowerCase();
@@ -10357,7 +10526,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-09-15 20:50 UTC";
+  var BUILD_STAMP = "2026-09-16 09:40 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
