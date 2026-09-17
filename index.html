@@ -4749,10 +4749,10 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     #shifoatBusy .sp {
       width: 112px; height: 112px; flex: none;
       animation: shifoatBusySpin 1.6s linear infinite;
-      /* Aylanishni videokarta bajaradi - protsessor band bo'lmaydi va
-         dastur qotmaydi. "translateZ(0)" alohida qatlam yaratadi. */
+      /* Aylanishni videokarta bajaradi - protsessor band bo'lmaydi.
+         DIQQAT: bu yerga boshqa "transform" YOZILMASIN - animatsiya
+         bilan to'qnashib, belgi aylanmay qoladi (17.09.2026 xatosi). */
       will-change: transform;
-      transform: translateZ(0);
       backface-visibility: hidden;
     }
     #shifoatBusy .sp svg { display: block; width: 100%; height: 100%; }
@@ -4760,7 +4760,10 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       font-size: 16px; font-weight: 700; color: #212355; letter-spacing: .2px;
       text-align: center; padding: 0 16px;
     }
-    @keyframes shifoatBusySpin { to { transform: rotate(360deg); } }
+    @keyframes shifoatBusySpin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
     @media (max-width: 480px) {
       #shifoatBusy .sp { width: 92px; height: 92px; }
       #shifoatBusy .lbl { font-size: 15px; }
@@ -10607,7 +10610,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-09-17 09:10 UTC";
+  var BUILD_STAMP = "2026-09-17 10:05 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
