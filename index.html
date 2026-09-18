@@ -765,6 +765,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         <label class="muted">Sana:</label>
         <input type="date" id="dashboardDate" />
       </div>
+      <!-- 18.09.2026 so'rovi: "xodim ketish tugmasini bosmagan bo'lsa,
+           ertasi kuni Dashboardda alohida xabar chiqsin". Panel shu yerga
+           chiziladi (qarang openShiftsAlert.js) - bo'sh bo'lsa ko'rinmaydi. -->
+      <div id="openShiftAlert"></div>
+
       <div class="stat-grid" id="dashboardStats"></div>
 
       <!-- 16.09.2026 so'rovi: "bir qarashda nechta xodim, qanchasi ayol,
@@ -6364,10 +6369,202 @@ ${branchNote}` : branchNote;
     return [...qualified].sort(compareForRanking)[0];
   }
 
-  // src/ui/admin/dashboardSection.js
-  var _db;
-  async function initDashboard(db2, _user10) {
+  // src/ui/admin/openShiftsAlert.js
+  var OGOH_SOAT = 4;
+  var ORQAGA_KUN = 7;
+  var _db = null;
+  var _user = null;
+  var _canEdit = false;
+  async function findOpenShifts(db2, employees) {
+    const bugun = tashkentDateKey();
+    const kunlar = [];
+    for (let i = 0; i < ORQAGA_KUN; i++) kunlar.push(addDaysToKey(bugun, -i));
+    const royxatlar = await Promise.all(
+      kunlar.map((k) => db2.listAttendanceForDate(k).catch((err) => {
+        console.error("listAttendanceForDate failed (non-fatal):", k, err);
+        return [];
+      }))
+    );
+    const xodimlar = new Map(employees.map((e) => [e.id, e]));
+    const hozir = Date.now();
+    const chegara = OGOH_SOAT * 60 * 60 * 1e3;
+    const ochiq = [];
+    royxatlar.forEach((rows, i) => {
+      const dateKey = kunlar[i];
+      for (const row of rows) {
+        const tugash = openShiftEndOf(row);
+        if (!tugash) continue;
+        const otgan = hozir - tugash.getTime();
+        if (otgan < chegara) continue;
+        const xodim = xodimlar.get(row.employeeId);
+        if (!xodim) continue;
+        const ikkinchiSmena = !!(row.checkInTime2 && !row.checkOutTime2);
+        ochiq.push({
+          employeeId: row.employeeId,
+          dateKey,
+          name: `${xodim.firstName} ${xodim.lastName || ""}`.trim(),
+          photoUrl: xodim.photoUrl || null,
+          position: (xodim.position || "").trim(),
+          kelgan: hhmm(new Date(ikkinchiSmena ? row.checkInTime2 : row.checkInTime)),
+          rejaTugash: hhmm(tugash),
+          otganDaqiqa: Math.round(otgan / 6e4),
+          ikkinchiSmena,
+          row
+        });
+      }
+    });
+    ochiq.sort((a, b) => a.dateKey === b.dateKey ? a.name.localeCompare(b.name, "uz") : a.dateKey < b.dateKey ? -1 : 1);
+    return ochiq;
+  }
+  function styleOnce() {
+    if (document.getElementById("openShiftAlertStyle")) return;
+    const st = document.createElement("style");
+    st.id = "openShiftAlertStyle";
+    st.textContent = `
+    .oshift-alert {
+      background: #FFF4F5; border: 1px solid #F3B7BD; border-left: 5px solid #D0021B;
+      border-radius: 12px; padding: 14px 18px; margin-bottom: 16px;
+    }
+    .oshift-alert h4 { margin: 0 0 4px; font-size: 16px; color: #A20E1C; }
+    .oshift-alert .oshift-sub { margin: 0 0 10px; font-size: 13px; color: #7A5055; }
+    .oshift-row {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      padding: 9px 0; border-top: 1px solid #F6D3D7;
+    }
+    .oshift-row img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; flex: none; }
+    .oshift-name { font-weight: 700; color: #212355; }
+    .oshift-info { color: #6B4A4E; font-size: 13.5px; flex: 1; min-width: 220px; }
+    .oshift-late { color: #A20E1C; font-weight: 700; white-space: nowrap; }
+    .oshift-fix {
+      background: #D0021B; color: #fff; border: none; border-radius: 8px;
+      padding: 7px 14px; font-size: 13.5px; font-weight: 700; cursor: pointer;
+    }
+    .oshift-fix:hover { background: #A20E1C; }
+    @media (max-width: 560px) {
+      .oshift-info { min-width: 100%; }
+    }
+  `;
+    document.head.appendChild(st);
+  }
+  function openFixDialog(item) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.className = "modal-overlay active";
+      const box = document.createElement("div");
+      box.className = "modal-box";
+      box.style.width = "420px";
+      const kun = `${ddmmyyyy(item.dateKey)} (${weekdayNameUz(item.dateKey)})`;
+      box.innerHTML = `<h3 style="margin-top:0;">Ketish vaqtini to'g'rilash</h3><p class="muted" style="margin-top:0;">${item.name} &middot; ${kun}` + (item.ikkinchiSmena ? " &middot; 2-smena" : "") + `</p><p style="font-size:14px; color:#4E5478;">Kelgan: <b>${item.kelgan}</b><br>Ish vaqti rejada <b>${item.rejaTugash}</b> da tugagan.</p><div class="form-row"><label>Haqiqiy ketish vaqti</label><input type="time" id="oshiftTime" value="${item.rejaTugash.slice(0, 5)}" /></div><p class="muted" style="font-size:12.5px;">Bu qo'lda tuzatish jurnalga yozib qo'yiladi \u2014 kim va qachon o'zgartirgani bilinib turadi.</p><p class="error-text" id="oshiftError"></p><div style="display:flex; gap:10px; justify-content:flex-end;"><button class="btn btn-secondary" id="oshiftCancel">Bekor qilish</button><button class="btn btn-primary" id="oshiftSave">Saqlash</button></div>`;
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+      const yopish = (natija) => {
+        overlay.remove();
+        resolve(natija);
+      };
+      box.querySelector("#oshiftCancel").addEventListener("click", () => yopish(null));
+      box.querySelector("#oshiftSave").addEventListener("click", () => {
+        const qiymat = box.querySelector("#oshiftTime").value;
+        if (!qiymat) {
+          box.querySelector("#oshiftError").textContent = "Ketish vaqtini kiriting.";
+          return;
+        }
+        yopish(qiymat);
+      });
+    });
+  }
+  async function fixOne(item, onDone) {
+    const vaqt = await openFixDialog(item);
+    if (!vaqt) return;
+    showBusy("Saqlanmoqda\u2026");
+    try {
+      const row = item.row;
+      const hhmmOf = (iso) => iso ? hhmm(new Date(iso)) : null;
+      await manuallySetAttendance(_db, item.employeeId, item.dateKey, {
+        checkInHHMM: hhmmOf(row.checkInTime),
+        checkOutHHMM: item.ikkinchiSmena ? hhmmOf(row.checkOutTime) : vaqt,
+        checkInHHMM2: hhmmOf(row.checkInTime2),
+        checkOutHHMM2: item.ikkinchiSmena ? vaqt : hhmmOf(row.checkOutTime2)
+      }, _user.id);
+    } catch (err) {
+      hideBusy();
+      await alertDialog({ title: "Xatolik", message: uzError(err) });
+      return;
+    }
+    hideBusy();
+    if (onDone) await onDone();
+  }
+  async function renderOpenShiftAlert(db2, user, employees, canEdit, onFixed) {
     _db = db2;
+    _user = user;
+    _canEdit = canEdit;
+    const box = document.getElementById("openShiftAlert");
+    if (!box) return;
+    styleOnce();
+    let ochiq = [];
+    try {
+      ochiq = await findOpenShifts(db2, employees);
+    } catch (err) {
+      console.error("Ochiq smenalarni tekshirib bo'lmadi (muhim emas):", err);
+      box.innerHTML = "";
+      return;
+    }
+    if (!ochiq.length) {
+      box.innerHTML = "";
+      return;
+    }
+    const panel = document.createElement("div");
+    panel.className = "oshift-alert";
+    const sarlavha = document.createElement("h4");
+    sarlavha.textContent = `\u26A0\uFE0F ${ochiq.length} ta kun ketish belgilanmagan`;
+    const izoh = document.createElement("p");
+    izoh.className = "oshift-sub";
+    izoh.textContent = `Bu xodimlar KELYAPMAN bosgan, lekin KETYAPMAN bosilmagan \u2014 unutgan bo'lishi yoki texnik sabab bo'lishi mumkin. Ish vaqti tugaganiga ${OGOH_SOAT} soatdan oshdi.`;
+    panel.appendChild(sarlavha);
+    panel.appendChild(izoh);
+    for (const item of ochiq) {
+      const row = document.createElement("div");
+      row.className = "oshift-row";
+      if (item.photoUrl) {
+        const img = document.createElement("img");
+        img.src = item.photoUrl;
+        img.alt = "";
+        row.appendChild(img);
+      }
+      const info = document.createElement("div");
+      info.className = "oshift-info";
+      const kun = `${ddmmyyyy(item.dateKey)} (${weekdayNameUz(item.dateKey)})`;
+      info.innerHTML = `<span class="oshift-name">${item.name}</span>` + (item.position ? ` <span class="muted">\xB7 ${item.position}</span>` : "") + `<br>${kun} \xB7 keldi <b>${item.kelgan}</b> \xB7 ish vaqti <b>${item.rejaTugash}</b> da tugagan` + (item.ikkinchiSmena ? " \xB7 2-smena" : "");
+      row.appendChild(info);
+      const kech = document.createElement("span");
+      kech.className = "oshift-late";
+      kech.textContent = `${formatDurationUz(item.otganDaqiqa)} oldin`;
+      row.appendChild(kech);
+      if (_canEdit) {
+        const tugma = document.createElement("button");
+        tugma.className = "oshift-fix";
+        tugma.textContent = "To'g'rilash";
+        tugma.addEventListener("click", () => fixOne(item, onFixed));
+        row.appendChild(tugma);
+      }
+      panel.appendChild(row);
+    }
+    box.innerHTML = "";
+    box.appendChild(panel);
+  }
+
+  // src/ui/admin/dashboardSection.js
+  var _db2;
+  var _dashUser = null;
+  var _canFixAttendance = false;
+  async function initDashboard(db2, _user11) {
+    _db2 = db2;
+    _dashUser = _user11;
+    try {
+      _canFixAttendance = await hasPermission(db2, _user11, "edit_attendance");
+    } catch (err) {
+      console.error("Ruxsatni tekshirib bo'lmadi (muhim emas):", err);
+      _canFixAttendance = false;
+    }
     document.getElementById("dashboardBranch").addEventListener("change", refreshDashboard);
     document.getElementById("dashboardListClose").addEventListener("click", () => {
       document.getElementById("dashboardListModal").classList.remove("active");
@@ -6440,29 +6637,29 @@ ${branchNote}` : branchNote;
     const actualTodayKey = tashkentDateKey();
     document.getElementById("dashboardHeading").textContent = selectedDateKey === actualTodayKey ? `Bugun \u2014 ${ddmmyyyy(selectedDateKey)}` : ddmmyyyy(selectedDateKey);
     const [allEmployees, dayRecords, allSchedules, allDayStatuses, allLatePermissions, allScheduleOverrides] = await Promise.all([
-      _db.listEmployees({ activeOnly: true }),
+      _db2.listEmployees({ activeOnly: true }),
       // Avval listTodayRecords(_db) chaqirilardi — bu ICHKARIDA hozirgi
       // vaqtdan tashkentDateKey() hisoblab, xuddi shu db.listAttendanceForDate()
       // ni chaqirar edi. Endi tanlangan sanani to'g'ridan-to'g'ri beramiz —
       // shu bilan istalgan (o'tmishdagi) kun uchun ham ishlaydi.
-      _db.listAttendanceForDate(selectedDateKey),
-      _db.listAllSchedules(),
-      _db.listAllDayStatuses(),
+      _db2.listAttendanceForDate(selectedDateKey),
+      _db2.listAllSchedules(),
+      _db2.listAllDayStatuses(),
       // 30.08.2026 so'rovi: "Ruxsatli" kartochkasi hech qachon ishlamasdi,
       // chunki u FAQAT dayStatuses'dagi RUXSATLI/KASALLIK/TATIL statusini
       // tekshirardi — bu esa hech qanday admin oynasidan yozilmaydi.
       // Haqiqatda admin "Grafik/Kalendar > Kechikishga ruxsat" orqali
       // BUTUNLAY BOSHQA to'plamga (latePermissions) yozadi. Endi shu
       // to'plam ham o'qiladi va "Ruxsatli" aynan shundan to'ldiriladi.
-      _db.listAllLatePermissions(),
+      _db2.listAllLatePermissions(),
       // 01.09.2026 so'rovi: "Dam" ro'yxatida ko'chirilgan dam kunlari
       // oddiy dam kunidan AJRALIB (qizil "Dam kuni ko'chirilgan" yozuvi
       // bilan) ko'rinishi kerak, bosilganda esa sababi (komentariyasi)
       // chiqishi kerak — buning uchun scheduleOverrides to'plami ham
       // kerak (Ruxsatlar kitobida ishlatilgani bilan bir xil manba).
-      _db.listAllScheduleOverrides()
+      _db2.listAllScheduleOverrides()
     ]);
-    const branches = await _db.listBranches({ activeOnly: true }).catch((err) => {
+    const branches = await _db2.listBranches({ activeOnly: true }).catch((err) => {
       console.error("listBranches failed (non-fatal):", err);
       return [];
     });
@@ -6592,6 +6789,7 @@ ${branchNote}` : branchNote;
       }
     }
     renderDisciplineBlocks(employees, allSchedules, allDayStatuses, allLatePermissions, selectedDateKey).catch((err) => console.error("Discipline block failed (non-fatal):", err));
+    renderOpenShiftAlert(_db2, _dashUser, allEmployees, _canFixAttendance, refreshDashboard).catch((err) => console.error("Ochiq smena ogohlantirishi (muhim emas):", err));
   }
   async function renderDisciplineBlocks(employees, allSchedules, allDayStatuses, allLatePermissions, selectedDateKey) {
     const championEl = document.getElementById("championCard");
@@ -6606,7 +6804,7 @@ ${branchNote}` : branchNote;
     const historyStart = weekStartKey(selectedDateKey, cfg.weekLengthDays * cfg.weeklyHistoryWeeks);
     const rangeStart = historyStart < monthStart ? historyStart : monthStart;
     const rangeEnd = monthEvalEnd > selectedDateKey ? monthEvalEnd : selectedDateKey;
-    const attendanceRows = await _db.listAttendanceForRange(rangeStart, rangeEnd);
+    const attendanceRows = await _db2.listAttendanceForRange(rangeStart, rangeEnd);
     const schedulesByEmployee = /* @__PURE__ */ new Map();
     for (const version of allSchedules) {
       if (!schedulesByEmployee.has(version.employeeId)) schedulesByEmployee.set(version.employeeId, []);
@@ -7221,9 +7419,9 @@ ${origLine}${reasonLine}` });
   }
 
   // src/ui/admin/employeesSection.js
-  var _db2;
-  var _user;
-  var _canEdit;
+  var _db3;
+  var _user2;
+  var _canEdit2;
   var _editingId = null;
   var _pendingPhotoUrl = null;
   var _branches = [];
@@ -7283,7 +7481,7 @@ ${origLine}${reasonLine}` });
     if (unset > 0) chips.push({ value: unset, label: "Belgilanmagan", tone: " emp-stat-warn" });
     box.innerHTML = chips.map((chip) => `<div class="emp-stat${chip.tone}"><b>${chip.value}</b><span>${chip.label}</span></div>`).join("");
     const bulkBtn = document.getElementById("btnGenderBulk");
-    if (bulkBtn) bulkBtn.style.display = _canEdit && total ? "inline-block" : "none";
+    if (bulkBtn) bulkBtn.style.display = _canEdit2 && total ? "inline-block" : "none";
   }
   function openGenderBulk() {
     const list = document.getElementById("genderBulkList");
@@ -7326,7 +7524,7 @@ ${origLine}${reasonLine}` });
     saveBtn.disabled = true;
     showBusy("Saqlanmoqda\u2026");
     try {
-      await Promise.all(changes.map((change) => _db2.updateEmployee(change.id, { gender: change.gender })));
+      await Promise.all(changes.map((change) => _db3.updateEmployee(change.id, { gender: change.gender })));
       document.getElementById("genderBulkModal").classList.remove("active");
       await refreshEmployees();
     } catch (err) {
@@ -7477,10 +7675,10 @@ ${origLine}${reasonLine}` });
     }
   }
   async function initEmployees(db2, user) {
-    _db2 = db2;
-    _user = user;
-    _canEdit = await hasPermission(db2, user, "edit_employees");
-    document.getElementById("btnAddEmployee").style.display = _canEdit ? "inline-block" : "none";
+    _db3 = db2;
+    _user2 = user;
+    _canEdit2 = await hasPermission(db2, user, "edit_employees");
+    document.getElementById("btnAddEmployee").style.display = _canEdit2 ? "inline-block" : "none";
     document.getElementById("btnAddEmployee").addEventListener("click", () => openModal(null));
     document.getElementById("employeeModalCancel").addEventListener("click", closeModal);
     document.getElementById("employeeModalSave").addEventListener("click", onSave);
@@ -7515,11 +7713,11 @@ ${origLine}${reasonLine}` });
   }
   async function refreshEmployees() {
     const [employees, users, branches] = await Promise.all([
-      _db2.listEmployees(),
-      _db2.listUsers(),
+      _db3.listEmployees(),
+      _db3.listUsers(),
       // Firestore qoidalari hali yangilanmagan bo'lsa ham Xodimlar bo'limi
       // ishlayversin — filial ro'yxati shunchaki bo'sh bo'ladi.
-      _db2.listBranches({ activeOnly: true }).catch((err) => {
+      _db3.listBranches({ activeOnly: true }).catch((err) => {
         console.error("listBranches failed (non-fatal):", err);
         return [];
       })
@@ -7533,13 +7731,13 @@ ${origLine}${reasonLine}` });
       (a, b) => a.createdAt > b.createdAt ? 1 : a.createdAt < b.createdAt ? -1 : 0
     );
     const primaryAdminId = sortedByAge.length ? sortedByAge[0].id : null;
-    const viewerIsPrimary = _user.id === primaryAdminId;
+    const viewerIsPrimary = _user2.id === primaryAdminId;
     const thPassword = document.getElementById("thEmployeePassword");
     if (thPassword) thPassword.style.display = viewerIsPrimary ? "" : "none";
     const todayKey = tashkentDateKey();
     const [allSchedules, faceIds] = await Promise.all([
-      _db2.listAllSchedules(),
-      _db2.listEmployeeIdsWithFace()
+      _db3.listAllSchedules(),
+      _db3.listEmployeeIdsWithFace()
     ]);
     const schedulesByEmployee = /* @__PURE__ */ new Map();
     for (const version of allSchedules) {
@@ -7567,7 +7765,7 @@ ${origLine}${reasonLine}` });
       <td>${scheduleText}</td><td>${employee.isActive ? "Ha" : "Yo'q"}</td>
       <td>${hasFace ? "\u2705" : "\u2014"}</td>
       <td class="employee-password-cell"${passwordCellStyle}>${passwordCellText}</td><td></td>`;
-      if (_canEdit) {
+      if (_canEdit2) {
         const actionsCell = tr.lastElementChild;
         const editBtn = document.createElement("button");
         editBtn.className = "btn btn-secondary";
@@ -7580,7 +7778,7 @@ ${origLine}${reasonLine}` });
         faceBtn.addEventListener("click", async () => {
           const embeddings = await openFaceEnroll(fullName);
           if (embeddings) {
-            await _db2.saveEmbeddings(employee.id, embeddings, _user.id, true);
+            await _db3.saveEmbeddings(employee.id, embeddings, _user2.id, true);
             await refreshEmployees();
           }
         });
@@ -7600,7 +7798,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
           });
           if (!ok) return;
           try {
-            await deleteEmployeeCompletely(_db2, employee.id, _user.id, fullName);
+            await deleteEmployeeCompletely(_db3, employee.id, _user2.id, fullName);
             await refreshEmployees();
           } catch (err) {
             await alertDialog({ title: "Xatolik", message: uzError(err) });
@@ -7654,7 +7852,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         renderWeekdayOverrides();
         return;
       }
-      const schedule = await _db2.getCurrentSchedule(employee.id, tashkentDateKey());
+      const schedule = await _db3.getCurrentSchedule(employee.id, tashkentDateKey());
       if (schedule) {
         document.getElementById("empWorkStart").value = schedule.workStart;
         document.getElementById("empWorkEnd").value = schedule.workEnd;
@@ -7696,7 +7894,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
   async function onSaveInner(errorEl, firstName) {
     const password = document.getElementById("empPassword").value;
     try {
-      const taken = await _db2.isLoginTaken(firstName, _editingId);
+      const taken = await _db3.isLoginTaken(firstName, _editingId);
       if (taken) {
         errorEl.textContent = "Bu login band \u2014 boshqa xodim yoki admin allaqachon shu login bilan mavjud.";
         return;
@@ -7754,15 +7952,15 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
           photoUrl: fields.photoUrl
         };
         if (password) patch.password = password;
-        await updateEmployeeAndMaybeSchedule(_db2, _editingId, patch, scheduleFields, tashkentDateKey(), _user.id);
+        await updateEmployeeAndMaybeSchedule(_db3, _editingId, patch, scheduleFields, tashkentDateKey(), _user2.id);
       } else {
-        await createEmployeeWithSchedule(_db2, fields, _user.id);
+        await createEmployeeWithSchedule(_db3, fields, _user2.id);
       }
     } catch (err) {
       let message = uzError(err);
       if (err && err.code === "permission-denied") {
         try {
-          const debugInfo = await _db2.getAuthDebugInfo();
+          const debugInfo = await _db3.getAuthDebugInfo();
           message += `
 
 [Diagnostika] UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" : "yo'q"}, rol: ${debugInfo.role || "\u2014"}` + (debugInfo.readError ? `, o'qishda xato: ${debugInfo.readError}` : "");
@@ -7785,10 +7983,10 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
   }
 
   // src/ui/admin/attendanceSection.js
-  var _db3;
+  var _db4;
   var dateInput = document.getElementById("attendanceDate");
-  async function initAttendance(db2, _user10) {
-    _db3 = db2;
+  async function initAttendance(db2, _user11) {
+    _db4 = db2;
     dateInput.value = tashkentDateKey();
     dateInput.addEventListener("change", refreshAttendance);
   }
@@ -7798,10 +7996,10 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     let employees, records, allSchedules, allDayStatuses;
     try {
       [employees, records, allSchedules, allDayStatuses] = await Promise.all([
-        _db3.listEmployees({ activeOnly: true }),
-        _db3.listAttendanceForDate(dateKey),
-        _db3.listAllSchedules(),
-        _db3.listAllDayStatuses()
+        _db4.listEmployees({ activeOnly: true }),
+        _db4.listAttendanceForDate(dateKey),
+        _db4.listAllSchedules(),
+        _db4.listAllDayStatuses()
       ]);
     } catch (err) {
       console.error("refreshAttendance failed:", err);
@@ -7854,8 +8052,8 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
   }
 
   // src/ui/admin/scheduleSection.js
-  var _db4;
-  var _user2;
+  var _db5;
+  var _user3;
   var _canManage;
   var _canPermission;
   var employeeSelect = document.getElementById("scheduleEmployeeSelect");
@@ -7873,8 +8071,8 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     QOSHIMCHA_ISH_KUNI: "pill-work"
   };
   async function initSchedule(db2, user) {
-    _db4 = db2;
-    _user2 = user;
+    _db5 = db2;
+    _user3 = user;
     _canManage = await hasPermission(db2, user, "manage_schedule");
     _canPermission = _canManage || await hasPermission(db2, user, "manage_permissions_days");
     document.getElementById("moveRestBox").style.display = _canManage ? "block" : "none";
@@ -8039,14 +8237,14 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     const label = reason ? `Dam olish uchun ruxsat: ${reason}` : "Dam olish uchun ruxsat";
     try {
       await Promise.all([
-        ...restDays.map((d) => setDayStatus2(_db4, employeeId, d, "DAM_KUNI", label, _user2.id)),
+        ...restDays.map((d) => setDayStatus2(_db5, employeeId, d, "DAM_KUNI", label, _user3.id)),
         ...workDays.map((d) => setDayStatus2(
-          _db4,
+          _db5,
           employeeId,
           d,
           "ISH_KUNI",
           reason ? `Dam kuni ishlab beriladi: ${reason}` : "Dam kuni ishlab beriladi",
-          _user2.id
+          _user3.id
         ))
       ]);
     } catch (err) {
@@ -8068,7 +8266,7 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
   }
   async function refreshSchedule() {
     const currentId = employeeSelect.value;
-    const employees = await _db4.listEmployees({ activeOnly: true });
+    const employees = await _db5.listEmployees({ activeOnly: true });
     employeeSelect.innerHTML = "";
     for (const employee of employees) {
       const option = document.createElement("option");
@@ -8097,7 +8295,7 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
       const filler = document.createElement("div");
       grid.appendChild(filler);
     }
-    const entries = await monthCalendar(_db4, employeeId, year, month);
+    const entries = await monthCalendar(_db5, employeeId, year, month);
     for (const entry of entries) {
       const button = document.createElement("button");
       const pickClass = _pickedRest.has(entry.dateKey) ? " day-pick-rest" : _pickedWork.has(entry.dateKey) ? " day-pick-work" : "";
@@ -8154,7 +8352,7 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
     const reason = document.getElementById("moveReason").value.trim();
     if (!orig || !dest) return;
     try {
-      await moveRestDay2(_db4, employeeId, orig, dest, reason, _user2.id);
+      await moveRestDay2(_db5, employeeId, orig, dest, reason, _user3.id);
     } catch (err) {
       await alertDialog({ title: "Xatolik", message: uzError(err) });
       return;
@@ -8174,7 +8372,7 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
     if (!allowedTime) return;
     const reason = document.getElementById("permissionReason").value.trim();
     try {
-      await grantLatePermission(_db4, employeeId, dateKey, allowedTime, reason || null, _user2.id);
+      await grantLatePermission(_db5, employeeId, dateKey, allowedTime, reason || null, _user3.id);
     } catch (err) {
       await alertDialog({ title: "Xatolik", message: uzError(err) });
       return;
@@ -8297,8 +8495,8 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
   }
 
   // src/ui/admin/reportsSection.js
-  var _db5;
-  var _user3;
+  var _db6;
+  var _user4;
   var _canExport;
   var _canEditAttendance;
   var _lastReport = null;
@@ -8309,8 +8507,8 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
   var monthInput2 = document.getElementById("reportMonth");
   var summaryEl = document.getElementById("reportSummary");
   async function initReports(db2, user) {
-    _db5 = db2;
-    _user3 = user;
+    _db6 = db2;
+    _user4 = user;
     [_canExport, _canEditAttendance] = await Promise.all([
       hasPermission(db2, user, "export_word"),
       hasPermission(db2, user, "edit_attendance")
@@ -8349,8 +8547,8 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
   }
   async function refreshReports() {
     const [employees, branches] = await Promise.all([
-      _db5.listEmployees(),
-      _db5.listBranches({ activeOnly: true }).catch((err) => {
+      _db6.listEmployees(),
+      _db6.listBranches({ activeOnly: true }).catch((err) => {
         console.error("listBranches failed (non-fatal):", err);
         return [];
       })
@@ -8404,7 +8602,7 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
   }
   async function calculateInner(employeeId) {
     try {
-      _lastReport = await buildMonthlyReport(_db5, employeeId, Number(yearInput2.value), Number(monthInput2.value));
+      _lastReport = await buildMonthlyReport(_db6, employeeId, Number(yearInput2.value), Number(monthInput2.value));
     } catch (err) {
       console.error("buildMonthlyReport failed:", err);
       summaryEl.textContent = uzError(err);
@@ -8520,7 +8718,7 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
         const newCheckOut2 = checkOut2Input ? checkOut2Input.value || "" : oldCheckOut2;
         if (newCheckIn === oldCheckIn && newCheckOut === oldCheckOut && newCheckIn2 === oldCheckIn2 && newCheckOut2 === oldCheckOut2) continue;
         await manuallySetAttendance(
-          _db5,
+          _db6,
           employeeId,
           dateKey,
           {
@@ -8529,7 +8727,7 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
             checkInHHMM2: newCheckIn2 || null,
             checkOutHHMM2: newCheckOut2 || null
           },
-          _user3.id
+          _user4.id
         );
         changedCount++;
       }
@@ -8562,15 +8760,15 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
 
   // src/ui/admin/settingsSection.js
   init_appConfig();
-  var _db6;
-  var _user4;
+  var _db7;
+  var _user5;
   var _pendingLogo = null;
   var MAX_LOGO_CHARS = 6e5;
   var LOGO_DIM_STEPS = [900, 700, 560, 440, 320];
   var LOGO_QUALITY_STEPS = [0.88, 0.82, 0.74, 0.66];
   async function initSettings(db2, user) {
-    _db6 = db2;
-    _user4 = user;
+    _db7 = db2;
+    _user5 = user;
     document.getElementById("btnSaveSettings").addEventListener("click", onSaveSettings);
     document.getElementById("btnExportBackup").addEventListener("click", onExportBackup);
     document.getElementById("settingFullscreen").addEventListener("change", onToggleFullscreen);
@@ -8585,18 +8783,18 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
     document.getElementById("btnSaveGeofence").addEventListener("click", onSaveGeofence);
   }
   async function refreshSettings() {
-    document.getElementById("settingGrace").value = await _db6.getSetting("late_grace_minutes");
-    document.getElementById("settingPenalty").value = await _db6.getSetting("late_penalty_per_minute");
-    document.getElementById("settingFullscreen").checked = Number(await _db6.getSetting("kiosk_fullscreen")) === 1;
+    document.getElementById("settingGrace").value = await _db7.getSetting("late_grace_minutes");
+    document.getElementById("settingPenalty").value = await _db7.getSetting("late_penalty_per_minute");
+    document.getElementById("settingFullscreen").checked = Number(await _db7.getSetting("kiosk_fullscreen")) === 1;
     const [brandName, brandSince, brandLogo, brandColor, logoW, logoH] = await Promise.all([
-      _db6.getSetting("brand_name"),
-      _db6.getSetting("brand_since"),
-      _db6.getSetting("brand_logo"),
-      _db6.getSetting("brand_color"),
+      _db7.getSetting("brand_name"),
+      _db7.getSetting("brand_since"),
+      _db7.getSetting("brand_logo"),
+      _db7.getSetting("brand_color"),
       // 15.09.2026: logotipning EKRANDAGI o'lchami (piksel). Bo'sh bo'lsa
       // avvalgidek ekranga qarab o'zi moslashadi.
-      _db6.getSetting("brand_logo_w"),
-      _db6.getSetting("brand_logo_h")
+      _db7.getSetting("brand_logo_w"),
+      _db7.getSetting("brand_logo_h")
     ]);
     document.getElementById("brandName").value = brandName || "";
     document.getElementById("brandSince").value = brandSince || "";
@@ -8605,11 +8803,11 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
     showLogoPreview(brandLogo || "");
     document.getElementById("brandLogoW").value = logoW ? String(logoW) : "";
     document.getElementById("brandLogoH").value = logoH ? String(logoH) : "";
-    const canEditGeofence = isDeleteOwnerLogin(_user4.username);
+    const canEditGeofence = isDeleteOwnerLogin(_user5.username);
     const geofenceCard = document.getElementById("geofenceCard");
     geofenceCard.style.display = canEditGeofence ? "" : "none";
     if (canEditGeofence) {
-      const cfg = await readGeofenceSettings(_db6);
+      const cfg = await readGeofenceSettings(_db7);
       document.getElementById("geofenceEnabled").checked = cfg.enabled;
       document.getElementById("geofenceLat").value = cfg.lat === null ? "" : cfg.lat;
       document.getElementById("geofenceLng").value = cfg.lng === null ? "" : cfg.lng;
@@ -8640,12 +8838,12 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
     }
   }
   async function onSaveSettings() {
-    await _db6.setSetting("late_grace_minutes", document.getElementById("settingGrace").value);
-    await _db6.setSetting("late_penalty_per_minute", document.getElementById("settingPenalty").value);
+    await _db7.setSetting("late_grace_minutes", document.getElementById("settingGrace").value);
+    await _db7.setSetting("late_penalty_per_minute", document.getElementById("settingPenalty").value);
     await alertDialog({ title: "Bajarildi", message: "Sozlamalar saqlandi." });
   }
   async function onToggleFullscreen() {
-    await _db6.setSetting("kiosk_fullscreen", document.getElementById("settingFullscreen").checked ? "1" : "0");
+    await _db7.setSetting("kiosk_fullscreen", document.getElementById("settingFullscreen").checked ? "1" : "0");
   }
   async function onClearLocalCache() {
     const ok = await confirmDialog({
@@ -8670,7 +8868,7 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
     window.location.reload();
   }
   async function onExportBackup() {
-    const json = await _db6.exportBackupJson();
+    const json = await _db7.exportBackupJson();
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const ts = (/* @__PURE__ */ new Date()).toISOString().replace(/[:T]/g, "-").slice(0, 16);
@@ -8778,16 +8976,16 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
     showBusy("Saqlanmoqda\u2026");
     try {
       const writes = [
-        _db6.setSetting("brand_name", name),
-        _db6.setSetting("brand_since", document.getElementById("brandSince").value.trim()),
-        _db6.setSetting("brand_color", document.getElementById("brandColor").value),
-        _db6.setSetting("brand_logo_w", logoW == null ? "" : String(logoW)),
-        _db6.setSetting("brand_logo_h", logoH == null ? "" : String(logoH))
+        _db7.setSetting("brand_name", name),
+        _db7.setSetting("brand_since", document.getElementById("brandSince").value.trim()),
+        _db7.setSetting("brand_color", document.getElementById("brandColor").value),
+        _db7.setSetting("brand_logo_w", logoW == null ? "" : String(logoW)),
+        _db7.setSetting("brand_logo_h", logoH == null ? "" : String(logoH))
       ];
-      if (_pendingLogo !== null) writes.push(_db6.setSetting("brand_logo", _pendingLogo));
+      if (_pendingLogo !== null) writes.push(_db7.setSetting("brand_logo", _pendingLogo));
       await Promise.all(writes);
       _pendingLogo = null;
-      await initBranding(_db6);
+      await initBranding(_db7);
       await alertDialog({ title: "Bajarildi", message: "Brend saqlandi va darhol qo'llandi." });
     } catch (err) {
       errorEl.textContent = uzErrorSafe(err);
@@ -8966,11 +9164,11 @@ KOMPYUTERDA: havolani brauzerda oching, manzil qatoridagi to'liq havolani nusxa 
     showBusy("Saqlanmoqda\u2026");
     try {
       await Promise.all([
-        _db6.setSetting("geofence_enabled", enabled ? "1" : "0"),
-        _db6.setSetting("geofence_lat", latRaw),
-        _db6.setSetting("geofence_lng", lngRaw),
-        _db6.setSetting("geofence_radius_m", clampRadius(radius)),
-        _db6.setSetting("geofence_soft_fail", softFail ? "1" : "0")
+        _db7.setSetting("geofence_enabled", enabled ? "1" : "0"),
+        _db7.setSetting("geofence_lat", latRaw),
+        _db7.setSetting("geofence_lng", lngRaw),
+        _db7.setSetting("geofence_radius_m", clampRadius(radius)),
+        _db7.setSetting("geofence_soft_fail", softFail ? "1" : "0")
       ]);
       const savedRadius = clampRadius(radius);
       document.getElementById("geofenceStatus").textContent = enabled ? `\u2705 Qulf YOQILGAN \u2014 dastur faqat shu nuqtadan ${savedRadius} metr radiusda ishlaydi.` : "Qulf O'CHIQ \u2014 dastur hamma joyda ishlaydi.";
@@ -8997,11 +9195,11 @@ Qulf ishlashi uchun "Locatsiya qulfi yoqilgan" katagini belgilab, qaytadan "Saql
 
   // src/ui/admin/adminsSection.js
   init_appConfig();
-  var _db7;
-  var _user5;
+  var _db8;
+  var _user6;
   async function initAdmins(db2, user) {
-    _db7 = db2;
-    _user5 = user;
+    _db8 = db2;
+    _user6 = user;
     const permsContainer = document.getElementById("newAdminPermissions");
     permsContainer.innerHTML = "";
     for (const [key, label] of Object.entries(ALL_PERMISSIONS)) {
@@ -9026,7 +9224,7 @@ Qulf ishlashi uchun "Locatsiya qulfi yoqilgan" katagini belgilab, qaytadan "Saql
       permsContainer.querySelectorAll("input[type=checkbox]").forEach((cb) => cb.checked = false);
       isEmployeeCb.checked = false;
       employeeRow.style.display = "none";
-      const employees = await _db7.listEmployees({ activeOnly: true });
+      const employees = await _db8.listEmployees({ activeOnly: true });
       employeeSelect4.innerHTML = employees.map((e) => `<option value="${e.id}">${e.firstName} ${e.lastName || ""}</option>`.trim()).join("");
       document.getElementById("adminModal").classList.add("active");
     });
@@ -9045,7 +9243,7 @@ Qulf ishlashi uchun "Locatsiya qulfi yoqilgan" katagini belgilab, qaytadan "Saql
     document.getElementById("adminEditUsername").value = user.username || "";
     let current = /* @__PURE__ */ new Set();
     try {
-      current = await _db7.getPermissions(user.id);
+      current = await _db8.getPermissions(user.id);
     } catch (err) {
       console.error("getPermissions failed:", err);
     }
@@ -9088,9 +9286,9 @@ Qulf ishlashi uchun "Locatsiya qulfi yoqilgan" katagini belgilab, qaytadan "Saql
     showBusy("Saqlanmoqda\u2026");
     try {
       if (newUsername !== _editingAdmin.username) {
-        await _db7.updateAdminUsername(_editingAdmin.id, newUsername, _user5.id);
+        await _db8.updateAdminUsername(_editingAdmin.id, newUsername, _user6.id);
       }
-      await _db7.setPermissions(_editingAdmin.id, selected, _user5.id);
+      await _db8.setPermissions(_editingAdmin.id, selected, _user6.id);
       closeEditModal();
       await refreshAdmins();
       await alertDialog({ title: "Bajarildi", message: "Admin ma'lumotlari yangilandi." });
@@ -9103,7 +9301,7 @@ Qulf ishlashi uchun "Locatsiya qulfi yoqilgan" katagini belgilab, qaytadan "Saql
     }
   }
   async function refreshAdmins() {
-    const [users, employees] = await Promise.all([_db7.listUsers(), _db7.listEmployees()]);
+    const [users, employees] = await Promise.all([_db8.listUsers(), _db8.listEmployees()]);
     const employeeById = new Map(employees.map((e) => [e.id, e]));
     const tbody2 = document.querySelector("#adminsTable tbody");
     tbody2.innerHTML = "";
@@ -9111,15 +9309,15 @@ Qulf ishlashi uchun "Locatsiya qulfi yoqilgan" katagini belgilab, qaytadan "Saql
       (a, b) => a.createdAt > b.createdAt ? 1 : a.createdAt < b.createdAt ? -1 : 0
     );
     const primaryAdminId = sortedByAge.length ? sortedByAge[0].id : null;
-    const viewerIsPrimary = _user5.id === primaryAdminId;
+    const viewerIsPrimary = _user6.id === primaryAdminId;
     const thPassword = document.getElementById("thAdminPassword");
     if (thPassword) thPassword.style.display = viewerIsPrimary ? "" : "none";
     const permCounts = await Promise.all(users.map(
-      (u) => u.role === ROLE_SUPER_ADMIN ? Promise.resolve(null) : _db7.getPermissions(u.id)
+      (u) => u.role === ROLE_SUPER_ADMIN ? Promise.resolve(null) : _db8.getPermissions(u.id)
     ));
     const permCountByUserId = new Map(users.map((u, i) => [u.id, permCounts[i]]));
-    const viewerIsDeleteOwner = isDeleteOwnerLogin(_user5.username);
-    const viewerPerms = _user5.role === ROLE_SUPER_ADMIN ? await _db7.getPermissions(_user5.id).catch(() => /* @__PURE__ */ new Set()) : await _db7.getPermissions(_user5.id);
+    const viewerIsDeleteOwner = isDeleteOwnerLogin(_user6.username);
+    const viewerPerms = _user6.role === ROLE_SUPER_ADMIN ? await _db8.getPermissions(_user6.id).catch(() => /* @__PURE__ */ new Set()) : await _db8.getPermissions(_user6.id);
     const canDeleteAdmins = viewerIsDeleteOwner || viewerPerms.has("delete_admins");
     for (const u of users) {
       const isSuper = u.role === ROLE_SUPER_ADMIN;
@@ -9145,7 +9343,7 @@ Qulf ishlashi uchun "Locatsiya qulfi yoqilgan" katagini belgilab, qaytadan "Saql
           });
           if (!ok) return;
           try {
-            await _db7.setUserRole(u.id, ROLE_SUPER_ADMIN, _user5.id);
+            await _db8.setUserRole(u.id, ROLE_SUPER_ADMIN, _user6.id);
             await refreshAdmins();
           } catch (err) {
             await alertDialog({ title: "Xatolik", message: uzError(err) });
@@ -9170,7 +9368,7 @@ Qulf ishlashi uchun "Locatsiya qulfi yoqilgan" katagini belgilab, qaytadan "Saql
             return;
           }
           try {
-            await _db7.resetAdminPassword(u.id, newPassword, _user5.id);
+            await _db8.resetAdminPassword(u.id, newPassword, _user6.id);
             await refreshAdmins();
             await alertDialog({ title: "Bajarildi", message: `"${u.username}" uchun parol yangilandi.` });
           } catch (err) {
@@ -9187,7 +9385,7 @@ Qulf ishlashi uchun "Locatsiya qulfi yoqilgan" katagini belgilab, qaytadan "Saql
         editBtn.addEventListener("click", () => openEditModal(u));
         actionsCell.appendChild(editBtn);
       }
-      if (canDeleteAdmins && u.id !== _user5.id) {
+      if (canDeleteAdmins && u.id !== _user6.id) {
         const deleteBtn = document.createElement("button");
         deleteBtn.className = "btn btn-secondary admin-delete-btn";
         deleteBtn.textContent = "\u{1F5D1} O'chirish";
@@ -9203,7 +9401,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
           });
           if (!ok) return;
           try {
-            await _db7.deleteAdminUser(u.id, _user5.id);
+            await _db8.deleteAdminUser(u.id, _user6.id);
             await refreshAdmins();
             await alertDialog({ title: "Bajarildi", message: `"${u.username}" o'chirildi.` });
           } catch (err) {
@@ -9226,7 +9424,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     const linkedEmployeeId = isEmployeeAdmin ? document.getElementById("newAdminEmployeeSelect").value || null : null;
     let user;
     try {
-      user = await _db7.createUser(username, password, fullName, role, _user5.id, linkedEmployeeId);
+      user = await _db8.createUser(username, password, fullName, role, _user6.id, linkedEmployeeId);
     } catch (err) {
       let message = uzError(err);
       const mode2 = currentMode();
@@ -9236,7 +9434,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
 [Diagnostika] Rejim: ${modeLabel}, xato kodi: ${err && err.code || "yo'q"}`;
       if (err && err.code === "permission-denied") {
         try {
-          const debugInfo = await _db7.getAuthDebugInfo();
+          const debugInfo = await _db8.getAuthDebugInfo();
           message += `
 UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" : "yo'q"}, rol: ${debugInfo.role || "\u2014"}` + (debugInfo.readError ? `, o'qishda xato: ${debugInfo.readError}` : "");
           if (debugInfo.probes && debugInfo.probes.length) {
@@ -9254,15 +9452,15 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
     }
     if (!isSuper) {
       const selected = [...document.querySelectorAll("#newAdminPermissions input[type=checkbox]:checked")].map((cb) => cb.dataset.permissionKey);
-      await _db7.setPermissions(user.id, selected, _user5.id);
+      await _db8.setPermissions(user.id, selected, _user6.id);
     }
     document.getElementById("adminModal").classList.remove("active");
     await refreshAdmins();
   }
 
   // src/ui/admin/permissionsLogSection.js
-  var _db8;
-  var _user6;
+  var _db9;
+  var _user7;
   var _lastRows = [];
   var _lastRaw = [];
   var _employeesCache = [];
@@ -9290,8 +9488,8 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
     return document.querySelector("#permissionsLogTable tbody");
   }
   async function initPermissionsLog(db2, user) {
-    _db8 = db2;
-    _user6 = user;
+    _db9 = db2;
+    _user7 = user;
     const today = /* @__PURE__ */ new Date();
     yearInput3.value = today.getFullYear();
     monthInput3.value = today.getMonth() + 1;
@@ -9306,7 +9504,7 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
   }
   async function refreshPermissionsLog() {
     const currentId = employeeSelect3.value;
-    const employees = await _db8.listEmployees();
+    const employees = await _db9.listEmployees();
     _employeesCache = employees;
     employeeSelect3.innerHTML = "";
     const allOption = document.createElement("option");
@@ -9326,10 +9524,10 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
     const body = tbody();
     body.innerHTML = `<tr><td colspan="7" class="muted">Yuklanmoqda\u2026</td></tr>`;
     const [latePermissions, scheduleOverrides, employees, users] = await Promise.all([
-      _db8.listAllLatePermissions(),
-      _db8.listAllScheduleOverrides(),
-      _db8.listEmployees(),
-      _db8.listUsers()
+      _db9.listAllLatePermissions(),
+      _db9.listAllScheduleOverrides(),
+      _db9.listEmployees(),
+      _db9.listUsers()
     ]);
     _employeesCache = employees;
     const employeeById = new Map(employees.map((e) => [e.id, e]));
@@ -9395,7 +9593,7 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
       body.innerHTML = `<tr><td colspan="7" class="muted">Bu davrda hech qanday ruxsat berilmagan.</td></tr>`;
       return;
     }
-    const canDelete = isDeleteOwnerLogin(_user6.username);
+    const canDelete = isDeleteOwnerLogin(_user7.username);
     body.innerHTML = "";
     displayRows.forEach((r, i) => {
       const tr = document.createElement("tr");
@@ -9478,24 +9676,24 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
           errorEl.textContent = "Asl va yangi sana bir xil bo'lishi mumkin emas.";
           return;
         }
-        await _db8.updateScheduleOverride(_editing.id, {
+        await _db9.updateScheduleOverride(_editing.id, {
           employeeId,
           originalDateKey,
           newDateKey: dateKey,
           reason
-        }, _user6.id);
+        }, _user7.id);
       } else {
         const allowedStartTime = document.getElementById("permEditTime").value;
         if (!allowedStartTime) {
           errorEl.textContent = "Ruxsat berilgan soat kiritilishi shart.";
           return;
         }
-        await _db8.updateLatePermission(_editing.id, {
+        await _db9.updateLatePermission(_editing.id, {
           employeeId,
           dateKey,
           allowedStartTime,
           reason
-        }, _user6.id);
+        }, _user7.id);
       }
       closeEditModal2();
       await renderLog();
@@ -9521,9 +9719,9 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     showBusy("O'chirilmoqda\u2026");
     try {
       if (raw.source === "override") {
-        await _db8.deleteScheduleOverride(raw.id, _user6.id);
+        await _db9.deleteScheduleOverride(raw.id, _user7.id);
       } else {
-        await _db8.deleteLatePermission(raw.id, _user6.id);
+        await _db9.deleteLatePermission(raw.id, _user7.id);
       }
       await renderLog();
     } catch (err) {
@@ -9568,8 +9766,8 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
   }
 
   // src/ui/admin/securitySection.js
-  var _db9;
-  var _user7;
+  var _db10;
+  var _user8;
   var _showAll = false;
   async function canSeeSecurity(db2, user) {
     if (isDeleteOwnerLogin(user.username)) return true;
@@ -9582,8 +9780,8 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     }
   }
   async function initSecurity(db2, user) {
-    _db9 = db2;
-    _user7 = user;
+    _db10 = db2;
+    _user8 = user;
     document.getElementById("btnSecUnknownFaces").addEventListener("click", () => {
       const panel = document.getElementById("secUnknownPanel");
       const opening = panel.style.display === "none";
@@ -9613,7 +9811,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     const dateKey = _showAll ? null : dateInput3.value || null;
     let rows;
     try {
-      rows = await _db9.listUnknownFaces({ dateKey });
+      rows = await _db10.listUnknownFaces({ dateKey });
     } catch (err) {
       grid2.innerHTML = "";
       countEl.textContent = "";
@@ -9672,7 +9870,7 @@ Agar bu 'Ruxsat yo'q' bo'lsa \u2014 Firebase Console > Firestore > Rules bo'limi
     if (!ok) return;
     showBusy("O'chirilmoqda\u2026");
     try {
-      await _db9.deleteUnknownFace(row.id);
+      await _db10.deleteUnknownFace(row.id);
       await renderUnknownFaces();
     } catch (err) {
       await alertDialog({ title: "Xatolik", message: uzError(err) });
@@ -9773,8 +9971,8 @@ Agar bu 'Ruxsat yo'q' bo'lsa \u2014 Firebase Console > Firestore > Rules bo'limi
   }
 
   // src/ui/admin/payrollSection.js
-  var _db10;
-  var _user8;
+  var _db11;
+  var _user9;
   var _lastRows2 = [];
   var _lastPeriodKey = "";
   var UZ_MONTHS4 = [
@@ -9805,8 +10003,8 @@ Agar bu 'Ruxsat yo'q' bo'lsa \u2014 Firebase Console > Firestore > Rules bo'limi
     }
   }
   async function initPayroll(db2, user) {
-    _db10 = db2;
-    _user8 = user;
+    _db11 = db2;
+    _user9 = user;
     const today = /* @__PURE__ */ new Date();
     yearInput4.value = today.getFullYear();
     monthInput4.value = today.getMonth() + 1;
@@ -9827,14 +10025,14 @@ Agar bu 'Ruxsat yo'q' bo'lsa \u2014 Firebase Console > Firestore > Rules bo'limi
     let employees, attendanceRows, allSchedules, allDayStatuses, payrolls;
     try {
       [employees, attendanceRows, allSchedules, allDayStatuses, payrolls] = await Promise.all([
-        _db10.listEmployees({ activeOnly: true }),
-        _db10.listAttendanceForRange(monthStart, monthEnd),
-        _db10.listAllSchedules(),
-        _db10.listAllDayStatuses(),
+        _db11.listEmployees({ activeOnly: true }),
+        _db11.listAttendanceForRange(monthStart, monthEnd),
+        _db11.listAllSchedules(),
+        _db11.listAllDayStatuses(),
         // Firestore qoidalari hali yangilanmagan bo'lsa shu so'rov xato
         // beradi — butun bo'lim to'xtab qolmasligi uchun bo'sh ro'yxatga
         // tushamiz (maoshlar ko'rinmaydi, lekin hisob-kitob ishlayveradi).
-        _db10.listPayrolls(periodKey).catch((err) => {
+        _db11.listPayrolls(periodKey).catch((err) => {
           console.error("listPayrolls failed (non-fatal):", err);
           return [];
         })
@@ -9942,11 +10140,11 @@ Agar bu 'Ruxsat yo'q' bo'lsa \u2014 Firebase Console > Firestore > Rules bo'limi
       await Promise.all(rows.map((tr) => {
         const employeeId = tr.dataset.employeeId;
         if (!employeeId) return Promise.resolve();
-        return _db10.savePayroll(employeeId, _lastPeriodKey, {
+        return _db11.savePayroll(employeeId, _lastPeriodKey, {
           baseSalary: Number(tr.querySelector(".pay-base").value) || 0,
           bonus: Number(tr.querySelector(".pay-bonus").value) || 0,
           deduction: Number(tr.querySelector(".pay-deduction").value) || 0
-        }, _user8.id);
+        }, _user9.id);
       }));
       await refreshPayroll();
       await alertDialog({ title: "Bajarildi", message: "Maosh ma'lumotlari saqlandi." });
@@ -10206,15 +10404,15 @@ Agar bu 'Ruxsat yo'q' bo'lsa \u2014 Firebase Console > Firestore > Rules bo'limi
 
   // src/ui/admin/branchesSection.js
   init_appConfig();
-  var _db11;
-  var _user9;
+  var _db12;
+  var _user10;
   var _canManage2;
   var _editingId2 = null;
   var _branches2 = [];
   var _employees2 = [];
   async function initBranches(db2, user) {
-    _db11 = db2;
-    _user9 = user;
+    _db12 = db2;
+    _user10 = user;
     _canManage2 = isDeleteOwnerLogin(user.username);
     document.getElementById("branchFormCard").style.display = _canManage2 ? "" : "none";
     document.getElementById("btnBranchFromLink").addEventListener("click", onFromLink);
@@ -10229,11 +10427,11 @@ Agar bu 'Ruxsat yo'q' bo'lsa \u2014 Firebase Console > Firestore > Rules bo'limi
   }
   async function refreshBranches() {
     const [branches, employees] = await Promise.all([
-      _db11.listBranches().catch((err) => {
+      _db12.listBranches().catch((err) => {
         console.error("listBranches failed:", err);
         return null;
       }),
-      _db11.listEmployees({ activeOnly: true }).catch(() => [])
+      _db12.listEmployees({ activeOnly: true }).catch(() => [])
     ]);
     if (branches === null) {
       document.getElementById("branchCount").textContent = "";
@@ -10394,9 +10592,9 @@ Telefonda: Google Maps ilovasini oching \u2192 kerakli joyni topib barmoqni bosi
     showBusy("Saqlanmoqda\u2026");
     try {
       if (_editingId2) {
-        await _db11.updateBranch(_editingId2, { name, lat, lng, radiusM: radius });
+        await _db12.updateBranch(_editingId2, { name, lat, lng, radiusM: radius });
       } else {
-        await _db11.createBranch({ name, lat, lng, radiusM: radius });
+        await _db12.createBranch({ name, lat, lng, radiusM: radius });
       }
     } catch (err) {
       hideBusy();
@@ -10420,7 +10618,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
     if (!ok) return;
     showBusy("O'chirilmoqda\u2026");
     try {
-      await _db11.deleteBranch(branch.id);
+      await _db12.deleteBranch(branch.id);
     } catch (err) {
       hideBusy();
       await alertDialog({ title: "Xatolik", message: uzError(err) });
@@ -10636,7 +10834,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-09-18 09:15 UTC";
+  var BUILD_STAMP = "2026-09-18 11:40 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
