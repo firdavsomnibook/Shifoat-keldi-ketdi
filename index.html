@@ -348,6 +348,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   font-size: 13px; min-width: 150px; }
 .gender-guess { font-size: 11px; color: #9A6B00; background: #FFF4D6;
   border-radius: 6px; padding: 2px 7px; white-space: nowrap; }
+/* 18.09.2026: haftalik dam kuni berilmagan xodim ro'yxatda ajralib
+   tursin - dam kunini qaytarish admin zimmasida, esdan chiqmasin. */
+.no-rest { display: inline-block; margin-left: 6px; padding: 2px 8px;
+  border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap;
+  background: #FFF1D6; border: 1px solid #F0C365; color: #8A5A00; }
 /* 16.09.2026 so'rovi: "erkak och yashil, ayol och pushti bo'lsin".
    Bitta joyda belgilanadi - Dashboard ham, Xodimlar bo'limi ham shu
    ranglardan foydalanadi, shuning uchun ikkalasi doim bir xil bo'ladi. */
@@ -1268,6 +1273,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     </div>
     <div class="form-row"><label>Haftalik dam kuni</label>
       <select id="empRestDay">
+        <!-- 18.09.2026 so'rovi: sinov muddatidagi xodimga bir hafta yoki
+             10 kun dam kuni berilmasligi mumkin; ba'zi xodim esa umuman
+             dam olmasligi mumkin. Shuning uchun dam kuni endi majburiy
+             emas. Qaytarish ham shu yerdan - kerakli kun tanlanadi. -->
+        <option value="-1">&mdash; Dam kuni yo'q (har kuni ishlaydi)</option>
         <option value="0">Dushanba</option><option value="1">Seshanba</option>
         <option value="2" selected>Chorshanba</option><option value="3">Payshanba</option>
         <option value="4">Juma</option><option value="5">Shanba</option><option value="6">Yakshanba</option>
@@ -4207,6 +4217,10 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   }
 
   // src/business/scheduleService.js
+  var REST_DAY_NONE = -1;
+  function hasWeeklyRest(schedule) {
+    return !!schedule && schedule.weeklyRestDay !== REST_DAY_NONE && schedule.weeklyRestDay != null;
+  }
   function applyWeekdayOverride(version, dateKey) {
     if (!version || !version.weekdayOverrides) return version;
     const key = String(weekdayIndexMonday0(dateKey));
@@ -4232,6 +4246,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   function computeDayStatusFromSchedule(schedule, dateKey) {
     if (!schedule) return DAY_STATUS_WORK;
     const weekday = weekdayIndexMonday0(dateKey);
+    if (schedule.weeklyRestDay === REST_DAY_NONE) return DAY_STATUS_WORK;
     return weekday === schedule.weeklyRestDay ? DAY_STATUS_REST : DAY_STATUS_WORK;
   }
   function resolveDayStatusSync(explicitStatus, scheduleHistory, dateKey) {
@@ -7534,7 +7549,10 @@ ${origLine}${reasonLine}` });
     const faceIdSet = new Set(faceIds);
     employees.forEach((employee) => {
       const schedule = pickScheduleForDate(schedulesByEmployee.get(employee.id) || [], todayKey);
-      const scheduleText = schedule ? `${schedule.workStart}-${schedule.workEnd}` : "\u2014";
+      let scheduleText = schedule ? `${schedule.workStart}-${schedule.workEnd}` : "\u2014";
+      if (schedule && !hasWeeklyRest(schedule)) {
+        scheduleText += ` <span class="no-rest">dam yo'q</span>`;
+      }
       const hasFace = faceIdSet.has(employee.id);
       const fullName = `${employee.firstName} ${employee.lastName || ""}`.trim();
       const passwordCellStyle = viewerIsPrimary ? "" : ' style="display:none;"';
@@ -10618,7 +10636,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-09-17 11:30 UTC";
+  var BUILD_STAMP = "2026-09-18 09:15 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
