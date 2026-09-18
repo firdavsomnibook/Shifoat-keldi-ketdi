@@ -5406,12 +5406,20 @@ Eng yaqini: ${nearest.branch.name} \u2014 ~${nearest.distanceM} metr (ruxsat: ${
   var cameraStatus = document.getElementById("cameraStatus");
   var kioskReady = null;
   async function bootKiosk() {
-    wireHomeScreen();
-    wireCameraScreen();
-    wireAdminLoginModal();
-    wireAdminChoiceButtons();
-    wireFirstRunModal();
-    document.getElementById("kioskRoot").style.visibility = "visible";
+    const kioskRoot = document.getElementById("kioskRoot");
+    if (kioskRoot) {
+      kioskRoot.style.display = "";
+      kioskRoot.style.visibility = "visible";
+    }
+    try {
+      wireHomeScreen();
+      wireCameraScreen();
+      wireAdminLoginModal();
+      wireAdminChoiceButtons();
+      wireFirstRunModal();
+    } catch (err) {
+      console.error("Kiosk tugmalarini ulashda xato:", err);
+    }
     kioskReady = bootKioskBackground();
     showBusy("Yuklanmoqda\u2026");
     kioskReady.finally(() => hideBusy());
@@ -10610,7 +10618,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-09-17 10:05 UTC";
+  var BUILD_STAMP = "2026-09-17 11:30 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
@@ -10622,21 +10630,94 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
   async function enterAdmin() {
     document.getElementById("adminLoginModal").classList.remove("active");
-    document.getElementById("kioskRoot").style.display = "none";
-    await bootAdmin();
+    const kiosk = document.getElementById("kioskRoot");
+    try {
+      await bootAdmin();
+      if (kiosk) kiosk.style.display = "none";
+    } catch (err) {
+      console.error("Admin panel ochilmadi:", err);
+      kioskniKorsat();
+      xatoBanner("Admin paneliga kirib bo'lmadi. Internetni tekshirib, qayta urinib ko'ring.");
+    }
   }
   window.__shifoatEnterAdmin = enterAdmin;
+  function kioskniKorsat() {
+    const kiosk = document.getElementById("kioskRoot");
+    if (!kiosk) return;
+    kiosk.style.display = "";
+    kiosk.style.visibility = "visible";
+  }
+  function biriKorinyaptimi() {
+    const korinadi = (el2) => {
+      if (!el2) return false;
+      const st = getComputedStyle(el2);
+      return st.display !== "none" && st.visibility !== "hidden";
+    };
+    return korinadi(document.getElementById("kioskRoot")) || korinadi(document.getElementById("adminRoot")) || korinadi(document.getElementById("notLoggedInScreen"));
+  }
+  function xatoBanner(matn) {
+    if (document.getElementById("shifoatBootError")) return;
+    const bar = document.createElement("div");
+    bar.id = "shifoatBootError";
+    bar.style.cssText = "position:fixed; left:0; right:0; top:0; z-index:400; background:#B3121F; color:#fff; padding:10px 14px; font-size:14px; font-weight:600; display:flex; gap:12px; align-items:center; justify-content:center; flex-wrap:wrap; text-align:center;";
+    const yozuv = document.createElement("span");
+    yozuv.textContent = matn;
+    const tugma = document.createElement("button");
+    tugma.textContent = "Qayta urinish";
+    tugma.style.cssText = "background:#fff; color:#B3121F; border:none; border-radius:8px; padding:6px 14px; font-weight:700; font-size:14px; cursor:pointer;";
+    tugma.addEventListener("click", () => window.location.reload());
+    bar.appendChild(yozuv);
+    bar.appendChild(tugma);
+    document.body.appendChild(bar);
+  }
+  var BOOT_SOQCHI_MS = 9e3;
   async function bootstrap() {
     const backHomeBtn = document.getElementById("btnBackHome");
     if (backHomeBtn) backHomeBtn.addEventListener("click", goHome);
-    const adminUserId = sessionStorage.getItem("shifoat_admin_user_id");
-    if (adminUserId) {
-      document.getElementById("kioskRoot").style.display = "none";
-      await bootAdmin();
-    } else {
-      await bootKiosk();
+    const soqchi = setTimeout(() => {
+      if (!biriKorinyaptimi()) {
+        console.warn("Dastur 9 soniyada ochilmadi \u2014 kiosk majburan ko'rsatildi.");
+        kioskniKorsat();
+        xatoBanner("Ulanish sekin. Bosh ekran ochildi.");
+      }
+    }, BOOT_SOQCHI_MS);
+    try {
+      const adminUserId = sessionStorage.getItem("shifoat_admin_user_id");
+      if (adminUserId) {
+        try {
+          await bootAdmin();
+          const adminRoot = document.getElementById("adminRoot");
+          const ochildi = adminRoot && getComputedStyle(adminRoot).display !== "none";
+          if (ochildi) {
+            const kiosk = document.getElementById("kioskRoot");
+            if (kiosk) kiosk.style.display = "none";
+          } else {
+            sessionStorage.removeItem("shifoat_admin_user_id");
+            const eskirgan = document.getElementById("notLoggedInScreen");
+            if (eskirgan) eskirgan.style.display = "none";
+            await bootKiosk();
+          }
+        } catch (err) {
+          console.error("Admin panel ochilmadi, kioskka qaytamiz:", err);
+          sessionStorage.removeItem("shifoat_admin_user_id");
+          await bootKiosk();
+          xatoBanner("Admin paneliga kirib bo'lmadi \u2014 bosh ekran ochildi.");
+        }
+      } else {
+        await bootKiosk();
+      }
+    } catch (err) {
+      console.error("Dastur ochilishida xato:", err);
+      kioskniKorsat();
+      xatoBanner("Xatolik: " + (err && err.message || String(err)));
+    } finally {
+      clearTimeout(soqchi);
     }
-    startAutoUpdate();
+    try {
+      startAutoUpdate();
+    } catch (err) {
+      console.error("Avtomatik yangilanish ishga tushmadi (muhim emas):", err);
+    }
   }
   bootstrap();
 })();
