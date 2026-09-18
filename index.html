@@ -927,6 +927,14 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         Xodimlar bo'limida o'z filialiga biriktiriladi va face id faqat
         filial hududida ishlaydi.
       </p>
+      <!-- 18.09.2026: bitta filial qo'shilishi bilan dastur butunlay filial
+           rejimiga o'tadi. Buni bilmagan admin qolgan ish joylarini
+           qulflab qo'yardi - shuning uchun doimiy eslatma. -->
+      <p class="muted" style="margin-top:-4px;">
+        <b>Eslatma:</b> birorta filial qo'shilgandan keyin dastur FAQAT filial
+        hududlarida ishlaydi. Shuning uchun dastur ishlatiladigan HAR BIR ish
+        joyini (dorixona, ofis, do'kon, oshxona) alohida filial qilib qo'shing.
+      </p>
 
       <div class="card" style="max-width:560px; margin-bottom:18px;" id="branchFormCard">
         <h3 style="margin-top:0;" id="branchFormTitle">Yangi filial</h3>
@@ -10743,6 +10751,19 @@ Qabul qilinadi: Google Maps / Yandex / 2GIS havolasi, "41.311081, 69.240562" ko'
       errorEl.textContent = `Bu nuqta "${overlap.name}" filiali bilan deyarli bir xil joyda (30 metrdan yaqin). Koordinatani tekshiring.`;
       return;
     }
+    if (!_editingId2 && !_branches2.length) {
+      const davomEtish = await confirmDialog({
+        title: "Diqqat \u2014 muhim o'zgarish",
+        message: `Birinchi filial qo'shilgandan keyin dastur FAQAT filial hududlarida ishlaydi.
+
+Agar dasturdan boshqa ish joylaringizda ham foydalanilsa (dorixona, ofis, do'kon, ombor), ularning HAR BIRINI ham filial qilib qo'shishingiz kerak. Aks holda u yerdagi xodimlar kelish/ketishni belgilay olmaydi \u2014 ularga "Siz hech qaysi filial hududida emassiz" degan yozuv chiqadi.
+
+"${name}" filiali qo'shilsinmi?`,
+        okText: "Ha, qo'shilsin",
+        cancelText: "Bekor qilish"
+      });
+      if (!davomEtish) return;
+    }
     showBusy("Saqlanmoqda\u2026");
     try {
       if (_editingId2) {
@@ -10988,7 +11009,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-09-18 15:10 UTC";
+  var BUILD_STAMP = "2026-09-18 16:05 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
