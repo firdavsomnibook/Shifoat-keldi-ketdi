@@ -353,6 +353,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
 .no-rest { display: inline-block; margin-left: 6px; padding: 2px 8px;
   border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap;
   background: #FFF1D6; border: 1px solid #F0C365; color: #8A5A00; }
+/* 18.09.2026: "Qattiq joylashuv nazorati" yoqilgan xodim (shaxsiy
+   telefonda ishlaydigan - masalan boshqa binodagi oshpaz). */
+.strict-pill { display: inline-block; margin-left: 6px; padding: 2px 8px;
+  border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap;
+  background: #E6EEFF; border: 1px solid #A8C0F0; color: #1C3F8F; }
 /* 16.09.2026 so'rovi: "erkak och yashil, ayol och pushti bo'lsin".
    Bitta joyda belgilanadi - Dashboard ham, Xodimlar bo'limi ham shu
    ranglardan foydalanadi, shuning uchun ikkalasi doim bir xil bo'ladi. */
@@ -1294,6 +1299,14 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
          shu bilan eski xodimlarning saqlangan qiymati ham buzilmaydi. -->
     <div class="form-row" style="display:none;"><input type="number" id="empSalary" /></div>
     <div class="form-row" style="display:none;"><input type="number" id="empWorkDays" value="26" /></div>
+    <!-- 18.09.2026 so'rovi: oshpaz dorixonadan uzoqda, boshqa binoda
+         ishlaydi va dastur uning SHAXSIY telefoniga o'rnatiladi. Bunday
+         xodim uchun joylashuv sharti qat'iyroq bo'lishi kerak — qarang
+         geofenceService.js → evaluateStrictLocation(). -->
+    <div class="form-row" id="empStrictLocationRow">
+      <label><input type="checkbox" id="empStrictLocation" /> Qattiq joylashuv nazorati (shaxsiy telefon uchun)</label>
+      <div class="muted" style="margin-top:4px;">Yoqilsa: joylashuv aniqlanmasa yoki GPS aniqligi yomon bo'lsa, yoxud xodim o'z ish joyida bo'lmasa — kelish/ketish belgilanmaydi.</div>
+    </div>
     <div class="form-row"><label><input type="checkbox" id="empActive" checked /> Faol</label></div>
     <p class="error-text" id="employeeModalError"></p>
     <div style="display:flex; gap:10px; justify-content:flex-end;">
@@ -1418,7 +1431,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   ));
 
   // src/config/appConfig.js
-  var BRAND_NAME, BRAND_SINCE, COLOR_RED, COLOR_NAVY_DEEP, DEFAULT_SETTINGS, GEOFENCE_MIN_RADIUS_M, GEOFENCE_MAX_RADIUS_M, MIN_PASSWORD_LENGTH, MIN_PASSWORD_MESSAGE, CAMERA_WIDTH, CAMERA_HEIGHT, RESULT_SCREEN_AUTO_RETURN_MS, LOGO_PATH;
+  var BRAND_NAME, BRAND_SINCE, COLOR_RED, COLOR_NAVY_DEEP, DEFAULT_SETTINGS, GEOFENCE_MIN_RADIUS_M, GEOFENCE_MAX_RADIUS_M, STRICT_LOCATION_MAX_ACCURACY_M, MIN_PASSWORD_LENGTH, MIN_PASSWORD_MESSAGE, CAMERA_WIDTH, CAMERA_HEIGHT, RESULT_SCREEN_AUTO_RETURN_MS, LOGO_PATH;
   var init_appConfig = __esm({
     "src/config/appConfig.js"() {
       BRAND_NAME = "Shifoat";
@@ -1468,6 +1481,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       };
       GEOFENCE_MIN_RADIUS_M = 20;
       GEOFENCE_MAX_RADIUS_M = 1e3;
+      STRICT_LOCATION_MAX_ACCURACY_M = 50;
       MIN_PASSWORD_LENGTH = 4;
       MIN_PASSWORD_MESSAGE = `Parol kamida ${MIN_PASSWORD_LENGTH} ta belgidan iborat bo'lishi kerak.`;
       CAMERA_WIDTH = 960;
@@ -1845,6 +1859,9 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         branchId: fields.branchId || null,
         // 16.09.2026: "male" | "female" | null (Jami/Erkak/Ayol hisobi).
         gender: fields.gender || null,
+        // 18.09.2026: qat'iy joylashuv sharti (shaxsiy telefonda ishlovchi
+        // xodim uchun) — qarang geofenceService.js evaluateStrictLocation().
+        strictLocation: !!fields.strictLocation,
         isActive: true,
         createdAt: nowIso2(),
         updatedAt: nowIso2()
@@ -3146,6 +3163,10 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       // 16.09.2026: "male" | "female" | null — Xodimlar bo'limidagi
       // Jami/Erkak/Ayol hisobi uchun.
       gender: fields.gender || null,
+      // 18.09.2026: shaxsiy telefonda ishlaydigan (ish joyida kiosk turmaydigan)
+      // xodimlar uchun qat'iy joylashuv sharti. Qarang: geofenceService.js
+      // → evaluateStrictLocation().
+      strictLocation: !!fields.strictLocation,
       isActive: true,
       createdAt: nowIso(),
       updatedAt: nowIso()
@@ -5091,6 +5112,49 @@ Masofa: ~${distanceM} metr (ruxsat: ${cfg.radiusM} metr).`,
 Eng yaqini: ${nearest.branch.name} \u2014 ~${nearest.distanceM} metr (ruxsat: ${nearest.radiusM} metr).` : "Siz hech qaysi filial hududida emassiz."
     };
   }
+  function isStrictLocationEmployee(employee) {
+    return !!(employee && employee.strictLocation);
+  }
+  function evaluateStrictLocation(employee, gate, branches) {
+    if (!isStrictLocationEmployee(employee)) return { allowed: true };
+    const g = gate || {};
+    if (!g.active) {
+      return {
+        allowed: false,
+        title: "Joylashuv sozlanmagan",
+        reason: "Bu xodim uchun qattiq joylashuv nazorati yoqilgan, lekin dasturda ish joyi belgilanmagan.\n\nAdministrator: Filiallar bo'limiga ish joyini qo'shing yoki Sozlamalar \u2192 Joylashuv qulfini yoqing."
+      };
+    }
+    if (!g.measured) {
+      return {
+        allowed: false,
+        title: "Joylashuv aniqlanmadi",
+        reason: "Bu xodim uchun joylashuvsiz kirish taqiqlangan.\n\nTelefonda GPS (Joylashuv) yoqilganini va brauzerga joylashuvga ruxsat berilganini tekshiring, so'ng qayta urinib ko'ring."
+      };
+    }
+    const accuracy = Number(g.accuracyM);
+    if (!Number.isFinite(accuracy) || accuracy > STRICT_LOCATION_MAX_ACCURACY_M) {
+      return {
+        allowed: false,
+        title: "Joylashuv aniqligi yetarli emas",
+        reason: `Telefon joylashuvni faqat \xB1${Number.isFinite(accuracy) ? accuracy : "?"} metr aniqlikda ko'rsatdi (talab: \xB1${STRICT_LOCATION_MAX_ACCURACY_M} metrgacha).
+
+Ochiq joyga chiqing yoki bir necha soniya kutib, qayta urinib ko'ring. Telefon sozlamalarida joylashuv rejimi "Aniq" (High accuracy) bo'lsin.`
+      };
+    }
+    if (employee.branchId && g.branch && g.branch.id !== employee.branchId) {
+      const own = (branches || []).find((b) => b.id === employee.branchId);
+      return {
+        allowed: false,
+        title: "O'z ish joyingizda emassiz",
+        reason: `Siz hozir "${g.branch.name}" hududidasiz.
+Sizning ish joyingiz: ${own ? own.name : "boshqa filial"}.
+
+Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
+      };
+    }
+    return { allowed: true };
+  }
 
   // src/business/authService.js
   var ROLE_SUPER_ADMIN = "SUPER_ADMIN";
@@ -5691,6 +5755,7 @@ Eng yaqini: ${nearest.branch.name} \u2014 ~${nearest.distanceM} metr (ruxsat: ${
       if (currentBranch && employee.branchId && employee.branchId !== currentBranch.id) {
         branches = await db.listBranches({ activeOnly: true }).catch(() => []);
       }
+      if (!await strictLocationGate(employee, branches)) return;
       const result = currentMode2 === "IN" ? await checkIn(db, employee.id, fullName, /* @__PURE__ */ new Date(), currentBranch) : await checkOut(db, employee.id, fullName, /* @__PURE__ */ new Date(), currentBranch);
       showAttendanceResult(result, employee.photoUrl, branchNoteFor(employee, branches));
     } catch (err) {
@@ -5789,6 +5854,7 @@ Eng yaqini: ${nearest.branch.name} \u2014 ~${nearest.distanceM} metr (ruxsat: ${
       if (currentBranch && employee.branchId && employee.branchId !== currentBranch.id) {
         branches = await db.listBranches({ activeOnly: true }).catch(() => []);
       }
+      if (!await strictLocationGate(employee, branches)) return;
       const result = nextAutoMode(todayRecord) === "IN" ? await checkIn(db, employee.id, fullName, /* @__PURE__ */ new Date(), currentBranch) : await checkOut(db, employee.id, fullName, /* @__PURE__ */ new Date(), currentBranch);
       showAttendanceResult(result, employee.photoUrl, branchNoteFor(employee, branches));
     } catch (err) {
@@ -5796,7 +5862,9 @@ Eng yaqini: ${nearest.branch.name} \u2014 ~${nearest.distanceM} metr (ruxsat: ${
     }
   }
   var currentBranch = null;
+  var lastGate = { active: false, measured: false, accuracyM: null, distanceM: null, branch: null };
   async function checkLocationGate() {
+    lastGate = { active: false, measured: false, accuracyM: null, distanceM: null, branch: null };
     let branchResult;
     try {
       branchResult = await resolveBranchByLocation(db);
@@ -5807,9 +5875,17 @@ Eng yaqini: ${nearest.branch.name} \u2014 ~${nearest.distanceM} metr (ruxsat: ${
     if (branchResult.hasBranches) {
       if (branchResult.allowed) {
         currentBranch = branchResult.branch;
+        lastGate = {
+          active: true,
+          measured: true,
+          accuracyM: branchResult.accuracyM != null ? branchResult.accuracyM : null,
+          distanceM: branchResult.distanceM != null ? branchResult.distanceM : null,
+          branch: branchResult.branch
+        };
         return { allowed: true, branch: branchResult.branch };
       }
       currentBranch = null;
+      lastGate = { active: true, measured: !branchResult.unavailable, accuracyM: null, distanceM: null, branch: null };
       return {
         allowed: false,
         unavailable: !!branchResult.unavailable,
@@ -5817,12 +5893,37 @@ Eng yaqini: ${nearest.branch.name} \u2014 ~${nearest.distanceM} metr (ruxsat: ${
       };
     }
     currentBranch = null;
-    const geo = await checkGeofence(db);
+    let geo;
+    try {
+      geo = await checkGeofence(db);
+    } catch (err) {
+      console.error("checkGeofence failed (non-fatal):", err);
+      lastGate = { active: true, measured: false, accuracyM: null, distanceM: null, branch: null };
+      return { allowed: true };
+    }
+    lastGate = {
+      active: !geo.disabled && !geo.misconfigured,
+      measured: !geo.disabled && !geo.misconfigured && !geo.unavailable,
+      accuracyM: geo.accuracyM != null ? geo.accuracyM : null,
+      distanceM: geo.distanceM != null ? geo.distanceM : null,
+      branch: null
+    };
     return {
       allowed: geo.allowed,
       unavailable: !!geo.unavailable,
       reason: geo.reason || "Siz ish joyidan tashqaridasiz."
     };
+  }
+  async function strictLocationGate(employee, branches) {
+    if (!isStrictLocationEmployee(employee)) return true;
+    let list = branches;
+    if ((!list || !list.length) && employee.branchId) {
+      list = await db.listBranches({ activeOnly: true }).catch(() => []);
+    }
+    const verdict = evaluateStrictLocation(employee, lastGate, list || []);
+    if (verdict.allowed) return true;
+    showResultError("\u{1F512} " + verdict.title, verdict.reason);
+    return false;
   }
   function branchNoteFor(employee, branches) {
     if (!currentBranch) return null;
@@ -7760,7 +7861,7 @@ ${origLine}${reasonLine}` });
       const genderText = employee.gender && GENDER_LABEL[employee.gender] ? `<span class="gender-pill gender-pill-${employee.gender}">${GENDER_LABEL[employee.gender]}</span>` : `<span class="muted">\u2014</span>`;
       tr.innerHTML = `
       <td>${photoCell}</td>
-      <td>${fullName}</td><td>${employee.position || ""}</td>
+      <td>${fullName}${employee.strictLocation ? ` <span class="strict-pill" title="Qattiq joylashuv nazorati: faqat o'z ish joyida, joylashuv aniq o'lchanganda belgilanadi">\u{1F512} joylashuv</span>` : ""}</td><td>${employee.position || ""}</td>
       <td>${genderText}</td>
       <td>${scheduleText}</td><td>${employee.isActive ? "Ha" : "Yo'q"}</td>
       <td>${hasFace ? "\u2705" : "\u2014"}</td>
@@ -7835,6 +7936,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       branchSelect2.appendChild(option);
     }
     branchSelect2.value = employee && employee.branchId || "";
+    document.getElementById("empStrictLocation").checked = !!(employee && employee.strictLocation);
     document.getElementById("empActive").checked = employee ? employee.isActive : true;
     document.getElementById("empPhotoInput").value = "";
     _pendingPhotoUrl = employee ? employee.photoUrl || null : null;
@@ -7903,6 +8005,22 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       errorEl.textContent = uzError(err);
       return;
     }
+    if (document.getElementById("empStrictLocation").checked) {
+      let geofenceOn = false;
+      try {
+        geofenceOn = Number(await _db3.getSetting("geofence_enabled")) === 1;
+      } catch (err) {
+        geofenceOn = false;
+      }
+      if (!_branches.length && !geofenceOn) {
+        errorEl.textContent = "Qattiq joylashuv nazoratini yoqish uchun avval ish joyi belgilanishi kerak: Filiallar bo'limida filial qo'shing yoki Sozlamalar \u2192 Joylashuv qulfini yoqing.";
+        return;
+      }
+      if (_branches.length && !document.getElementById("empBranch").value) {
+        errorEl.textContent = "Qattiq nazorat yoqilgan xodimga filial tanlanishi shart \u2014 u aynan qaysi ish joyida bo'lishi kerakligi shundan bilinadi.";
+        return;
+      }
+    }
     const workStart2 = document.getElementById("empWorkStart2").value || "";
     const workEnd2 = document.getElementById("empWorkEnd2").value || "";
     const workStartValue = document.getElementById("empWorkStart").value;
@@ -7938,6 +8056,8 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       photoUrl: _pendingPhotoUrl || null,
       // 13.09.2026: xodim biriktirilgan filial (bo'sh = hamma filialda).
       branchId: document.getElementById("empBranch").value || null,
+      // 18.09.2026: qat'iy joylashuv sharti.
+      strictLocation: document.getElementById("empStrictLocation").checked,
       ...scheduleFields
     };
     try {
@@ -7949,6 +8069,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
           gender: fields.gender,
           isActive: document.getElementById("empActive").checked,
           branchId: fields.branchId,
+          strictLocation: fields.strictLocation,
           photoUrl: fields.photoUrl
         };
         if (password) patch.password = password;
@@ -10834,7 +10955,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-09-18 11:40 UTC";
+  var BUILD_STAMP = "2026-09-18 14:20 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
