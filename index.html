@@ -4912,6 +4912,33 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   function isShortMapLink(text) {
     return /(maps\.app\.goo\.gl|goo\.gl\/maps|yandex\.\w+\/maps\/-\/)/i.test(String(text || ""));
   }
+  function parseDmsPair(text) {
+    const raw = String(text || "");
+    const re = /(\d{1,3})\s*[°º]\s*(\d{1,2})\s*['′’`]\s*(\d{1,2}(?:[.,]\d+)?)\s*["″”'′’]*\s*([NSEWnsew])/g;
+    const topilgan = [];
+    let m;
+    while ((m = re.exec(raw)) !== null && topilgan.length < 2) {
+      const daraja = Number(m[1]);
+      const daqiqa = Number(m[2]);
+      const soniya = Number(String(m[3]).replace(",", "."));
+      if (!Number.isFinite(daraja) || !Number.isFinite(daqiqa) || !Number.isFinite(soniya)) continue;
+      if (daqiqa >= 60 || soniya >= 60) continue;
+      let qiymat = daraja + daqiqa / 60 + soniya / 3600;
+      const tomon = m[4].toUpperCase();
+      if (tomon === "S" || tomon === "W") qiymat = -qiymat;
+      topilgan.push({ qiymat: Math.round(qiymat * 1e6) / 1e6, tomon });
+    }
+    if (topilgan.length !== 2) return null;
+    let lat = null;
+    let lng = null;
+    for (const t of topilgan) {
+      if (t.tomon === "N" || t.tomon === "S") lat = t.qiymat;
+      else lng = t.qiymat;
+    }
+    if (lat === null || lng === null) return null;
+    if (!validPair(lat, lng)) return null;
+    return { lat, lng, source: "gradus" };
+  }
   function validPair(lat, lng) {
     return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && !(lat === 0 && lng === 0);
   }
@@ -4936,6 +4963,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       if (lngFirst) [lat, lng] = [lng, lat];
       if (validPair(lat, lng)) return { lat, lng, source: lngFirst ? "yandex/2gis" : "google" };
     }
+    const dms = parseDmsPair(raw);
+    if (dms) return dms;
     m = new RegExp(`^${num}\\s*[,;\\s]\\s*${num}`).exec(raw);
     if (m) {
       let lat = Number(m[1]), lng = Number(m[2]);
@@ -9201,7 +9230,9 @@ KOMPYUTERDA: havolani brauzerda oching, manzil qatoridagi to'liq havolani nusxa 
       return;
     }
     if (!parsed) {
-      errorEl.textContent = `Havoladan koordinata topilmadi. Google Maps, Yandex yoki 2GIS havolasini, yoki oddiy "41.311081, 69.240562" ko'rinishidagi raqamlarni qo'ying.`;
+      errorEl.textContent = `Havoladan koordinata topilmadi.
+
+Qabul qilinadi: Google Maps / Yandex / 2GIS havolasi, oddiy "41.311081, 69.240562" raqamlari, yoki "41\xB018'39.9\\"N 69\xB014'26.0\\"E" ko'rinishidagi gradus yozuvi.`;
       return;
     }
     const prevLat = Number(document.getElementById("geofenceLat").value);
@@ -10648,7 +10679,9 @@ Telefonda: Google Maps ilovasini oching \u2192 kerakli joyni topib barmoqni bosi
     }
     const point = parseLocationLink(text);
     if (!point) {
-      errorEl.textContent = `Havoladan koordinata topilmadi. Google Maps, Yandex yoki 2GIS havolasini, yoki "41.311081, 69.240562" ko'rinishidagi raqamlarni qo'ying.`;
+      errorEl.textContent = `Havoladan koordinata topilmadi.
+
+Qabul qilinadi: Google Maps / Yandex / 2GIS havolasi, "41.311081, 69.240562" ko'rinishidagi raqamlar, yoki "41\xB018'39.9\\"N 69\xB014'26.0\\"E" ko'rinishidagi gradus yozuvi.`;
       return;
     }
     document.getElementById("branchLat").value = point.lat.toFixed(6);
@@ -10955,7 +10988,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-09-18 14:20 UTC";
+  var BUILD_STAMP = "2026-09-18 15:10 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
