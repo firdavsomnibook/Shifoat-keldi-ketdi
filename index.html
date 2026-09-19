@@ -5644,7 +5644,7 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     }
     cameraStatus.textContent = currentBranch ? `${SCAN_HINT_TEXT}
 \u{1F4CD} ${currentBranch.name}` : SCAN_HINT_TEXT;
-    requiredFrames = numSetting(await db.getSetting("recognition_hold_frames"), 12);
+    requiredFrames = numSetting(await db.getSetting("recognition_hold_frames"), 3);
     const requiredBlinks = numSetting(await db.getSetting("liveness_required_blinks"), 1);
     const minMovement = numSetting(await db.getSetting("liveness_min_movement"), 0.035);
     livenessTracker = new LivenessTracker({ requiredBlinks, minMovement });
@@ -5759,13 +5759,6 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     });
   }
   async function finishRecognition() {
-    if (!livenessTracker.isLive) {
-      showResultWarning(
-        "Yuzingiz yaxshi ko'rinmayapti.",
-        "Iltimos, kameraga to'g'ri qarang."
-      );
-      return;
-    }
     if (currentMode2 === "ADMIN") {
       await finishAdminRecognition();
       return;
