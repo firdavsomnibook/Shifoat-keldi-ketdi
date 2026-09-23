@@ -358,6 +358,13 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
 .strict-pill { display: inline-block; margin-left: 6px; padding: 2px 8px;
   border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap;
   background: #E6EEFF; border: 1px solid #A8C0F0; color: #1C3F8F; }
+/* 22.09.2026: filial nomi (Xodimlar jadvali va Hisobotdagi "Qayerda"). */
+.branch-pill { display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+  background: #EFF0F7; border: 1px solid #C9CCE6; color: #3B3F6B; }
+/* Internet uzilganda saqlanib, keyin yuborilgan yozuv belgisi. */
+.offline-pill { display: inline-block; font-size: 12px; cursor: help;
+  filter: saturate(0.9); }
 /* 16.09.2026 so'rovi: "erkak och yashil, ayol och pushti bo'lsin".
    Bitta joyda belgilanadi - Dashboard ham, Xodimlar bo'limi ham shu
    ranglardan foydalanadi, shuning uchun ikkalasi doim bir xil bo'ladi. */
@@ -794,6 +801,10 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       <div class="toolbar">
         <p class="section-title" style="margin:0;">Xodimlar</p>
         <div style="flex:1"></div>
+        <!-- 22.09.2026 so'rovi: "filial Xodimlar bo'limida ham ko'rinsin".
+             Filial qo'shilmagan mijozlarda bu tanlov butunlay yashirin. -->
+        <label class="muted" id="employeeBranchFilterLabel" style="display:none;">Filial:</label>
+        <select id="employeeBranchFilter" style="display:none; max-width:220px;"></select>
         <!-- 16.09.2026 so'rovi: "bir qarashda nechta xodim, qanchasi ayol,
              qanchasi erkak". Eski xodimlarni birma-bir tahrirlamaslik
              uchun - hammasini bitta oynadan belgilash tugmasi. -->
@@ -802,7 +813,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       </div>
       <div class="emp-stats" id="employeeStats"></div>
       <div style="overflow-x:auto;"><table class="data-table" id="employeesTable">
-        <thead><tr><th>Rasmi</th><th>Login</th><th>Lavozim</th><th>Jinsi</th><th>Grafik</th><th>Faol</th><th>Yuz</th><th id="thEmployeePassword" style="display:none;">Parol</th><th></th></tr></thead>
+        <thead><tr><th>Rasmi</th><th>Login</th><th>Lavozim</th><th>Jinsi</th><th>Filial</th><th>Grafik</th><th>Faol</th><th>Yuz</th><th id="thEmployeePassword" style="display:none;">Parol</th><th></th></tr></thead>
         <tbody></tbody>
       </table></div>
     </section>
@@ -914,7 +925,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       </div>
       <p id="reportSummary" style="line-height:1.7;"></p>
       <div style="overflow-x:auto;"><table class="data-table" id="reportTable">
-        <thead><tr><th>Sana</th><th>Status</th><th>Keldi</th><th>Ketdi</th><th>Kechikish</th><th>Ko'p ishlagan</th><th>Kam ishlagan</th><th>Erta kelgan</th></tr></thead>
+        <thead><tr><th>Sana</th><th>Status</th><th>Keldi</th><th>Ketdi</th><th>Kechikish</th><th>Ko'p ishlagan</th><th>Kam ishlagan</th><th>Erta kelgan</th><th>Qayerda</th></tr></thead>
         <tbody></tbody>
       </table></div>
     </section>
@@ -4360,7 +4371,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     }
     return { lateMinutes: existing.lateMinutes || 0, latePenalty: existing.latePenalty || 0 };
   }
-  async function checkIn(db2, employeeId, employeeName, at = /* @__PURE__ */ new Date(), branch = null) {
+  async function checkIn(db2, employeeId, employeeName, at = /* @__PURE__ */ new Date(), branch = null, opts = null) {
     const dateKey = tashkentDateKey(at);
     const existing = await db2.getAttendanceForDate(employeeId, dateKey);
     const maybeSecondShift = !!(existing && existing.checkInTime && existing.checkOutTime && !existing.checkInTime2);
@@ -4430,7 +4441,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         lateMinutes: first.lateMinutes + lateMinutes,
         latePenalty: first.latePenalty + latePenalty,
         branchId2: branch ? branch.id : null,
-        branchName2: branch ? branch.name : null
+        branchName2: branch ? branch.name : null,
+        ...opts && opts.offlineQueued ? { offlineQueued: true } : {}
       });
       return {
         status: AttendanceStatus.CHECKED_IN,
@@ -4469,7 +4481,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       // ham, hisobotda "qaysi filialda kelgan edi" degan savolga javob
       // qolsin (faqat id qolsa, nomi yo'qolib ketardi).
       branchId: branch ? branch.id : null,
-      branchName: branch ? branch.name : null
+      branchName: branch ? branch.name : null,
+      ...opts && opts.offlineQueued ? { offlineQueued: true } : {}
     });
     return {
       status: AttendanceStatus.CHECKED_IN,
@@ -4494,7 +4507,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     }
     return null;
   }
-  async function checkOut(db2, employeeId, employeeName, at = /* @__PURE__ */ new Date(), branch = null) {
+  async function checkOut(db2, employeeId, employeeName, at = /* @__PURE__ */ new Date(), branch = null, opts = null) {
     const todayKey = tashkentDateKey(at);
     let dateKey = todayKey;
     let existing = await db2.getAttendanceForDate(employeeId, dateKey);
@@ -4557,7 +4570,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         overtimeMinutes1: firstOver,
         undertimeMinutes1: firstUnder,
         overtimeMinutes: firstOver + overtimeMinutes,
-        undertimeMinutes: firstUnder + undertimeMinutes
+        undertimeMinutes: firstUnder + undertimeMinutes,
+        ...opts && opts.offlineQueued ? { offlineQueued: true } : {}
       });
       return {
         status: AttendanceStatus.CHECKED_OUT,
@@ -4569,13 +4583,17 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         period: 2
       };
     }
+    const extraFields = {
+      ...existing.scheduledStart2 ? { overtimeMinutes1: overtimeMinutes, undertimeMinutes1: undertimeMinutes } : {},
+      ...opts && opts.offlineQueued ? { offlineQueued: true } : {}
+    };
     await db2.writeCheckOut(
       employeeId,
       dateKey,
       at.toISOString(),
       overtimeMinutes,
       undertimeMinutes,
-      existing.scheduledStart2 ? { overtimeMinutes1: overtimeMinutes, undertimeMinutes1: undertimeMinutes } : null
+      Object.keys(extraFields).length ? extraFields : null
     );
     return {
       status: AttendanceStatus.CHECKED_OUT,
@@ -5234,6 +5252,240 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     return perms.has(permissionKey);
   }
 
+  // src/business/offlineQueue.js
+  var KEY = "shifoat_offline_queue";
+  var MAX_YOSH_MS = 7 * 24 * 60 * 60 * 1e3;
+  var MAX_URINISH = 5;
+  var QAYTA_URINISH_MS = 3e4;
+  var _tekshiruvTimer = null;
+  var _yuborilmoqda = false;
+  var _ozgarishKuzatuvchi = null;
+  function oqi() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return [];
+      const list = JSON.parse(raw);
+      return Array.isArray(list) ? list : [];
+    } catch (err) {
+      console.error("Oflayn navbatni o'qib bo'lmadi:", err);
+      return [];
+    }
+  }
+  function yoz(list) {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(list));
+    } catch (err) {
+      console.error("Oflayn navbatni saqlab bo'lmadi:", err);
+    }
+    if (_ozgarishKuzatuvchi) {
+      try {
+        _ozgarishKuzatuvchi(list.length);
+      } catch (err) {
+        console.error("Navbat belgisini yangilashda xato:", err);
+      }
+    }
+  }
+  function eskirganlarniTashla(list) {
+    const chegara = Date.now() - MAX_YOSH_MS;
+    return list.filter((e) => {
+      const vaqt = Date.parse(e.atIso);
+      return Number.isFinite(vaqt) ? vaqt >= chegara : false;
+    });
+  }
+  function navbatSoni() {
+    return eskirganlarniTashla(oqi()).length;
+  }
+  function navbatBormi() {
+    return navbatSoni() > 0;
+  }
+  function navbatKuzatuvchisi(fn) {
+    _ozgarishKuzatuvchi = fn;
+  }
+  function navbatgaQoy({ mode: mode2, employeeId, employeeName, at, branch }) {
+    const yozuv = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      mode: mode2 === "OUT" ? "OUT" : "IN",
+      employeeId,
+      employeeName: employeeName || "",
+      atIso: (at instanceof Date ? at : new Date(at)).toISOString(),
+      branch: branch ? { id: branch.id, name: branch.name } : null,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+      urinish: 0
+    };
+    const list = eskirganlarniTashla(oqi());
+    list.push(yozuv);
+    yoz(list);
+    return yozuv;
+  }
+  var TARMOQ_KODLARI = /* @__PURE__ */ new Set([
+    "unavailable",
+    "deadline-exceeded",
+    "resource-exhausted",
+    "auth/network-request-failed",
+    "internal",
+    "cancelled",
+    "aborted"
+  ]);
+  function tarmoqXatosimi(err) {
+    if (!err) return false;
+    if (err.__shifoatTimeout) return true;
+    const code = typeof err.code === "string" ? err.code.toLowerCase() : "";
+    if (TARMOQ_KODLARI.has(code)) return true;
+    const matn = String(err && err.message || err).toLowerCase();
+    return /offline|network|internet|timeout|timed out|unavailable|failed to get|could not reach|backend/.test(matn);
+  }
+  function vaqtBilanCheklash(promise, ms) {
+    return new Promise((resolve, reject) => {
+      let tugadi = false;
+      const timer2 = setTimeout(() => {
+        if (tugadi) return;
+        tugadi = true;
+        const err = new Error("Server javob bermadi (kutish vaqti tugadi).");
+        err.__shifoatTimeout = true;
+        reject(err);
+      }, ms);
+      promise.then(
+        (v) => {
+          if (!tugadi) {
+            tugadi = true;
+            clearTimeout(timer2);
+            resolve(v);
+          }
+        },
+        (e) => {
+          if (!tugadi) {
+            tugadi = true;
+            clearTimeout(timer2);
+            reject(e);
+          }
+        }
+      );
+    });
+  }
+  async function navbatniYubor(db2) {
+    if (_yuborilmoqda) return { yuborildi: 0, qoldi: navbatSoni() };
+    let list = eskirganlarniTashla(oqi());
+    if (!list.length) {
+      yoz(list);
+      return { yuborildi: 0, qoldi: 0 };
+    }
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      return { yuborildi: 0, qoldi: list.length };
+    }
+    _yuborilmoqda = true;
+    let yuborildi = 0;
+    try {
+      list.sort((a, b) => String(a.atIso).localeCompare(String(b.atIso)));
+      for (const yozuv of [...list]) {
+        const at = new Date(yozuv.atIso);
+        try {
+          const args = [
+            db2,
+            yozuv.employeeId,
+            yozuv.employeeName,
+            at,
+            yozuv.branch,
+            { offlineQueued: true }
+          ];
+          if (yozuv.mode === "OUT") await checkOut(...args);
+          else await checkIn(...args);
+          list = list.filter((e) => e.id !== yozuv.id);
+          yoz(list);
+          yuborildi++;
+        } catch (err) {
+          if (tarmoqXatosimi(err)) {
+            console.warn("Oflayn navbat: internet hali yo'q, keyin uriniladi.");
+            break;
+          }
+          console.error("Oflayn navbat yozuvi yuborilmadi:", err);
+          yozuv.urinish = (yozuv.urinish || 0) + 1;
+          yozuv.oxirgiXato = String(err && err.message || err).slice(0, 200);
+          if (yozuv.urinish >= MAX_URINISH) {
+            list = list.filter((e) => e.id !== yozuv.id);
+          }
+          yoz(list);
+        }
+      }
+    } finally {
+      _yuborilmoqda = false;
+    }
+    return { yuborildi, qoldi: navbatSoni() };
+  }
+  function oflaynSinxronniBoshla(db2) {
+    if (_tekshiruvTimer) return;
+    const urin = () => {
+      navbatniYubor(db2).catch((err) => console.error("Oflayn navbatni yuborishda xato:", err));
+    };
+    _tekshiruvTimer = setInterval(() => {
+      if (navbatBormi()) urin();
+    }, QAYTA_URINISH_MS);
+    if (typeof window !== "undefined") {
+      window.addEventListener("online", urin);
+    }
+    setTimeout(urin, 3e3);
+  }
+
+  // src/data/offlineSnapshot.js
+  var KEY2 = "shifoat_offline_snapshot";
+  function oqi2() {
+    try {
+      const raw = localStorage.getItem(KEY2);
+      if (!raw) return {};
+      const obj = JSON.parse(raw);
+      return obj && typeof obj === "object" ? obj : {};
+    } catch (err) {
+      console.error("Oflayn nusxani o'qib bo'lmadi:", err);
+      return {};
+    }
+  }
+  function yoz2(patch) {
+    try {
+      localStorage.setItem(KEY2, JSON.stringify({ ...oqi2(), ...patch, savedAt: (/* @__PURE__ */ new Date()).toISOString() }));
+    } catch (err) {
+      console.error("Oflayn nusxani saqlab bo'lmadi:", err);
+    }
+  }
+  function saqlaEmbeddings(rows) {
+    if (!Array.isArray(rows) || !rows.length) return;
+    yoz2({
+      embeddings: rows.map((r) => ({
+        employeeId: r.employeeId,
+        vector: Array.from(r.vector || [])
+      }))
+    });
+  }
+  function oqiEmbeddings() {
+    const rows = oqi2().embeddings;
+    return Array.isArray(rows) ? rows : [];
+  }
+  function saqlaXodimlar(employees) {
+    if (!Array.isArray(employees)) return;
+    yoz2({
+      employees: employees.map((e) => ({
+        id: e.id,
+        firstName: e.firstName || "",
+        lastName: e.lastName || "",
+        isActive: e.isActive !== false,
+        branchId: e.branchId || null,
+        strictLocation: !!e.strictLocation
+      }))
+    });
+  }
+  function oqiXodim(employeeId) {
+    const list = oqi2().employees;
+    if (!Array.isArray(list)) return null;
+    const topildi = list.find((e) => e.id === employeeId);
+    return topildi ? { ...topildi, photoUrl: null } : null;
+  }
+  function saqlaThreshold(value) {
+    if (value == null || value === "") return;
+    yoz2({ threshold: value });
+  }
+  function oqiThreshold() {
+    const v = oqi2().threshold;
+    return v == null ? null : v;
+  }
+
   // src/ui/branding.js
   var _cached = null;
   async function loadBranding(db2) {
@@ -5580,7 +5832,50 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     if (Number(fullscreenSetting) === 1) {
       document.body.addEventListener("click", requestFullscreenOnce, { once: true });
     }
-    db.getAllActiveEmbeddings().catch((err) => console.error("Embeddings prefetch failed (non-fatal):", err));
+    db.getAllActiveEmbeddings().then((rows) => saqlaEmbeddings(rows)).catch((err) => console.error("Embeddings prefetch failed (non-fatal):", err));
+    db.listEmployees({ activeOnly: true }).then((list) => saqlaXodimlar(list)).catch((err) => console.error("Oflayn xodimlar nusxasi olinmadi (muhim emas):", err));
+    navbatKuzatuvchisi((soni) => navbatBelgisiniYangila(soni));
+    navbatBelgisiniYangila();
+    try {
+      oflaynSinxronniBoshla(db);
+    } catch (err) {
+      console.error("Oflayn sinxronni ishga tushirib bo'lmadi (muhim emas):", err);
+    }
+  }
+  var DAVOMAT_KUTISH_MS = 8e3;
+  async function davomatYoz(mode2, employee, fullName, at, branch) {
+    const chaqiruv = mode2 === "OUT" ? checkOut(db, employee.id, fullName, at, branch) : checkIn(db, employee.id, fullName, at, branch);
+    try {
+      return await vaqtBilanCheklash(chaqiruv, DAVOMAT_KUTISH_MS);
+    } catch (err) {
+      if (!tarmoqXatosimi(err)) throw err;
+      console.warn("Davomat bazaga yozilmadi \u2014 navbatga qo'yildi:", err);
+      navbatgaQoy({ mode: mode2, employeeId: employee.id, employeeName: fullName, at, branch });
+      navbatBelgisiniYangila();
+      return {
+        status: mode2 === "OUT" ? AttendanceStatus.CHECKED_OUT : AttendanceStatus.CHECKED_IN,
+        employeeName: fullName,
+        timeStr: hhmm(at),
+        dateStr: ddmmyyyy(tashkentDateKey(at)),
+        period: 1,
+        offlineQueued: true
+      };
+    }
+  }
+  function navbatBelgisiniYangila(soni) {
+    const n = soni == null ? navbatSoni() : soni;
+    let el2 = document.getElementById("offlineQueueBadge");
+    if (!n) {
+      if (el2) el2.remove();
+      return;
+    }
+    if (!el2) {
+      el2 = document.createElement("div");
+      el2.id = "offlineQueueBadge";
+      el2.style.cssText = "position:fixed; left:8px; bottom:6px; z-index:120; background:#FFF1D6; border:1px solid #F0C365; color:#8A5A00; border-radius:999px; padding:5px 12px; font-size:12px; font-weight:700; pointer-events:none;";
+      document.body.appendChild(el2);
+    }
+    el2.textContent = `\u23F3 ${n} ta yozuv yuborilishini kutmoqda`;
   }
   function requestFullscreenOnce() {
     const el2 = document.documentElement;
@@ -5644,7 +5939,7 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     }
     cameraStatus.textContent = currentBranch ? `${SCAN_HINT_TEXT}
 \u{1F4CD} ${currentBranch.name}` : SCAN_HINT_TEXT;
-    requiredFrames = numSetting(await db.getSetting("recognition_hold_frames"), 3);
+    requiredFrames = numSetting(await db.getSetting("recognition_hold_frames"), 12);
     const requiredBlinks = numSetting(await db.getSetting("liveness_required_blinks"), 1);
     const minMovement = numSetting(await db.getSetting("liveness_min_movement"), 0.035);
     livenessTracker = new LivenessTracker({ requiredBlinks, minMovement });
@@ -5759,14 +6054,33 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     });
   }
   async function finishRecognition() {
+    if (!livenessTracker.isLive) {
+      showResultWarning(
+        "Yuzingiz yaxshi ko'rinmayapti.",
+        "Iltimos, kameraga to'g'ri qarang."
+      );
+      return;
+    }
     if (currentMode2 === "ADMIN") {
       await finishAdminRecognition();
       return;
     }
     try {
       const [thresholdRaw, candidates] = await Promise.all([
-        db.getSetting("face_match_threshold"),
-        db.getAllActiveEmbeddings()
+        db.getSetting("face_match_threshold").then((v) => {
+          saqlaThreshold(v);
+          return v;
+        }).catch((err) => {
+          console.warn("Sozlama o'qilmadi, oflayn nusxadan olinadi:", err);
+          return oqiThreshold();
+        }),
+        db.getAllActiveEmbeddings().then((rows) => {
+          saqlaEmbeddings(rows);
+          return rows;
+        }).catch((err) => {
+          console.warn("Yuz vektorlari o'qilmadi, oflayn nusxadan olinadi:", err);
+          return oqiEmbeddings();
+        })
       ]);
       const threshold = numSetting(thresholdRaw, 0.5);
       const { employeeId } = bestMatch(bestDescriptor, candidates, threshold);
@@ -5775,7 +6089,10 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
         showResultError("\u26A0\uFE0F Xodim aniqlanmadi", "Iltimos, administratorga murojaat qiling.");
         return;
       }
-      const employee = await db.getEmployee(employeeId);
+      const employee = await db.getEmployee(employeeId).catch((err) => {
+        console.warn("Xodim ma'lumoti o'qilmadi, oflayn nusxadan olinadi:", err);
+        return oqiXodim(employeeId);
+      });
       if (!employee || !employee.isActive) {
         showResultError("\u26A0\uFE0F Xodim aniqlanmadi", "Iltimos, administratorga murojaat qiling.");
         return;
@@ -5786,7 +6103,13 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
         branches = await db.listBranches({ activeOnly: true }).catch(() => []);
       }
       if (!await strictLocationGate(employee, branches)) return;
-      const result = currentMode2 === "IN" ? await checkIn(db, employee.id, fullName, /* @__PURE__ */ new Date(), currentBranch) : await checkOut(db, employee.id, fullName, /* @__PURE__ */ new Date(), currentBranch);
+      const result = await davomatYoz(
+        currentMode2 === "IN" ? "IN" : "OUT",
+        employee,
+        fullName,
+        /* @__PURE__ */ new Date(),
+        currentBranch
+      );
       showAttendanceResult(result, employee.photoUrl, branchNoteFor(employee, branches));
     } catch (err) {
       console.error("finishRecognition failed:", err);
@@ -5885,7 +6208,13 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
         branches = await db.listBranches({ activeOnly: true }).catch(() => []);
       }
       if (!await strictLocationGate(employee, branches)) return;
-      const result = nextAutoMode(todayRecord) === "IN" ? await checkIn(db, employee.id, fullName, /* @__PURE__ */ new Date(), currentBranch) : await checkOut(db, employee.id, fullName, /* @__PURE__ */ new Date(), currentBranch);
+      const result = await davomatYoz(
+        nextAutoMode(todayRecord) === "IN" ? "IN" : "OUT",
+        employee,
+        fullName,
+        /* @__PURE__ */ new Date(),
+        currentBranch
+      );
       showAttendanceResult(result, employee.photoUrl, branchNoteFor(employee, branches));
     } catch (err) {
       showResultError("Xatolik yuz berdi", uzError(err));
@@ -6795,6 +7124,7 @@ ${branchNote}` : branchNote;
       return [];
     });
     const selectedBranchId = syncBranchPicker(branches);
+    const branchNameById = new Map(branches.map((br) => [br.id, br.name]));
     const employees = selectedBranchId ? allEmployees.filter((e) => e.branchId === selectedBranchId) : allEmployees;
     const byEmployee = new Map(dayRecords.map((r) => [r.employeeId, r]));
     const schedulesByEmployee = /* @__PURE__ */ new Map();
@@ -6830,7 +7160,10 @@ ${branchNote}` : branchNote;
         name: fullName,
         photoUrl: employee.photoUrl || null,
         scheduleText,
-        position: (employee.position || "").trim()
+        position: (employee.position || "").trim(),
+        // Filial nomi — ro'yxat ochilganda ism ostida ko'rinadi. Filial
+        // biriktirilmagan xodimda bo'sh qoladi (hech narsa yozilmaydi).
+        branchName: employee.branchId ? branchNameById.get(employee.branchId) || null : null
       };
       staffAll.push(entry);
       if (employee.gender === "male") staffMale.push(entry);
@@ -7286,6 +7619,12 @@ ${branchNote}` : branchNote;
           scheduleEl.textContent = e.scheduleText;
           nameCol.appendChild(scheduleEl);
         }
+        if (e.branchName) {
+          const branchEl = document.createElement("span");
+          branchEl.style.cssText = "font-size:12px; font-weight:600; color:#6B6F91;";
+          branchEl.textContent = "\u{1F4CD} " + e.branchName;
+          nameCol.appendChild(branchEl);
+        }
         row.appendChild(nameCol);
         let extraHtml = "";
         if (e.checkInTimeStr) {
@@ -7381,6 +7720,11 @@ ${origLine}${reasonLine}` });
         );
       }
     }
+  }
+
+  // src/utils/html.js
+  function escapeHtml(text) {
+    return String(text == null ? "" : text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   }
 
   // src/ui/admin/faceEnrollModal.js
@@ -7556,6 +7900,8 @@ ${origLine}${reasonLine}` });
   var _editingId = null;
   var _pendingPhotoUrl = null;
   var _branches = [];
+  var _branchById = /* @__PURE__ */ new Map();
+  var _render = null;
   var _weekdayOverrides = {};
   var WEEKDAY_NAMES_UZ = [
     "Dushanba",
@@ -7822,6 +8168,8 @@ ${origLine}${reasonLine}` });
       });
       document.getElementById("genderBulkSave").addEventListener("click", onGenderBulkSave);
     }
+    const branchFilter = document.getElementById("employeeBranchFilter");
+    if (branchFilter) branchFilter.addEventListener("change", renderEmployeeRows);
     document.getElementById("btnEmpOvAdd").addEventListener("click", onAddWeekdayOverride);
     const shift2Clear = document.getElementById("btnEmpShift2Clear");
     if (shift2Clear) {
@@ -7854,10 +8202,10 @@ ${origLine}${reasonLine}` });
       })
     ]);
     _branches = branches;
+    _branchById = new Map(branches.map((br) => [br.id, br]));
+    syncBranchFilter(branches);
     _employees = employees;
     renderEmployeeStats(employees);
-    const tbody2 = document.querySelector("#employeesTable tbody");
-    tbody2.innerHTML = "";
     const sortedByAge = [...users].sort(
       (a, b) => a.createdAt > b.createdAt ? 1 : a.createdAt < b.createdAt ? -1 : 0
     );
@@ -7876,8 +8224,28 @@ ${origLine}${reasonLine}` });
       schedulesByEmployee.get(version.employeeId).push(version);
     }
     const faceIdSet = new Set(faceIds);
+    _render = { employees, viewerIsPrimary, schedulesByEmployee, faceIdSet, todayKey };
+    renderEmployeeRows();
+  }
+  function renderEmployeeRows() {
+    if (!_render) return;
+    const { employees: barchasi, viewerIsPrimary, schedulesByEmployee, faceIdSet, todayKey } = _render;
+    const tbody2 = document.querySelector("#employeesTable tbody");
+    if (!tbody2) return;
+    tbody2.innerHTML = "";
+    const filterEl = document.getElementById("employeeBranchFilter");
+    const filterId = filterEl ? filterEl.value : "";
+    const employees = filterId ? barchasi.filter((e) => e.branchId === filterId) : barchasi;
+    if (!employees.length) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="10" class="muted">${barchasi.length ? "Bu filialda xodim yo'q." : "Hali xodim qo'shilmagan."}</td>`;
+      tbody2.appendChild(tr);
+      return;
+    }
     employees.forEach((employee) => {
       const schedule = pickScheduleForDate(schedulesByEmployee.get(employee.id) || [], todayKey);
+      const branch = employee.branchId ? _branchById.get(employee.branchId) : null;
+      const branchText = branch ? `<span class="branch-pill">${escapeHtml(branch.name)}</span>` : employee.branchId ? `<span class="muted">\u2014 (o'chirilgan filial)</span>` : `<span class="muted">\u2014</span>`;
       let scheduleText = schedule ? `${schedule.workStart}-${schedule.workEnd}` : "\u2014";
       if (schedule && !hasWeeklyRest(schedule)) {
         scheduleText += ` <span class="no-rest">dam yo'q</span>`;
@@ -7893,6 +8261,7 @@ ${origLine}${reasonLine}` });
       <td>${photoCell}</td>
       <td>${fullName}${employee.strictLocation ? ` <span class="strict-pill" title="Qattiq joylashuv nazorati: faqat o'z ish joyida, joylashuv aniq o'lchanganda belgilanadi">\u{1F512} joylashuv</span>` : ""}</td><td>${employee.position || ""}</td>
       <td>${genderText}</td>
+      <td>${branchText}</td>
       <td>${scheduleText}</td><td>${employee.isActive ? "Ha" : "Yo'q"}</td>
       <td>${hasFace ? "\u2705" : "\u2014"}</td>
       <td class="employee-password-cell"${passwordCellStyle}>${passwordCellText}</td><td></td>`;
@@ -7941,6 +8310,31 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       }
       tbody2.appendChild(tr);
     });
+  }
+  function syncBranchFilter(branches) {
+    const el2 = document.getElementById("employeeBranchFilter");
+    const label = document.getElementById("employeeBranchFilterLabel");
+    if (!el2) return;
+    const show = branches.length > 0;
+    el2.style.display = show ? "" : "none";
+    if (label) label.style.display = show ? "" : "none";
+    if (!show) return;
+    const signature = branches.map((b) => `${b.id}:${b.name}`).join("|");
+    if (el2.dataset.signature === signature) return;
+    const previous = el2.value;
+    el2.dataset.signature = signature;
+    el2.innerHTML = "";
+    const all = document.createElement("option");
+    all.value = "";
+    all.textContent = `Hamma filiallar (${branches.length} ta)`;
+    el2.appendChild(all);
+    for (const branch of branches) {
+      const option = document.createElement("option");
+      option.value = branch.id;
+      option.textContent = branch.name;
+      el2.appendChild(option);
+    }
+    el2.value = branches.some((b) => b.id === previous) ? previous : "";
   }
   function openModal(employee) {
     _editingId = employee ? employee.id : null;
@@ -8193,8 +8587,9 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       const lateText = lateMinutes ? `<span title="Kechikish: ${lateMinutes} min${lateParts} \xB7 Jarima: ${latePenalty.toLocaleString("uz-UZ")} so'm">${lateMinutes} min</span>` : "\u2014";
       const tr = document.createElement("tr");
       if (lateMinutes > 0) tr.className = "row-late";
+      const oflaynBelgi = att && att.offlineQueued ? ` <span class="offline-pill" title="Bu yozuv internet uzilganda qurilmada saqlangan va aloqa tiklangach yuborilgan">\u{1F4F6}</span>` : "";
       tr.innerHTML = `
-      <td>${fullName}</td><td>${DAY_STATUS_LABELS_UZ[status] || status}</td>
+      <td>${fullName}${oflaynBelgi}</td><td>${DAY_STATUS_LABELS_UZ[status] || status}</td>
       <td>${checkIn2}</td><td>${checkOut2}</td><td>${lateText}</td>
       <td>${overtimeText}</td>
       <td>${undertimeText}</td>`;
@@ -8639,7 +9034,18 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
         checkIn1,
         checkOut1,
         checkIn2: checkIn22,
-        checkOut2: checkOut22
+        checkOut2: checkOut22,
+        // 18.09.2026: xodim o'sha kuni QAYSI filialda belgilagani. Bu
+        // davomat yozuvida 13.09 dan beri saqlanib kelardi, lekin hech
+        // qayerda ko'rsatilmasdi. Endi hisobotda ko'rinadi — xodim boshqa
+        // filialga borgan kun darhol bilinadi. Ikkinchi smena boshqa
+        // filialda bo'lsa, ikkalasi ham yoziladi.
+        branchName: att && att.branchName || null,
+        branchName2: att && att.branchName2 || null,
+        // 22.09.2026: bu yozuv internet uzilganda qurilmada saqlanib,
+        // keyin yuborilganmi? Hisobotda kichik belgi bilan ko'rsatiladi —
+        // qaysi kuni internet muammo qilgani bilinib tursin.
+        offlineQueued: !!(att && att.offlineQueued)
       });
     }
     return report;
@@ -8774,6 +9180,10 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
       const overtimeText = formatDurationUz(day.overtimeMinutes) || "\u2014";
       const undertimeText = formatDurationUz(day.undertimeMinutes) || "\u2014";
       const earlyText = day.earlyMinutes ? `${day.earlyMinutes} min` : "\u2014";
+      const joylar = [day.branchName, day.branchName2].filter((x) => !!x).filter((x, i, arr) => arr.indexOf(x) === i);
+      const branchText = joylar.length ? `<span class="branch-pill">${escapeHtml(joylar.join(" \xB7 "))}</span>` : "\u2014";
+      const oflaynBelgi = day.offlineQueued ? ` <span class="offline-pill" title="Bu yozuv internet uzilganda qurilmada saqlangan va aloqa tiklangach yuborilgan">\u{1F4F6}</span>` : "";
+      const sanaKatak = `${day.dateStr} (${day.weekdayUz})${oflaynBelgi}`;
       const tr = document.createElement("tr");
       tr.dataset.dateKey = day.dateKey;
       if (day.status === DAY_STATUS_REST || day.status === DAY_STATUS_MOVED_REST) {
@@ -8786,7 +9196,7 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
         const second = day.hasSecondShift ? `<input type="time" class="edit-checkin2" value="${hhmmOf(day.checkIn2)}" style="width:110px; margin-top:4px;" title="Ikkinchi smena" />` : "";
         const second2 = day.hasSecondShift ? `<input type="time" class="edit-checkout2" value="${hhmmOf(day.checkOut2)}" style="width:110px; margin-top:4px;" title="Ikkinchi smena" />` : "";
         tr.innerHTML = `
-        <td>${day.dateStr} (${day.weekdayUz})</td><td>${day.statusLabel}</td>
+        <td>${sanaKatak}</td><td>${day.statusLabel}</td>
         <td><input type="time" class="edit-checkin" value="${checkInVal}" style="width:110px;" />${second}</td>
         <td><input type="time" class="edit-checkout" value="${checkOutVal}" style="width:110px;" />${second2}</td>
         <td>${day.lateMinutes ? day.lateMinutes + " min" : "\u2014"}</td>
@@ -8794,7 +9204,8 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
         <td>${undertimeText}
           <button type="button" class="btn btn-secondary edit-clear" style="padding:2px 8px; font-size:11px; margin-left:6px;">Kelmagan</button>
         </td>
-        <td>${earlyText}</td>`;
+        <td>${earlyText}</td>
+        <td>${branchText}</td>`;
         const clearRow = () => {
           tr.querySelector(".edit-checkin").value = "";
           tr.querySelector(".edit-checkout").value = "";
@@ -8808,12 +9219,13 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
         tr.querySelector(".edit-checkout").addEventListener("dblclick", clearRow);
       } else {
         tr.innerHTML = `
-        <td>${day.dateStr} (${day.weekdayUz})</td><td>${day.statusLabel}</td>
+        <td>${sanaKatak}</td><td>${day.statusLabel}</td>
         <td>${day.checkIn}</td><td>${day.checkOut}</td>
         <td>${day.lateMinutes ? day.lateMinutes + " min" : "\u2014"}</td>
         <td>${overtimeText}</td>
         <td>${undertimeText}</td>
-        <td>${earlyText}</td>`;
+        <td>${earlyText}</td>
+        <td>${branchText}</td>`;
       }
       tbody2.appendChild(tr);
     }
@@ -10636,9 +11048,6 @@ Agar bu 'Ruxsat yo'q' bo'lsa \u2014 Firebase Console > Firestore > Rules bo'limi
       tbody2.appendChild(tr);
     }
   }
-  function escapeHtml(text) {
-    return String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-  }
   function startEdit(branch) {
     _editingId2 = branch.id;
     document.getElementById("branchFormTitle").textContent = `Tahrirlash: ${branch.name}`;
@@ -10935,6 +11344,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
     return res.headers.get("etag") || res.headers.get("last-modified") || null;
   }
   function kioskIdle() {
+    if (navbatBormi()) return false;
     const root = document.getElementById("kioskRoot");
     if (!root || root.style.display === "none") return false;
     const home = document.getElementById("screen-home");
@@ -11002,7 +11412,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-09-19 tezlashtirilgan";
+  var BUILD_STAMP = "2026-09-23 09:30 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
