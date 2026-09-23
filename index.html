@@ -5796,13 +5796,24 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     }
     kioskReady = bootKioskBackground();
     showBusy("Yuklanmoqda\u2026");
-    kioskReady.finally(() => hideBusy());
+    let bootBelgiYopildi = false;
+    const bootBelgisiniYop = () => {
+      if (bootBelgiYopildi) return;
+      bootBelgiYopildi = true;
+      hideBusy();
+    };
+    kioskReady.finally(bootBelgisiniYop);
+    setTimeout(bootBelgisiniYop, BOOT_BUSY_MAX_MS);
     return kioskReady;
   }
+  var BOOT_BUSY_MAX_MS = 6e3;
+  var BOOT_DB_MS = 2e4;
+  var BOOT_SESSION_MS = 12e3;
+  var BOOT_SETTINGS_MS = 12e3;
   async function bootKioskBackground() {
-    db = await getDb();
+    db = await vaqtBilanCheklash(getDb(), BOOT_DB_MS);
     try {
-      await db.ensureKioskSession();
+      await vaqtBilanCheklash(db.ensureKioskSession(), BOOT_SESSION_MS);
     } catch (err) {
       console.error("Kiosk session failed to start:", err);
       const code = typeof err?.code === "string" && err.code ? ` [${err.code}]` : "";
@@ -5814,15 +5825,15 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       // Non-fatal by design: getSetting() already falls back to
       // DEFAULT_SETTINGS (appConfig.js) whenever a settings doc doesn't
       // exist, so failing to pre-seed them must never block boot.
-      db.ensureDefaultSettings().catch((err) => {
+      vaqtBilanCheklash(db.ensureDefaultSettings(), BOOT_SETTINGS_MS).catch((err) => {
         console.error("Default settings seed failed (non-fatal):", err);
       }),
       // fail-safe: if we can't tell, don't show the first-run wizard
-      db.anyAdminExists().catch((err) => {
+      vaqtBilanCheklash(db.anyAdminExists(), BOOT_SETTINGS_MS).catch((err) => {
         console.error("Could not check for an existing admin:", err);
         return true;
       }),
-      db.getSetting("kiosk_fullscreen").catch((err) => {
+      vaqtBilanCheklash(db.getSetting("kiosk_fullscreen"), BOOT_SETTINGS_MS).catch((err) => {
         console.error("Could not read kiosk_fullscreen setting:", err);
         return null;
       })
@@ -11413,7 +11424,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-09-23 14:10 UTC";
+  var BUILD_STAMP = "2026-09-23 16:40 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
