@@ -1203,8 +1203,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         <p class="muted">
           Tizim ikki xodimni adashtirishi mumkin bo'lgan joylarni ko'rsatadi.
           Raqam qancha <b>kichik</b> bo'lsa, ikkala yuz shuncha o'xshash.
-          <b>0.45 dan kichik</b> bo'lsa — o'sha xodimlarning yuzini qayta oling.
+          🔴 0.45 dan kichik — xavfli &nbsp;•&nbsp;
+          🟠 0.55 gacha — kuzating &nbsp;•&nbsp;
+          🟢 0.55 dan katta — bemalol farqlanadi.
         </p>
+        <p id="secFaceSummary" style="font-weight:700; font-size:15px; margin:10px 0;"></p>
         <div class="toolbar">
           <button class="btn btn-secondary" id="btnSecFaceRun">Tekshirishni boshlash</button>
           <div style="flex:1"></div>
@@ -11422,7 +11425,12 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       tbody.innerHTML = `<tr><td colspan="4" class="muted">Taqqoslash uchun kamida ikkita xodimning yuzi kerak.</td></tr>`;
       return;
     }
-    for (const juft of juftlar.slice(0, 40)) {
+    const korsatiladi = juftlar.filter((pp) => pp.d < 0.7).slice(0, 40);
+    if (!korsatiladi.length) {
+      tbody.innerHTML = `<tr><td colspan="4" class="muted">Yaqin juft yo'q \u2014 hamma xodim bir-biridan aniq farq qiladi.</td></tr>`;
+      return;
+    }
+    for (const juft of korsatiladi) {
       const tr = document.createElement("tr");
       let holat, rang;
       if (juft.d < threshold) {
@@ -11438,11 +11446,9 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       tr.innerHTML = `<td>${escapeHtml(juft.a)}</td><td>${escapeHtml(juft.b)}</td><td><b>${juft.d.toFixed(3)}</b></td><td style="color:${rang}">${holat}</td>`;
       tbody.appendChild(tr);
     }
-    if (juftlar.length > 40) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="4" class="muted">Eng yaqin 40 juft ko'rsatildi (jami ${juftlar.length}).</td>`;
-      tbody.appendChild(tr);
-    }
+    const izohQator = document.createElement("tr");
+    izohQator.innerHTML = `<td colspan="4" class="muted">${korsatiladi.length} ta eng yaqin juft ko'rsatildi. Jami ${juftlar.length} ta juft tekshirildi \u2014 qolganlari bir-biridan ancha uzoq.</td>`;
+    tbody.appendChild(izohQator);
   }
   async function renderGeoBreaches() {
     const grid2 = document.getElementById("secGeoGrid");
@@ -12618,7 +12624,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-10-02 15:10 UTC";
+  var BUILD_STAMP = "2026-10-02 16:20 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
