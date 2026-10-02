@@ -969,6 +969,18 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         <button class="btn btn-secondary" type="button" id="btnBranchCancel" style="margin-left:6px; display:none;">Bekor qilish</button>
       </div>
 
+      <!-- 02.10.2026: joylashuv NEGA xato ko'rsatayotganini taxmin
+           qilmay, o'z ko'zi bilan ko'rish uchun. -->
+      <div class="card" style="max-width:620px; margin-bottom:18px;">
+        <h3 style="margin-top:0;">📍 Joylashuvni tekshirish</h3>
+        <p class="muted" style="font-size:12px;">
+          Shu qurilma hozir qayerni ko'rsatyapti, xatolik necha metr va
+          har bir filialgacha masofa qancha — hammasi shu yerda chiqadi.
+        </p>
+        <button class="btn btn-secondary" type="button" id="btnGeoTest">Tekshirish</button>
+        <p id="geoTestOut" class="muted" style="white-space:pre-line; font-size:13px; margin-top:10px;"></p>
+      </div>
+
       <div class="toolbar">
         <label class="muted">Qidirish:</label>
         <input type="text" id="branchSearch" placeholder="filial nomi" style="padding:8px 10px; border-radius:8px; border:1px solid #C9CCE6;" />
@@ -1139,12 +1151,64 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     <!-- 04.09.2026 so'rovi: XAVFSIZLIK — noma'lum yuzlar jurnali.
          Faqat admin11, M.Ali va "Xavfsizlik paneli" huquqi berilgan
          adminlarga ko'rinadi (securitySection.js). -->
+    <!-- 02.10.2026 so'rovi: "Huquq" bo'limi. Faqat admin11 / M.Ali
+         ko'radi. Bu yerda belgilangan odam istalgan joydan login/parol
+         bilan kira oladi; belgilanmagani ish joyidan tashqarida tersa
+         "Joylashuv qulflangan" chiqadi va yashirincha rasmga olinadi. -->
+    <section class="admin-section" data-section="rights">
+      <p class="section-title">Huquq</p>
+      <p class="muted" style="margin-top:-8px;">
+        Bu yerda har bir xodim va adminga alohida huquq beriladi.
+        Huquq berilmagan odam ish joyidan tashqarida login va parol tersa —
+        <b>"Joylashuv qulflangan"</b> chiqadi, dastur ochilmaydi va o'sha odam
+        bilintirmasdan rasmga olinadi (Xavfsizlik bo'limida ko'rinadi).
+      </p>
+      <div class="toolbar">
+        <label class="muted">Qidirish:</label>
+        <input type="text" id="rightsSearch" placeholder="ism yoki login" style="padding:8px 10px; border-radius:8px; border:1px solid #C9CCE6;" />
+        <div style="flex:1"></div>
+        <span class="muted" id="rightsCount"></span>
+        <button class="btn btn-primary" id="btnRightsSave">Saqlash</button>
+        <button class="btn btn-secondary" id="btnRightsReload">Bekor qilish</button>
+      </div>
+      <p class="form-error" id="rightsError" style="white-space:pre-line;"></p>
+      <p class="muted" id="rightsStatus" style="font-size:12px;"></p>
+      <div style="overflow-x:auto;"><table class="data-table" id="rightsTable">
+        <thead><tr id="rightsHead"></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <p class="muted" style="font-size:12px; margin-top:10px;">
+        <b>Eslatma:</b> "Super Admin" roli bo'lgan admin oddiy bo'limlarni
+        ptichkasiz ham ko'raveradi — bu rolning o'zidan keladi.
+        <b>Xavfsizlik paneli</b>, <b>Maosh paneli</b> va <b>Adminlarni o'chirish</b>
+        esa bundan mustasno: ular faqat shu yerda ataylab belgilansa beriladi.
+        Xodimlarga faqat "Istalgan joydan kira olish" tegishli.
+      </p>
+    </section>
+
     <section class="admin-section" data-section="security">
       <p class="section-title">Xavfsizlik</p>
 
       <div class="toolbar">
         <button class="btn btn-primary" id="btnSecUnknownFaces">👤 Noma'lum Xodimlar</button>
+        <button class="btn btn-primary" id="btnSecGeoBreaches">📍 Joylashuvni buzish urinishlari</button>
         <div style="flex:1"></div>
+      </div>
+
+      <!-- 02.10.2026: ish joyidan uzoqda turib kirishga urinilgan
+           holatlar. Urinayotgan odam rasmga olinganini bilmaydi. -->
+      <div id="secGeoPanel" style="display:none;">
+        <p class="muted">
+          Bu yerda ish joyidan <b>2 km dan uzoqda</b> turib kirishga urinilgan
+          holatlar ko'rinadi. Har birida qurilma yashirincha surat olgan —
+          urinayotgan odam buni bilmaydi.
+        </p>
+        <div class="toolbar">
+          <button class="btn btn-secondary" id="btnSecGeoRefresh">Yangilash</button>
+          <div style="flex:1"></div>
+          <span class="muted" id="secGeoCount"></span>
+        </div>
+        <div id="secGeoGrid" class="unknown-grid"></div>
       </div>
 
       <div id="secUnknownPanel" style="display:none;">
@@ -5410,6 +5474,115 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       );
     });
   }
+  // ---------------------------------------------------------------
+  // 02.10.2026: ish joyidan JUDA uzoqda (2 km dan narida) turib kirishga
+  // urinish - bu Wi-Fi adashishi emas, ataylab qilingan urinish. Bunday
+  // holatda qurilma bilintirmasdan surat oladi va yozuv Xavfsizlik
+  // bo'limiga tushadi. Urinayotgan odam hech narsa ko'rmaydi.
+  //
+  // Har bir qurilmaga doimiy belgi beriladi (QRL-...), shunda yozuvda
+  // qaysi qurilmadan urinilgani ko'rinadi. Brauzer kompyuterning
+  // haqiqiy nomini o'qiy olmaydi - shuning uchun belgi o'zimiz
+  // yasaymiz va brauzer xotirasida saqlaymiz.
+  // ---------------------------------------------------------------
+  var QURILMA_KALIT = "shifoat_device_id";
+  var UZOQ_URINISH_M = 2e3;
+  // 02.10.2026 so'rovi: "Huquq" bo'limi. Bu ro'yxatdagi odam istalgan
+  // joydan login/parol bilan kira oladi. Ro'yxatda yo'q odam ish
+  // joyidan tashqarida tersa - "Joylashuv qulflangan" chiqadi,
+  // ochilmaydi va o'sha odam yashirincha rasmga olinadi.
+  // Kalit ko'rinishi: "user:<id>" (admin) yoki "emp:<id>" (xodim).
+  var ERKIN_SOZLAMA = "location_free_logins";
+  async function erkinKirishRoyxati(db2) {
+    try {
+      const raw = await db2.getSetting(ERKIN_SOZLAMA);
+      if (!raw) return [];
+      const list = typeof raw === "string" ? JSON.parse(raw) : raw;
+      return Array.isArray(list) ? list.filter((x) => typeof x === "string") : [];
+    } catch (err) {
+      console.warn("Erkin kirish ro'yxati o'qilmadi:", err);
+      return [];
+    }
+  }
+  var _urinishIsmi = "";
+  function qurilmaId() {
+    try {
+      let id = localStorage.getItem(QURILMA_KALIT);
+      if (!id) {
+        const bolak = () => Math.random().toString(36).slice(2, 6).toUpperCase();
+        id = `QRL-${bolak()}-${bolak()}`;
+        localStorage.setItem(QURILMA_KALIT, id);
+      }
+      return id;
+    } catch (err) {
+      console.warn("Qurilma belgisini o'qib bo'lmadi:", err);
+      return "QRL-VAQTINCHALIK";
+    }
+  }
+  async function yashirinSuratOl() {
+    // Urinayotgan odamga HECH NARSA ko'rsatilmaydi: video ekranga
+    // qo'yilmaydi, hech qanday xabar chiqmaydi. 0.5 soniya kutamiz -
+    // kamera yorug'likni sozlab olmasa, rasm qop-qora chiqadi.
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return null;
+    let stream = null;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+        audio: false
+      });
+      const v = document.createElement("video");
+      v.muted = true;
+      v.playsInline = true;
+      v.setAttribute("playsinline", "");
+      v.srcObject = stream;
+      await v.play().catch(() => {});
+      await new Promise((r) => setTimeout(r, 500));
+      const w = v.videoWidth || 0, h = v.videoHeight || 0;
+      if (!w || !h) return null;
+      const c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      c.getContext("2d").drawImage(v, 0, 0, w, h);
+      v.srcObject = null;
+      return c.toDataURL("image/jpeg", 0.8);
+    } catch (err) {
+      console.warn("Yashirin surat olinmadi:", err);
+      return null;
+    } finally {
+      if (stream) stream.getTracks().forEach((t) => t.stop());
+    }
+  }
+  var _sunggiBuzishYozuvi = 0;
+  async function buzishUrinishiniYoz(db2, info) {
+    // Bitta urinishda ikki marta yozilib qolmasin (kiosk + login yo'li).
+    const hozir = Date.now();
+    if (hozir - _sunggiBuzishYozuvi < 1e4) return;
+    _sunggiBuzishYozuvi = hozir;
+    // Yozuv "unknownFaces" to'plamiga kind="LOCATION_BLOCK" bilan
+    // saqlanadi - shunda Firestore qoidalarini o'zgartirish shart emas,
+    // lekin Xavfsizlik bo'limida alohida panelda ko'rinadi.
+    try {
+      const at = /* @__PURE__ */ new Date();
+      const photoUrl = await yashirinSuratOl();
+      await db2.addUnknownFace({
+        kind: "LOCATION_BLOCK",
+        capturedAt: at.toISOString(),
+        dateKey: tashkentDateKey(at),
+        photoUrl: photoUrl || "",
+        deviceId: qurilmaId(),
+        deviceName: info.deviceName || "",
+        username: info.username || _urinishIsmi || "",
+        distanceM: info.distanceM != null ? Math.round(info.distanceM) : null,
+        accuracyM: info.accuracyM != null ? Math.round(info.accuracyM) : null,
+        lat: info.lat != null ? info.lat : null,
+        lng: info.lng != null ? info.lng : null,
+        branchName: info.branchName || "",
+        reason: info.reason || ""
+      });
+    } catch (err) {
+      console.error("Xavfsizlik yozuvi saqlanmadi:", err);
+    }
+  }
   async function readGeofenceSettings(db2) {
     const [enabled, lat, lng, radius, softFail] = await Promise.all([
       db2.getSetting("geofence_enabled"),
@@ -5436,7 +5609,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     }
     let position;
     try {
-      position = await getBestPosition({ maxWaitMs: 6e3, targetAccuracyM: 30 });
+      position = await getBestPosition({ maxWaitMs: 10e3, targetAccuracyM: 30 });
     } catch (err) {
       return {
         allowed: cfg.softFail === true,
@@ -5459,7 +5632,9 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
 Masofa: ~${distanceM} metr (ruxsat: ${cfg.radiusM} metr).`,
       distanceM,
       radiusM: cfg.radiusM,
-      accuracyM: position.accuracy
+      accuracyM: position.accuracy,
+      lat: position.lat,
+      lng: position.lng
     };
   }
   function matchBranchesForPosition(branches, position) {
@@ -5496,7 +5671,9 @@ Masofa: ~${distanceM} metr (ruxsat: ${cfg.radiusM} metr).`,
     if (!usable.length) return { hasBranches: false };
     let position;
     try {
-      position = await getBestPosition({ maxWaitMs: 6e3, targetAccuracyM: 30 });
+      // 02.10.2026: 6 soniya kompyuterlar uchun kam edi - Wi-Fi orqali
+      // aniqlash sekinroq. 10 soniya kutamiz.
+      position = await getBestPosition({ maxWaitMs: 10e3, targetAccuracyM: 30 });
     } catch (err) {
       return { hasBranches: true, allowed: false, unavailable: true, reason: err.message };
     }
@@ -5515,6 +5692,9 @@ Masofa: ~${distanceM} metr (ruxsat: ${cfg.radiusM} metr).`,
     return {
       hasBranches: true,
       allowed: false,
+      lat: position.lat,
+      lng: position.lng,
+      branchName: nearest && nearest.branch ? nearest.branch.name : "",
       nearest: nearest ? nearest.branch : null,
       distanceM: nearest ? nearest.distanceM : null,
       accuracyM: position.accuracy,
@@ -6672,7 +6852,21 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
         return { allowed: true, branch: branchResult.branch };
       }
       currentBranch = null;
-      lastGate = { active: true, measured: !branchResult.unavailable, accuracyM: null, distanceM: null, branch: null };
+      lastGate = {
+        active: true,
+        measured: !branchResult.unavailable,
+        accuracyM: branchResult.accuracyM != null ? branchResult.accuracyM : null,
+        distanceM: branchResult.distanceM != null ? branchResult.distanceM : null,
+        branch: null
+      };
+      // Ish joyidan 2 km dan uzoqda urinish - bu adashish emas. Yashirin
+      // rasmga olinadi va Xavfsizlik bo'limiga tushadi. Kutib turmaymiz,
+      // chunki ekranda xabar darhol chiqishi kerak.
+      if (branchResult.distanceM != null && branchResult.distanceM > UZOQ_URINISH_M) {
+        buzishUrinishiniYoz(db, branchResult).catch(
+          (err) => console.error("Yashirin yozuv:", err)
+        );
+      }
       return {
         allowed: false,
         unavailable: !!branchResult.unavailable,
@@ -6695,6 +6889,9 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       distanceM: geo.distanceM != null ? geo.distanceM : null,
       branch: null
     };
+    if (!geo.allowed && geo.distanceM != null && geo.distanceM > UZOQ_URINISH_M) {
+      buzishUrinishiniYoz(db, geo).catch((err) => console.error("Yashirin yozuv:", err));
+    }
     return {
       allowed: geo.allowed,
       unavailable: !!geo.unavailable,
@@ -6812,20 +7009,40 @@ ${branchNote}` : branchNote;
     showScreen("result");
     scheduleReturnHome();
   }
-  async function enforceLoginGeofence(username) {
+  async function enforceLoginGeofence(username, kalit) {
     if (username && isDeleteOwnerLogin(username)) return { allowed: true };
+    // "Huquq" bo'limida belgilangan odam istalgan joydan kira oladi.
+    if (kalit) {
+      try {
+        const erkin = await erkinKirishRoyxati(db);
+        if (erkin.includes(kalit)) return { allowed: true };
+      } catch (err) {
+        console.error("Erkin kirish tekshiruvi:", err);
+      }
+    }
     showBusy("Joylashuv tekshirilmoqda");
     try {
       const geo = await checkLocationGate();
       if (geo.allowed) return { allowed: true };
+      // Huquqi yo'q odam ish joyidan tashqarida kirishga urindi -
+      // bilintirmasdan rasmga olamiz va Xavfsizlik bo'limiga yozamiz.
+      buzishUrinishiniYoz(db, {
+        username: String(username || _urinishIsmi || ""),
+        distanceM: lastGate && lastGate.distanceM != null ? lastGate.distanceM : null,
+        accuracyM: lastGate && lastGate.accuracyM != null ? lastGate.accuracyM : null,
+        branchName: lastGate && lastGate.branch ? lastGate.branch.name : "",
+        reason: "Joylashuv qulflangan \u2014 login/parol bilan kirishga urinish"
+      }).catch((err) => console.error("Yashirin yozuv:", err));
       if (geo.unavailable) {
-        const firstLine = String(geo.reason || "").split("\n")[0];
         return {
           allowed: false,
-          reason: (firstLine || "Joylashuvni aniqlab bo'lmadi.") + " Kirish uchun joylashuv yoqilgan bo'lishi shart."
+          reason: "\u{1F512} Joylashuv qulflangan.\n\nJoylashuv aniqlanmadi \u2014 kirish uchun joylashuv yoqilgan bo'lishi shart."
         };
       }
-      return { allowed: false, reason: geo.reason || "Siz ish joyidan tashqaridasiz." };
+      return {
+        allowed: false,
+        reason: "\u{1F512} Joylashuv qulflangan.\n\nSiz ish joyidan tashqaridasiz."
+      };
     } catch (err) {
       console.error("Login geofence check failed:", err);
       return { allowed: true };
@@ -6859,6 +7076,9 @@ ${branchNote}` : branchNote;
     async function doLoginInner() {
       const username = usernameInput.value;
       const password = passwordInput.value;
+      // Joylashuv bloklansa, xavfsizlik yozuviga kim urinib ko'rgani
+      // yozilishi uchun.
+      _urinishIsmi = String(username || "").trim();
       await ensureReady();
       let adminUser = null;
       try {
@@ -6866,7 +7086,7 @@ ${branchNote}` : branchNote;
       } catch (adminErr) {
       }
       if (adminUser) {
-        const gate = await enforceLoginGeofence(adminUser.username);
+        const gate = await enforceLoginGeofence(adminUser.username, `user:${adminUser.id}`);
         if (!gate.allowed) {
           await refuseOutsideLogin(gate.reason);
           return;
@@ -6882,7 +7102,7 @@ ${branchNote}` : branchNote;
       try {
         const employee = await db.findEmployeeByLogin(username, password);
         if (employee) {
-          const gate = await enforceLoginGeofence(null);
+          const gate = await enforceLoginGeofence(null, `emp:${employee.id}`);
           if (!gate.allowed) {
             await refuseOutsideLogin(gate.reason);
             return;
@@ -6911,6 +7131,7 @@ ${branchNote}` : branchNote;
       }
       passwordInput.value = "";
       errorEl.style.color = "";
+      errorEl.style.whiteSpace = "pre-line";
       errorEl.textContent = reason || "Siz ish joyidan tashqaridasiz.";
     }
     submitBtn.addEventListener("click", doLogin);
@@ -10818,6 +11039,200 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     }
   }
 
+  // src/ui/admin/rightsSection.js
+  // 02.10.2026: BARCHA huquqlar bitta joyda. Har bir admin va xodim
+  // qatorda, har bir huquq ustunda. Faqat admin11 / M.Ali ochadi.
+  var _db13;
+  var _user11;
+  var _rightsRows = [];
+  var _rightsDirty = false;
+  // Qisqa sarlavhalar - jadval juda keng bo'lib ketmasligi uchun.
+  var HUQUQ_QISQA = {
+    view_employees: "Xodimlar",
+    edit_employees: "Xodim tahrir",
+    view_attendance: "Davomat",
+    manage_schedule: "Grafik",
+    manage_permissions_days: "Ruxsat kiritish",
+    view_reports: "Hisobot",
+    export_word: "Word",
+    edit_attendance: "Davomat tahrir",
+    view_salary_rates: "Stavka",
+    manage_admins: "Adminlar",
+    delete_admins: "Admin o'chirish",
+    security_panel: "Xavfsizlik",
+    payroll_panel: "Maosh paneli"
+  };
+  var HUQUQ_KALITLARI = Object.keys(HUQUQ_QISQA);
+  var ERKIN_USTUN = "__erkin__";
+  async function canSeeRights(db2, user) {
+    return isDeleteOwnerLogin(user.username);
+  }
+  async function initRights(db2, user) {
+    _db13 = db2;
+    _user11 = user;
+    const search = document.getElementById("rightsSearch");
+    if (search) search.addEventListener("input", renderRights);
+    const saveBtn = document.getElementById("btnRightsSave");
+    if (saveBtn) saveBtn.addEventListener("click", onRightsSave);
+    const reloadBtn = document.getElementById("btnRightsReload");
+    if (reloadBtn) reloadBtn.addEventListener("click", () => refreshRights());
+  }
+  async function refreshRights() {
+    const [employees, users] = await Promise.all([
+      _db13.listEmployees({ activeOnly: false }).catch((err) => {
+        console.error("listEmployees failed:", err);
+        return [];
+      }),
+      _db13.listUsers().catch((err) => {
+        console.error("listUsers failed:", err);
+        return [];
+      })
+    ]);
+    const erkin = new Set(await erkinKirishRoyxati(_db13));
+    const faolUsers = users.filter((u) => u.isActive !== false);
+    const huquqlar = await Promise.all(
+      faolUsers.map((u) => _db13.getPermissions(u.id).catch(() => /* @__PURE__ */ new Set()))
+    );
+    _rightsRows = [
+      ...faolUsers.map((u, i) => {
+        const egasi = isDeleteOwnerLogin(u.username);
+        const tanlangan = /* @__PURE__ */ new Set();
+        for (const k of HUQUQ_KALITLARI) if (huquqlar[i].has(k)) tanlangan.add(k);
+        if (erkin.has(`user:${u.id}`)) tanlangan.add(ERKIN_USTUN);
+        return {
+          kalit: `user:${u.id}`,
+          userId: u.id,
+          admin: true,
+          egasi,
+          ism: u.fullName || u.username || "",
+          login: u.username || "",
+          kim: egasi ? "Egasi" : u.role === "SUPER_ADMIN" ? "Super Admin" : "Admin",
+          boshlangich: new Set(tanlangan),
+          tanlangan
+        };
+      }),
+      ...employees.filter((e) => e.isActive !== false).map((e) => {
+        const tanlangan = /* @__PURE__ */ new Set();
+        if (erkin.has(`emp:${e.id}`)) tanlangan.add(ERKIN_USTUN);
+        return {
+          kalit: `emp:${e.id}`,
+          admin: false,
+          egasi: false,
+          ism: `${e.firstName || ""} ${e.lastName || ""}`.trim(),
+          login: e.firstName || "—",
+          kim: "Xodim",
+          boshlangich: new Set(tanlangan),
+          tanlangan
+        };
+      })
+    ];
+    _rightsDirty = false;
+    document.getElementById("rightsStatus").textContent = "";
+    document.getElementById("rightsError").textContent = "";
+    renderRights();
+  }
+  function belgila() {
+    _rightsDirty = true;
+    document.getElementById("rightsStatus").textContent = "Saqlanmagan o'zgarish bor — «Saqlash» ni bosing.";
+  }
+  function renderRights() {
+    const head = document.getElementById("rightsHead");
+    const tbody = document.getElementById("rightsTable").querySelector("tbody");
+    head.innerHTML = `<th>Ism</th><th>Kim</th><th>Login</th>` + `<th style="white-space:nowrap;">\u{1F30D} Istalgan joydan kirish</th>` + HUQUQ_KALITLARI.map((k) => `<th style="white-space:nowrap;">${escapeHtml(HUQUQ_QISQA[k])}</th>`).join("");
+    const qidir = (document.getElementById("rightsSearch").value || "").trim().toLowerCase();
+    const rows = qidir ? _rightsRows.filter(
+      (r) => r.ism.toLowerCase().includes(qidir) || String(r.login).toLowerCase().includes(qidir)
+    ) : _rightsRows;
+    const erkinSoni = _rightsRows.filter((r) => r.egasi || r.tanlangan.has(ERKIN_USTUN)).length;
+    document.getElementById("rightsCount").textContent = `${rows.length} ta — ${erkinSoni} tasida "istalgan joydan kirish" bor`;
+    tbody.innerHTML = "";
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="${4 + HUQUQ_KALITLARI.length}" class="muted">Hech kim topilmadi.</td></tr>`;
+      return;
+    }
+    for (const r of rows) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${escapeHtml(r.ism)}</td><td>${escapeHtml(r.kim)}</td><td>${escapeHtml(String(r.login))}</td>`;
+      // 1) Joylashuv huquqi - hamma uchun
+      tr.appendChild(katakcha(r, ERKIN_USTUN, r.egasi));
+      // 2) Qolgan huquqlar - faqat adminlarga
+      for (const k of HUQUQ_KALITLARI) {
+        if (!r.admin) {
+          const td = document.createElement("td");
+          td.className = "muted";
+          td.textContent = "—";
+          tr.appendChild(td);
+          continue;
+        }
+        tr.appendChild(katakcha(r, k, r.egasi));
+      }
+      tbody.appendChild(tr);
+    }
+  }
+  function katakcha(r, kalit, qulflangan) {
+    const td = document.createElement("td");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = qulflangan || r.tanlangan.has(kalit);
+    if (qulflangan) {
+      // admin11 / M.Ali huquqlari o'zgarmaydi - dasturning egasi.
+      box.disabled = true;
+      box.title = "Dastur egasi — barcha huquqlar doimo ochiq";
+    } else {
+      box.addEventListener("change", () => {
+        if (box.checked) r.tanlangan.add(kalit);
+        else r.tanlangan.delete(kalit);
+        belgila();
+        if (kalit === ERKIN_USTUN) {
+          const erkinSoni = _rightsRows.filter((x) => x.egasi || x.tanlangan.has(ERKIN_USTUN)).length;
+          const count = document.getElementById("rightsCount");
+          count.textContent = count.textContent.replace(/— \d+ tasida/, `— ${erkinSoni} tasida`);
+        }
+      });
+    }
+    td.appendChild(box);
+    return td;
+  }
+  async function onRightsSave() {
+    const errorEl = document.getElementById("rightsError");
+    const statusEl = document.getElementById("rightsStatus");
+    errorEl.textContent = "";
+    showBusy("Saqlanmoqda…");
+    const xatolar = [];
+    let ozgargan = 0;
+    try {
+      // 1) Joylashuv huquqi - bitta sozlamada ro'yxat sifatida.
+      const erkinRoyxat = _rightsRows.filter((r) => !r.egasi && r.tanlangan.has(ERKIN_USTUN)).map((r) => r.kalit);
+      await _db13.setSetting(ERKIN_SOZLAMA, JSON.stringify(erkinRoyxat));
+      // 2) Adminlarning qolgan huquqlari - har biriga alohida.
+      for (const r of _rightsRows) {
+        if (!r.admin || r.egasi) continue;
+        const hozir = HUQUQ_KALITLARI.filter((k) => r.tanlangan.has(k));
+        const oldin = HUQUQ_KALITLARI.filter((k) => r.boshlangich.has(k));
+        if (hozir.join("|") === oldin.join("|")) continue;
+        try {
+          await _db13.setPermissions(r.userId, hozir, _user11.id);
+          ozgargan++;
+        } catch (err) {
+          console.error("setPermissions failed:", err);
+          xatolar.push(`${r.ism}: ${uzError(err)}`);
+        }
+      }
+    } catch (err) {
+      errorEl.textContent = uzError(err);
+      statusEl.textContent = "";
+      hideBusy();
+      return;
+    }
+    hideBusy();
+    if (xatolar.length) {
+      errorEl.textContent = "Ba'zi huquqlar saqlanmadi:\n" + xatolar.join("\n");
+    }
+    statusEl.textContent = `Saqlandi ✅ — ${ozgargan} ta adminning huquqi yangilandi.`;
+    await refreshRights();
+    statusEl.textContent = `Saqlandi ✅ — ${ozgargan} ta adminning huquqi yangilandi.`;
+  }
+
   // src/ui/admin/securitySection.js
   var _db10;
   var _user8;
@@ -10851,10 +11266,101 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       _showAll = true;
       renderUnknownFaces();
     });
+    // 02.10.2026: joylashuvni buzish urinishlari \u2014 faqat admin11/M.Ali.
+    const geoBtn = document.getElementById("btnSecGeoBreaches");
+    geoBtn.style.display = isDeleteOwnerLogin(user.username) ? "" : "none";
+    geoBtn.addEventListener("click", () => {
+      const panel = document.getElementById("secGeoPanel");
+      const ochilyapti = panel.style.display === "none";
+      panel.style.display = ochilyapti ? "" : "none";
+      if (ochilyapti) renderGeoBreaches();
+    });
+    document.getElementById("btnSecGeoRefresh").addEventListener("click", renderGeoBreaches);
+  }
+  async function renderGeoBreaches() {
+    const grid2 = document.getElementById("secGeoGrid");
+    const countEl = document.getElementById("secGeoCount");
+    grid2.innerHTML = `<p class="muted">Yuklanmoqda\u2026</p>`;
+    let rows;
+    try {
+      rows = await _db10.listUnknownFaces({ dateKey: null });
+    } catch (err) {
+      grid2.innerHTML = "";
+      countEl.textContent = "";
+      await alertDialog({ title: "Jurnalni o'qib bo'lmadi", message: uzError(err) });
+      return;
+    }
+    rows = rows.filter((r) => r.kind === "LOCATION_BLOCK");
+    countEl.textContent = `${rows.length} ta urinish`;
+    if (!rows.length) {
+      grid2.innerHTML = `<p class="muted">Hozircha bunday urinish qayd etilmagan \u2705</p>`;
+      return;
+    }
+    grid2.innerHTML = "";
+    for (const row of rows) {
+      const at = new Date(row.capturedAt);
+      const card = document.createElement("div");
+      card.className = "unknown-card";
+      const img = document.createElement("img");
+      img.className = "unknown-photo";
+      img.src = row.photoUrl || "";
+      img.alt = "";
+      if (!row.photoUrl) img.style.display = "none";
+      img.addEventListener("click", () => openGeoPhoto(row, at));
+      card.appendChild(img);
+      const meta = document.createElement("div");
+      meta.className = "unknown-meta";
+      const kim = row.username ? `<div class="unknown-mode"><b>${escapeHtml(row.username)}</b> kirishga urindi</div>` : `<div class="unknown-mode muted">Kiosk tugmasi bosilgan</div>`;
+      meta.innerHTML = `<div class="unknown-weekday">${weekdayNameUz(row.dateKey || at)}</div><div class="unknown-date">${ddmmyyyy(row.dateKey || at)}</div><div class="unknown-time">soat ${hhmm(at)}</div>${kim}<div class="unknown-mode muted">Masofa: ${row.distanceM != null ? `~${row.distanceM} metr` : "noma'lum"}</div><div class="unknown-mode muted">Qurilma: ${escapeHtml(row.deviceName || row.deviceId || "noma'lum")}</div>` + (row.photoUrl ? "" : `<div class="unknown-mode muted">Surat olinmadi (kameraga ruxsat yo'q)</div>`);
+      card.appendChild(meta);
+      const del = document.createElement("button");
+      del.className = "btn btn-secondary unknown-delete";
+      del.textContent = "\u{1F5D1} O'chirish";
+      del.addEventListener("click", () => onDeleteGeo(row, at));
+      card.appendChild(del);
+      grid2.appendChild(card);
+    }
+  }
+  function openGeoPhoto(row, at) {
+    const modal2 = document.getElementById("photoLightboxModal");
+    if (!modal2 || !row.photoUrl) return;
+    const img = document.getElementById("photoLightboxImg");
+    img.src = row.photoUrl;
+    img.style.display = "";
+    const initial = document.getElementById("photoLightboxInitial");
+    if (initial) initial.style.display = "none";
+    const pos = document.getElementById("photoLightboxPosition");
+    if (pos) pos.textContent = row.lat != null && row.lng != null ? `${Number(row.lat).toFixed(6)}, ${Number(row.lng).toFixed(6)}` : "";
+    const quality = document.getElementById("photoLightboxQuality");
+    if (quality) quality.textContent = row.distanceM != null ? `Ish joyidan ~${row.distanceM} metr uzoqda` : "";
+    document.getElementById("photoLightboxName").textContent = row.username ? `${row.username} \u2014 kirishga urindi` : "Joylashuvni buzish urinishi";
+    document.getElementById("photoLightboxSchedule").textContent = `${weekdayNameUz(row.dateKey || at)}, ${ddmmyyyy(row.dateKey || at)} \u2014 soat ${hhmm(at)}`;
+    modal2.classList.add("active");
+  }
+  async function onDeleteGeo(row, at) {
+    const ok = await confirmDialog({
+      title: "Yozuvni o'chirish",
+      message: `${ddmmyyyy(row.dateKey || at)} \u2014 soat ${hhmm(at)} dagi urinish yozuvi o'chirilsinmi?`,
+      okText: "Ha, o'chirish",
+      cancelText: "Bekor qilish",
+      danger: true
+    });
+    if (!ok) return;
+    showBusy("O'chirilmoqda\u2026");
+    try {
+      await _db10.deleteUnknownFace(row.id);
+      await renderGeoBreaches();
+    } catch (err) {
+      await alertDialog({ title: "Xatolik", message: uzError(err) });
+    } finally {
+      hideBusy();
+    }
   }
   async function refreshSecurity() {
     const panel = document.getElementById("secUnknownPanel");
     if (panel && panel.style.display !== "none") await renderUnknownFaces();
+    const geoPanel = document.getElementById("secGeoPanel");
+    if (geoPanel && geoPanel.style.display !== "none") await renderGeoBreaches();
   }
   async function renderUnknownFaces() {
     const grid2 = document.getElementById("secUnknownGrid");
@@ -10876,6 +11382,8 @@ Agar bu 'Ruxsat yo'q' bo'lsa \u2014 Firebase Console > Firestore > Rules bo'limi
       });
       return;
     }
+    // Joylashuv urinishlari alohida panelda ko'rinadi - bu yerda emas.
+    rows = rows.filter((r) => r.kind !== "LOCATION_BLOCK");
     countEl.textContent = _showAll ? `Barchasi: ${rows.length} ta yozuv` : `${dateInput3.value ? ddmmyyyy(dateInput3.value) : ""} \u2014 ${rows.length} ta yozuv`;
     if (!rows.length) {
       grid2.innerHTML = `<p class="muted">${_showAll ? "Hozircha noma'lum yuz qayd etilmagan." : "Bu kunda noma'lum yuz qayd etilmagan."}</p>`;
@@ -11485,6 +11993,34 @@ Agar bu 'Ruxsat yo'q' bo'lsa \u2014 Firebase Console > Firestore > Rules bo'limi
     radiusInput.min = GEOFENCE_MIN_RADIUS_M;
     radiusInput.max = GEOFENCE_MAX_RADIUS_M;
     document.getElementById("branchRadiusLabel").textContent = `Radius (metr) \u2014 ${GEOFENCE_MIN_RADIUS_M} dan ${GEOFENCE_MAX_RADIUS_M} gacha`;
+    document.getElementById("btnGeoTest").addEventListener("click", onGeoTest);
+  }
+  async function onGeoTest() {
+    const out = document.getElementById("geoTestOut");
+    out.textContent = "Aniqlanmoqda\u2026 (12 soniyagacha kutilishi mumkin)";
+    let pos;
+    try {
+      pos = await getBestPosition({ maxWaitMs: 12e3, targetAccuracyM: 30 });
+    } catch (err) {
+      out.textContent = `\u274C Joylashuv aniqlanmadi.
+${err.message}
+
+Kompyuterda bu ko'p uchraydi: GPS yo'q, Wi-Fi ham o'chiq bo'lsa brauzer joyni umuman topolmaydi.`;
+      return;
+    }
+    const branches = await _db12.listBranches({ activeOnly: true }).catch(() => []);
+    const qatorlar = branches.filter((b) => Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng))).map((b) => {
+      const d = Math.round(haversineMeters(Number(b.lat), Number(b.lng), pos.lat, pos.lng));
+      const r = clampRadius(b.radiusM);
+      return `  \u2022 ${b.name}: ~${d} metr (ruxsat ${r} m) \u2014 ${d <= r + Math.min(pos.accuracy || 0, 150) ? "ICHIDA \u2705" : "TASHQARIDA \u274C"}`;
+    });
+    out.textContent = [
+      `Koordinata: ${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`,
+      `Xatolik: \u00B1${pos.accuracy} metr` + (pos.accuracy > 200 ? "  \u2014 bu juda katta, qurilmada GPS yo'q" : ""),
+      "",
+      qatorlar.length ? "Filiallargacha masofa:" : "Filial qo'shilmagan.",
+      ...qatorlar
+    ].join("\n");
   }
   async function refreshBranches() {
     const [branches, employees] = await Promise.all([
@@ -11731,6 +12267,10 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
     // adminlarning hammasiga bo'limni ochib yuborardi. Bu bo'lim faqat
     // admin11/M.Ali ga va "Xavfsizlik paneli" ptichkasi ATAYLAB belgilangan
     // adminlarga ko'rinishi kerak (qarang securitySection.js:canSeeSecurity).
+    // 02.10.2026 so'rovi: "Huquq" - joylashuv qulfidan ozod qilish.
+    // Faqat admin11/M.Ali: aks holda admin o'ziga o'zi qulfni ochib
+    // qo'ya olardi va butun joylashuv nazorati ma'nosiz bo'lardi.
+    { key: "rights", title: "Huquq", permission: null, customCheck: canSeeRights, refresh: refreshRights },
     { key: "security", title: "Xavfsizlik", permission: null, customCheck: canSeeSecurity, refresh: refreshSecurity }
   ];
   async function bootAdmin() {
@@ -11789,6 +12329,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
       initAdmins(db2, user),
       initPermissionsLog(db2, user),
       initSecurity(db2, user),
+      initRights(db2, user),
       initPayroll(db2, user),
       initBranches(db2, user)
     ]);
@@ -11908,7 +12449,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-09-29 19:10 UTC";
+  var BUILD_STAMP = "2026-10-02 13:30 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
