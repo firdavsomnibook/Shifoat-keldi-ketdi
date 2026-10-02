@@ -1539,64 +1539,256 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       return null;
     }
   }
-  async function exportMonthlyReportDocx(report) {
+  // -------------------------------------------------------------------
+  // OYLIK HISOBOT — BITTA A4 LISTGA (29.09.2026 so'rovi)
+  // -------------------------------------------------------------------
+  // "30-31 kunlik hisobotni to'liq bitta listga sig'diradigan format
+  // qilib ber" + "qaysi kuni soat nechada chop etilgani yozilsin".
+  //
+  // Nima o'zgardi:
+  //   * sahifa chekkasi 8 mm (avval standart ~2 sm edi — qog'ozning
+  //     uchdan biri bekorga ketardi);
+  //   * 12 ta ko'rsatkich 12 ta qator emas, 3 juftlikdan 4 qator;
+  //   * xodim ma'lumoti 4 qator emas, bitta qator;
+  //   * "Kechikish" va "Jarima" alohida ustun va qizil rangda;
+  //   * har bir raqam o'lchov birligi bilan ("25 kun", "81 daqiqa");
+  //   * tepada chop etilgan sana/vaqt (soniyasigacha) va kim chop etgani.
+  //
+  // O'lcham LibreOffice bilan tekshirilgan: 31 kunlik oyda ham 1 bet.
+  // 29.09.2026: summalar "105,000" emas, "105 000" ko'rinishida —
+  // o'zbekcha yozuvda mingliklar bo'sh joy bilan ajratiladi.
+  function hbSom(n) {
+    return Number(n || 0).toLocaleString("uz-UZ").replace(/[\u00A0,]/g, " ") + " so'm";
+  }
+  const MM = 56.7;
+  const SAHIFA_CHEKKA = Math.round(8 * MM);      // 8 mm
+  const KICHIK = 17;                              // 7.5 pt (yarim-punktda)
+  const ODDIY = 16;                               // 8 pt
+  const KATAK_CHEKKA = { top: 18, bottom: 18, left: 45, right: 45 };
+
+  const CHEGARA = {
+    top:    { style: "single", size: 2, color: "999999" },
+    bottom: { style: "single", size: 2, color: "999999" },
+    left:   { style: "single", size: 2, color: "999999" },
+    right:  { style: "single", size: 2, color: "999999" },
+  };
+  const CHEGARASIZ = {
+    top:    { style: "none", size: 0, color: "FFFFFF" },
+    bottom: { style: "none", size: 0, color: "FFFFFF" },
+    left:   { style: "none", size: 0, color: "FFFFFF" },
+    right:  { style: "none", size: 0, color: "FFFFFF" },
+  };
+
+  function hbMatn(text, opts = {}) {
+    return new Paragraph({
+      alignment: opts.align || AlignmentType.LEFT,
+      spacing: { before: 0, after: 0, line: 200, lineRule: "auto" },
+      children: [new TextRun({
+        text: String(text),
+        bold: !!opts.bold,
+        italics: !!opts.italics,
+        size: opts.size || ODDIY,
+        color: opts.color ? hex(opts.color) : undefined,
+      })],
+    });
+  }
+
+  function hbKatak(text, opts = {}) {
+    return new TableCell({
+      width: opts.width ? { size: opts.width, type: WidthType.DXA } : undefined,
+      margins: KATAK_CHEKKA,
+      shading: opts.fill ? { fill: opts.fill } : undefined,
+      borders: opts.chegarasiz ? CHEGARASIZ : CHEGARA,
+      children: Array.isArray(text) ? text : [hbMatn(text, opts)],
+    });
+  }
+
+  /** Sarlavha: chapda brend, o'ngda CHOP ETILGAN vaqti (29.09.2026 so'rovi). */
+  function hbSarlavha(chopEtilgan, chopEtdi) {
+    return new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      layout: "fixed",
+      borders: CHEGARASIZ,
+      rows: [new TableRow({
+        children: [
+          new TableCell({
+            borders: CHEGARASIZ, margins: { top: 0, bottom: 0, left: 0, right: 0 },
+            width: { size: 55, type: WidthType.PERCENTAGE },
+            children: [
+              hbMatn(BRAND_NAME.toUpperCase(), { bold: true, size: 36, color: COLOR_RED }),
+              hbMatn(BRAND_SINCE, { italics: true, size: 15, color: COLOR_NAVY_DEEP }),
+              hbMatn("XODIM OYLIK DAVOMAT HISOBOTI", { bold: true, size: 22, color: COLOR_NAVY_DEEP }),
+            ],
+          }),
+          new TableCell({
+            borders: CHEGARASIZ, margins: { top: 0, bottom: 0, left: 0, right: 0 },
+            width: { size: 45, type: WidthType.PERCENTAGE },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                spacing: { before: 0, after: 0 },
+                children: [
+                  new TextRun({ text: "Chop etilgan: ", bold: true, size: 17, color: hex(COLOR_NAVY_DEEP) }),
+                  new TextRun({ text: chopEtilgan, size: 17, color: hex(COLOR_NAVY_DEEP) }),
+                ],
+              }),
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                spacing: { before: 0, after: 0 },
+                children: [new TextRun({ text: `Chop etdi: ${chopEtdi}`, size: 15, color: "555555" })],
+              }),
+            ],
+          }),
+        ],
+      })],
+    });
+  }
+
+  function hbBosh(text) { return hbKatak(text, { bold: true, fill: "F2F2F2", size: KICHIK }); }
+  function hbQiymat(text, qizil) {
+    return hbKatak(text, { bold: true, size: KICHIK, color: qizil ? COLOR_RED : undefined });
+  }
+
+  function hbXodim(report) {
+    return new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      layout: "fixed",
+      columnWidths: [900, 2400, 1100, 1600, 750, 2000, 750, 1498],
+      rows: [new TableRow({
+        children: [
+          hbBosh("Xodim"), hbKatak(report.employeeName, { size: KICHIK, bold: true }),
+          hbBosh("Lavozim"), hbKatak(report.position || "—", { size: KICHIK }),
+          hbBosh("Filial"), hbKatak(report.branchName || "—", { size: KICHIK, bold: true }),
+          hbBosh("Davr"), hbKatak(`${UZ_MONTHS2[report.month]} ${report.year}`, { size: KICHIK }),
+        ],
+      })],
+    });
+  }
+
+  /** 12 ta ko'rsatkich — 12 ta alohida qator emas, 3 juftlikdan 4 qator.
+   *  Shu bilan butun panel 4 qatorga sig'adi va uzun qiymat ("212 soat 26
+   *  daqiqa") ikki qatorga bo'linib ketmaydi. */
+  function hbStat(r) {
+    const soat = `${Math.floor(r.totalWorkedMinutes / 60)} soat ${r.totalWorkedMinutes % 60} daqiqa`;
+    const qatorlar = [
+      [["Reja bo'yicha ish kuni", `${r.plannedWorkDays} kun`, false],
+       ["Haqiqatda ishlagan", `${r.actualWorkedDays} kun`, false],
+       ["Kechikkan kunlar", `${r.lateDays} kun`, true]],
+      [["Dam kunlari", `${r.restDays} kun`, false],
+       ["Ko'chirilgan dam kunlari", `${r.movedRestDays} kun`, false],
+       ["Jami kechikish", `${r.totalLateMinutes} daqiqa`, true]],
+      [["Ruxsatli kunlar", `${r.permissionDays} kun`, false],
+       ["Kasallik kunlari", `${r.sickDays} kun`, false],
+       ["Jami jarima", hbSom(r.totalLatePenalty), true]],
+      [["Mehnat ta'tili kunlari", `${r.vacationDays} kun`, false],
+       ["Jami qo'shimcha ish", `${r.totalOvertimeMinutes} daqiqa`, false],
+       ["Jami ishlagan vaqt", soat, false]],
+    ];
+    return new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      layout: "fixed",
+      columnWidths: [2200, 1466, 2200, 1466, 2200, 1466],
+      rows: qatorlar.map((qator) => new TableRow({
+        children: qator.flatMap(([k, v, qizil]) => [hbBosh(k), hbQiymat(v, qizil)]),
+      })),
+    });
+  }
+
+  function hbKunlik(days) {
+    const sarlavhalar = ["Sana", "Kun", "Status", "Keldi", "Ketdi", "Kechikish", "Jarima", "Qo'shimcha"];
+    const header = new TableRow({
+      tableHeader: true,
+      children: sarlavhalar.map((t) =>
+        hbKatak(t, { bold: true, fill: "E8E8E8", size: KICHIK, align: AlignmentType.CENTER })),
+    });
+    const rows = days.map((day) => {
+      const dam = /dam/i.test(day.statusLabel || "");
+      const kelmagan = !day.checkIn || day.checkIn === "—";
+      const fon = dam ? "FDEBEE" : (kelmagan ? "F7F7F7" : undefined);
+      const kech = day.lateMinutes ? `${day.lateMinutes} min` : "—";
+      const jarima = day.lateMinutes ? hbSom(day.latePenalty) : "—";
+      return new TableRow({
+        children: [
+          hbKatak(day.dateStr, { size: KICHIK, align: AlignmentType.CENTER, fill: fon }),
+          hbKatak(day.weekdayUz, { size: KICHIK, fill: fon }),
+          hbKatak(day.statusLabel, { size: KICHIK, fill: fon }),
+          hbKatak(day.checkIn, { size: KICHIK, align: AlignmentType.CENTER, fill: fon }),
+          hbKatak(day.checkOut, { size: KICHIK, align: AlignmentType.CENTER, fill: fon }),
+          hbKatak(kech, { size: KICHIK, align: AlignmentType.CENTER, fill: fon,
+                        bold: !!day.lateMinutes, color: day.lateMinutes ? COLOR_RED : undefined }),
+          hbKatak(jarima, { size: KICHIK, align: AlignmentType.CENTER, fill: fon,
+                          bold: !!day.lateMinutes, color: day.lateMinutes ? COLOR_RED : undefined }),
+          hbKatak(day.overtimeMinutes ? `${day.overtimeMinutes} min` : "—",
+                { size: KICHIK, align: AlignmentType.CENTER, fill: fon }),
+        ],
+      });
+    });
+    return new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      layout: "fixed",
+      columnWidths: [1450, 1500, 1500, 1400, 1400, 1150, 1650, 1250],
+      rows: [header, ...rows],
+    });
+  }
+
+  function hbImzo() {
+    return new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      layout: "fixed",
+      borders: CHEGARASIZ,
+      rows: [new TableRow({
+        children: [
+          hbKatak("Xodim imzosi: ______________", { size: KICHIK, chegarasiz: true }),
+          hbKatak("Rahbar imzosi: ______________", { size: KICHIK, chegarasiz: true }),
+        ],
+      })],
+    });
+  }
+
+  function hbBoshQator() { return new Paragraph({ text: "", spacing: { before: 0, after: 60 } }); }
+
+  function yasaHisobotDoc(report, chopEtdi) {
+    const endi = new Date();
+    const ikki = (n) => String(n).padStart(2, "0");
+    const chopEtilgan =
+      `${ikki(endi.getDate())}.${ikki(endi.getMonth() + 1)}.${endi.getFullYear()}, ` +
+      `${ikki(endi.getHours())}:${ikki(endi.getMinutes())}:${ikki(endi.getSeconds())}`;
+
+    const children = [
+      hbSarlavha(chopEtilgan, chopEtdi || "—"),
+      hbBoshQator(),
+      hbXodim(report),
+      hbBoshQator(),
+      hbStat(report),
+      hbBoshQator(),
+      hbKunlik(report.days),
+      hbBoshQator(),
+      hbMatn(`${BRAND_NAME} ${BRAND_SINCE} — Face ID tizimi tomonidan avtomatik shakllantirildi.`,
+           { italics: true, size: 13, color: "666666" }),
+      hbBoshQator(),
+      hbImzo(),
+    ];
+
+    return new Document({
+      styles: { default: { document: { run: { font: "Calibri", size: ODDIY } } } },
+      sections: [{
+        properties: {
+          page: {
+            size: { width: 11906, height: 16838 },   // A4
+            margin: {
+              top: SAHIFA_CHEKKA, bottom: SAHIFA_CHEKKA,
+              left: SAHIFA_CHEKKA, right: SAHIFA_CHEKKA,
+            },
+          },
+        },
+        children,
+      }],
+    });
+  }
+
+  async function exportMonthlyReportDocx(report, chopEtdi) {
     await ensureDocx();
-    const children = [];
-    const logoBytes = await tryLoadLogoBytes();
-    if (logoBytes) {
-      children.push(new Paragraph({
-        alignment: AlignmentType.CENTER,
-        children: [new ImageRun({ data: logoBytes, transformation: { width: 90, height: 90 } })]
-      }));
-    }
-    children.push(
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        children: [new TextRun({ text: BRAND_NAME.toUpperCase(), bold: true, size: 48, color: hex(COLOR_RED) })]
-      }),
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        children: [new TextRun({ text: BRAND_SINCE, italics: true, size: 22, color: hex(COLOR_NAVY_DEEP) })]
-      }),
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        children: [new TextRun({ text: "XODIM OYLIK DAVOMAT HISOBOTI", bold: true, size: 30, color: hex(COLOR_NAVY_DEEP) })]
-      }),
-      new Paragraph({ text: "" })
-    );
-    const infoRows = [
-      ["Xodim:", report.employeeName],
-      ["Lavozim:", report.position || "\u2014"],
-      ["Filial/bo'lim:", report.department || "\u2014"],
-      ["Davr:", `${UZ_MONTHS2[report.month]} ${report.year}`]
-    ];
-    children.push(makeKeyValueTable(infoRows));
-    children.push(new Paragraph({ text: "" }));
-    children.push(new Paragraph({ children: [new TextRun({ text: "Umumiy statistika", bold: true })] }));
-    const statRows = [
-      ["Rejalashtirilgan ish kunlari", String(report.plannedWorkDays)],
-      ["Haqiqiy ishlagan kunlar", String(report.actualWorkedDays)],
-      ["Dam kunlari", String(report.restDays)],
-      ["Ko'chirilgan dam kunlari", String(report.movedRestDays)],
-      ["Ruxsatli kunlar", String(report.permissionDays)],
-      ["Kasallik kunlari", String(report.sickDays)],
-      ["Mehnat ta'tili kunlari", String(report.vacationDays)],
-      ["Jami ishlagan vaqt", `${Math.floor(report.totalWorkedMinutes / 60)} soat ${report.totalWorkedMinutes % 60} daqiqa`],
-      ["Kechikkan kunlar", String(report.lateDays)],
-      ["Jami kechikish minutlari", `${report.totalLateMinutes} daqiqa`],
-      ["Jami kechikish jarimasi", `${report.totalLatePenalty.toLocaleString("uz-UZ")} so'm`],
-      ["Jami qo'shimcha ishlagan vaqt", `${report.totalOvertimeMinutes} daqiqa`]
-    ];
-    children.push(makeKeyValueTable(statRows));
-    children.push(new Paragraph({ text: "" }));
-    children.push(new Paragraph({ children: [new TextRun({ text: "Kunlik jadval", bold: true })] }));
-    children.push(makeDailyTable(report.days));
-    children.push(new Paragraph({ text: "" }));
-    children.push(new Paragraph({
-      alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: `${BRAND_NAME} ${BRAND_SINCE} \u2014 avtomatik generatsiya qilingan hisobot`, italics: true, size: 16 })]
-    }));
-    const doc = new Document({ sections: [{ properties: {}, children }] });
+    const doc = yasaHisobotDoc(report, chopEtdi);
     const blob = await Packer.toBlob(doc);
     const safeName = report.employeeName.replace(/\s+/g, "_");
     const filename = `${safeName}_Attendance_${report.year}-${String(report.month).padStart(2, "0")}.docx`;
@@ -1896,6 +2088,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       const ref = doc(dbFs, "employees", id);
       const fields = { ...patch, updatedAt: nowIso2() };
       await updateDoc(ref, fields);
+      invalidateEmbeddingsCache();
       return { id, ...fields };
     }
     async function isLoginTaken2(login3, excludeEmployeeId) {
@@ -2810,7 +3003,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         "scheduleOverrides",
         "users",
         "settings",
-        "auditLogs"
+        "auditLogs",
+        "branches",
+        "latePermissions",
+        "payrolls",
+        "unknownFaces"
       ];
       const data = {};
       for (const name of collections) {
@@ -2868,6 +3065,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       listUnknownFaces: listUnknownFaces2,
       deleteUnknownFace: deleteUnknownFace2,
       findDayStatusDoc,
+      clearDayStatus: clearDayStatus2,
       getExplicitDayStatus: getExplicitDayStatus2,
       listDayStatusesForEmployee: listDayStatusesForEmployee2,
       listAllDayStatuses: listAllDayStatuses2,
@@ -3863,7 +4061,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     "getRecoveryCredentials",
     "docToObject"
   ]);
-  var WRITE_PREFIX = /^(create|update|delete|write|set|add|save|move|grant|remove|clear|invalidate|sign|login|logout|ensure)/;
+  var WRITE_PREFIX = /^(create|update|delete|write|set|add|save|move|grant|remove|clear|invalidate|sign|login|logout|ensure|reset|import|force|enroll|apply|toggle|rename|seed)/;
   function wrapWithCache(adapter) {
     const cache = /* @__PURE__ */ new Map();
     const wrapped = {};
@@ -3938,6 +4136,57 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     "https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights"
   ];
   var modelsLoaded = false;
+  // 29.09.2026 — "yuz skaner juda sekin" muammosi.
+  // Sekinlikning uchta asosiy sababi va yechimi:
+  //  1) Har freymda 960x720 kadr GPU ga yuborilardi. Endi kadr avval
+  //     320px tuvalga kichraytiriladi (natija kordinatalari qaytarib
+  //     kattalashtiriladi) — bu eng katta tejash.
+  //  2) inputSize 320 edi -> 224. Yuz kameraga yaqin turgani uchun
+  //     aniqlikka ta'siri sezilmaydi, tezlik ~1.8 barobar.
+  //  3) Birinchi hisob WebGL shaderlarini kompilyatsiya qiladi (1-3 s
+  //     "qotish"). Endi modellar yuklangan zahoti bo'sh rasm ustida
+  //     "qizdirish" o'tkaziladi, foydalanuvchi buni sezmaydi.
+  var warmedUp = false;
+  var DETECT_WIDTH = 320;
+  var _detectCanvas = null;
+  var _detectOptions = null;
+  function detectOptions() {
+    if (!_detectOptions) {
+      _detectOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+    }
+    return _detectOptions;
+  }
+  function detectSource(videoEl3) {
+    const vw = videoEl3.videoWidth || videoEl3.width || 0;
+    const vh = videoEl3.videoHeight || videoEl3.height || 0;
+    if (!vw || !vh || vw <= DETECT_WIDTH) return videoEl3;
+    const w = DETECT_WIDTH;
+    const h = Math.max(1, Math.round(vh * (DETECT_WIDTH / vw)));
+    if (!_detectCanvas) _detectCanvas = document.createElement("canvas");
+    if (_detectCanvas.width !== w || _detectCanvas.height !== h) {
+      _detectCanvas.width = w;
+      _detectCanvas.height = h;
+    }
+    _detectCanvas.getContext("2d").drawImage(videoEl3, 0, 0, w, h);
+    return _detectCanvas;
+  }
+  async function warmUpFace() {
+    if (warmedUp || typeof faceapi === "undefined") return;
+    warmedUp = true;
+    try {
+      const c = document.createElement("canvas");
+      c.width = 150;
+      c.height = 150;
+      const cx = c.getContext("2d");
+      cx.fillStyle = "#9a9a9a";
+      cx.fillRect(0, 0, 150, 150);
+      await faceapi.detectSingleFace(c, detectOptions()).catch(() => null);
+      await faceapi.nets.faceLandmark68Net.detectLandmarks(c).catch(() => null);
+      await faceapi.nets.faceRecognitionNet.computeFaceDescriptor(c).catch(() => null);
+    } catch (err) {
+      console.warn("Yuz modelini qizdirib bo'lmadi (muhim emas):", err);
+    }
+  }
   async function loadFrom(url) {
     await Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromUri(url),
@@ -3952,6 +4201,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       try {
         await loadFrom(url);
         modelsLoaded = true;
+        warmUpFace();
         return;
       } catch (err) {
         lastErr = err;
@@ -3960,10 +4210,29 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     }
     throw lastErr;
   }
-  async function detectFace(videoEl3) {
-    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
-    const result = await faceapi.detectSingleFace(videoEl3, options).withFaceLandmarks().withFaceDescriptor();
-    return result || null;
+  async function detectFace(videoEl3, opts) {
+    // opts.descriptor === false bo'lsa — eng og'ir tarmoq
+    // (faceRecognitionNet, ~6 MB) ishga tushmaydi. Yuzni kuzatish,
+    // ko'z pirpiratishini tekshirish va ramka chizish uchun u kerak
+    // emas; u faqat xodimni taniyotgan freymda kerak.
+    const wantDescriptor = !opts || opts.descriptor !== false;
+    const src = detectSource(videoEl3);
+    let task = faceapi.detectSingleFace(src, detectOptions()).withFaceLandmarks();
+    if (wantDescriptor) task = task.withFaceDescriptor();
+    let result = await task;
+    if (!result) return null;
+    if (src !== videoEl3) {
+      const vw = videoEl3.videoWidth || videoEl3.width;
+      const vh = videoEl3.videoHeight || videoEl3.height;
+      if (vw && vh) {
+        try {
+          result = faceapi.resizeResults(result, { width: vw, height: vh });
+        } catch (err) {
+          console.warn("resizeResults ishlamadi:", err);
+        }
+      }
+    }
+    return result;
   }
   function euclideanDistance(a, b) {
     let sum = 0;
@@ -4901,6 +5170,84 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     clearAll();
   }
 
+  // src/data/offlineSnapshot.js
+  var KEY = "shifoat_offline_snapshot";
+  function oqi() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return {};
+      const obj = JSON.parse(raw);
+      return obj && typeof obj === "object" ? obj : {};
+    } catch (err) {
+      console.error("Oflayn nusxani o'qib bo'lmadi:", err);
+      return {};
+    }
+  }
+  function yoz(patch) {
+    try {
+      localStorage.setItem(KEY, JSON.stringify({ ...oqi(), ...patch, savedAt: (/* @__PURE__ */ new Date()).toISOString() }));
+    } catch (err) {
+      console.error("Oflayn nusxani saqlab bo'lmadi:", err);
+    }
+  }
+  function saqlaEmbeddings(rows) {
+    if (!Array.isArray(rows) || !rows.length) return;
+    yoz({
+      embeddings: rows.map((r) => ({
+        employeeId: r.employeeId,
+        vector: Array.from(r.vector || [])
+      }))
+    });
+  }
+  function oqiEmbeddings() {
+    const rows = oqi().embeddings;
+    return Array.isArray(rows) ? rows : [];
+  }
+  function saqlaXodimlar(employees) {
+    if (!Array.isArray(employees)) return;
+    yoz({
+      employees: employees.map((e) => ({
+        id: e.id,
+        firstName: e.firstName || "",
+        lastName: e.lastName || "",
+        isActive: e.isActive !== false,
+        branchId: e.branchId || null,
+        strictLocation: !!e.strictLocation
+      }))
+    });
+  }
+  function oqiXodim(employeeId) {
+    const list = oqi().employees;
+    if (!Array.isArray(list)) return null;
+    const topildi = list.find((e) => e.id === employeeId);
+    return topildi ? { ...topildi, photoUrl: null } : null;
+  }
+  function saqlaFiliallar(branches) {
+    if (!Array.isArray(branches)) return;
+    yoz({
+      branches: branches.map((b) => ({
+        id: b.id,
+        name: b.name || "",
+        lat: b.lat,
+        lng: b.lng,
+        radiusM: b.radiusM,
+        isActive: b.isActive !== false
+      }))
+    });
+  }
+  function oqiFiliallar() {
+    const list = oqi().branches;
+    return Array.isArray(list) ? list : [];
+  }
+  function saqlaThreshold(value) {
+    if (value == null || value === "") return;
+    yoz({ threshold: value });
+  }
+  function oqiThreshold() {
+    const v = oqi().threshold;
+    return v == null ? null : v;
+  }
+
   // src/business/geofenceService.js
   init_appConfig();
   function isSecurePage() {
@@ -5135,9 +5482,13 @@ Masofa: ~${distanceM} metr (ruxsat: ${cfg.radiusM} metr).`,
     let branches = [];
     try {
       branches = await db2.listBranches({ activeOnly: true });
+      saqlaFiliallar(branches);
     } catch (err) {
-      console.error("listBranches failed (non-fatal):", err);
-      return { hasBranches: false, rulesError: true };
+      console.error("listBranches failed:", err);
+      const zaxira = oqiFiliallar();
+      if (!zaxira.length) return { hasBranches: false, rulesError: true };
+      console.warn("Filiallar zaxira nusxadan olindi:", zaxira.length);
+      branches = zaxira;
     }
     const usable = branches.filter(
       (b) => Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng))
@@ -5257,16 +5608,16 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
   }
 
   // src/business/offlineQueue.js
-  var KEY = "shifoat_offline_queue";
+  var KEY2 = "shifoat_offline_queue";
   var MAX_YOSH_MS = 7 * 24 * 60 * 60 * 1e3;
   var MAX_URINISH = 5;
   var QAYTA_URINISH_MS = 3e4;
   var _tekshiruvTimer = null;
   var _yuborilmoqda = false;
   var _ozgarishKuzatuvchi = null;
-  function oqi() {
+  function oqi2() {
     try {
-      const raw = localStorage.getItem(KEY);
+      const raw = localStorage.getItem(KEY2);
       if (!raw) return [];
       const list = JSON.parse(raw);
       return Array.isArray(list) ? list : [];
@@ -5275,10 +5626,12 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       return [];
     }
   }
-  function yoz(list) {
+  function yoz2(list) {
+    let saqlandi = true;
     try {
-      localStorage.setItem(KEY, JSON.stringify(list));
+      localStorage.setItem(KEY2, JSON.stringify(list));
     } catch (err) {
+      saqlandi = false;
       console.error("Oflayn navbatni saqlab bo'lmadi:", err);
     }
     if (_ozgarishKuzatuvchi) {
@@ -5288,6 +5641,7 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
         console.error("Navbat belgisini yangilashda xato:", err);
       }
     }
+    return saqlandi;
   }
   function eskirganlarniTashla(list) {
     const chegara = Date.now() - MAX_YOSH_MS;
@@ -5297,7 +5651,7 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     });
   }
   function navbatSoni() {
-    return eskirganlarniTashla(oqi()).length;
+    return eskirganlarniTashla(oqi2()).length;
   }
   function navbatBormi() {
     return navbatSoni() > 0;
@@ -5316,10 +5670,9 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       createdAt: (/* @__PURE__ */ new Date()).toISOString(),
       urinish: 0
     };
-    const list = eskirganlarniTashla(oqi());
+    const list = eskirganlarniTashla(oqi2());
     list.push(yozuv);
-    yoz(list);
-    return yozuv;
+    return yoz2(list) ? yozuv : null;
   }
   var TARMOQ_KODLARI = /* @__PURE__ */ new Set([
     "unavailable",
@@ -5366,11 +5719,24 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       );
     });
   }
+  function navbatdanOlib(id) {
+    const hozirgi = oqi2().filter((e) => e.id !== id);
+    yoz2(hozirgi);
+  }
+  function urinishniOshir(id, err) {
+    const hozirgi = oqi2();
+    const topildi = hozirgi.find((e) => e.id === id);
+    if (!topildi) return MAX_URINISH;
+    topildi.urinish = (topildi.urinish || 0) + 1;
+    topildi.oxirgiXato = String(err && err.message || err).slice(0, 200);
+    yoz2(hozirgi);
+    return topildi.urinish;
+  }
   async function navbatniYubor(db2) {
     if (_yuborilmoqda) return { yuborildi: 0, qoldi: navbatSoni() };
-    let list = eskirganlarniTashla(oqi());
+    let list = eskirganlarniTashla(oqi2());
     if (!list.length) {
-      yoz(list);
+      yoz2(list);
       return { yuborildi: 0, qoldi: 0 };
     }
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
@@ -5380,7 +5746,10 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     let yuborildi = 0;
     try {
       list.sort((a, b) => String(a.atIso).localeCompare(String(b.atIso)));
+      const yiqilgan = /* @__PURE__ */ new Set();
       for (const yozuv of [...list]) {
+        const kun = `${yozuv.employeeId}|${yozuv.atIso.slice(0, 10)}`;
+        if (yiqilgan.has(kun)) continue;
         const at = new Date(yozuv.atIso);
         try {
           const args = [
@@ -5391,10 +5760,14 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
             yozuv.branch,
             { offlineQueued: true }
           ];
-          if (yozuv.mode === "OUT") await checkOut(...args);
-          else await checkIn(...args);
-          list = list.filter((e) => e.id !== yozuv.id);
-          yoz(list);
+          const natija = yozuv.mode === "OUT" ? await checkOut(...args) : await checkIn(...args);
+          if (natija && natija.status === "NO_CHECKIN_TODAY") {
+            const urinish = urinishniOshir(yozuv.id, new Error("kelish yozuvi hali yo'q"));
+            if (urinish >= MAX_URINISH) navbatdanOlib(yozuv.id);
+            yiqilgan.add(kun);
+            continue;
+          }
+          navbatdanOlib(yozuv.id);
           yuborildi++;
         } catch (err) {
           if (tarmoqXatosimi(err)) {
@@ -5402,12 +5775,9 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
             break;
           }
           console.error("Oflayn navbat yozuvi yuborilmadi:", err);
-          yozuv.urinish = (yozuv.urinish || 0) + 1;
-          yozuv.oxirgiXato = String(err && err.message || err).slice(0, 200);
-          if (yozuv.urinish >= MAX_URINISH) {
-            list = list.filter((e) => e.id !== yozuv.id);
-          }
-          yoz(list);
+          const urinish = urinishniOshir(yozuv.id, err);
+          if (urinish >= MAX_URINISH) navbatdanOlib(yozuv.id);
+          yiqilgan.add(`${yozuv.employeeId}|${yozuv.atIso.slice(0, 10)}`);
         }
       }
     } finally {
@@ -5427,67 +5797,6 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       window.addEventListener("online", urin);
     }
     setTimeout(urin, 3e3);
-  }
-
-  // src/data/offlineSnapshot.js
-  var KEY2 = "shifoat_offline_snapshot";
-  function oqi2() {
-    try {
-      const raw = localStorage.getItem(KEY2);
-      if (!raw) return {};
-      const obj = JSON.parse(raw);
-      return obj && typeof obj === "object" ? obj : {};
-    } catch (err) {
-      console.error("Oflayn nusxani o'qib bo'lmadi:", err);
-      return {};
-    }
-  }
-  function yoz2(patch) {
-    try {
-      localStorage.setItem(KEY2, JSON.stringify({ ...oqi2(), ...patch, savedAt: (/* @__PURE__ */ new Date()).toISOString() }));
-    } catch (err) {
-      console.error("Oflayn nusxani saqlab bo'lmadi:", err);
-    }
-  }
-  function saqlaEmbeddings(rows) {
-    if (!Array.isArray(rows) || !rows.length) return;
-    yoz2({
-      embeddings: rows.map((r) => ({
-        employeeId: r.employeeId,
-        vector: Array.from(r.vector || [])
-      }))
-    });
-  }
-  function oqiEmbeddings() {
-    const rows = oqi2().embeddings;
-    return Array.isArray(rows) ? rows : [];
-  }
-  function saqlaXodimlar(employees) {
-    if (!Array.isArray(employees)) return;
-    yoz2({
-      employees: employees.map((e) => ({
-        id: e.id,
-        firstName: e.firstName || "",
-        lastName: e.lastName || "",
-        isActive: e.isActive !== false,
-        branchId: e.branchId || null,
-        strictLocation: !!e.strictLocation
-      }))
-    });
-  }
-  function oqiXodim(employeeId) {
-    const list = oqi2().employees;
-    if (!Array.isArray(list)) return null;
-    const topildi = list.find((e) => e.id === employeeId);
-    return topildi ? { ...topildi, photoUrl: null } : null;
-  }
-  function saqlaThreshold(value) {
-    if (value == null || value === "") return;
-    yoz2({ threshold: value });
-  }
-  function oqiThreshold() {
-    const v = oqi2().threshold;
-    return v == null ? null : v;
   }
 
   // src/ui/branding.js
@@ -5764,6 +6073,19 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
   var frameDescriptors = [];
   var resultTimer = null;
   var recognitionInProgress = false;
+  var bosh_yoq = 0;
+  var cameraOchilganVaqt = 0;
+  var YUZ_YOQ_CHEGARA = 10;
+  // 29.09.2026: ilgari setInterval(120ms) ishlatilardi. Telefonda bitta
+  // aniqlash 300-800 ms davom etadi, ya'ni yangi "tick" oldingisi
+  // tugamasdan boshlanardi -> navbat to'planib, ekran qotib qolardi.
+  // Endi har bir aniqlash tugagandan KEYIN keyingisi rejalashtiriladi.
+  var tickBusy = false;
+  var loopToxtadi = false;
+  // 12 ta freymning hammasidan og'ir deskriptor olinardi. Tanish uchun
+  // 4 tasi yetarli; qolgan freymlar faqat ko'z pirpiratishini kuzatadi.
+  var DESKRIPTOR_KERAK = 4;
+  var KAMERA_BEKOR_MS = 45e3;
   var videoEl = document.getElementById("cameraVideo");
   var overlayEl = document.getElementById("cameraOverlay");
   var cameraInstruction = document.getElementById("cameraInstruction");
@@ -5797,6 +6119,20 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     return kioskReady;
   }
   var BOOT_BUSY_MAX_MS = 6e3;
+  var SCAN_READ_MS = 8e3;
+  var ROLLOVER_OYNA_MS = 6 * 60 * 60 * 1e3;
+  async function oqishYokiZaxira(promise, zaxira, nima) {
+    try {
+      return await vaqtBilanCheklash(promise, SCAN_READ_MS);
+    } catch (err) {
+      console.warn(`${nima}: bazadan o'qib bo'lmadi, oflayn nusxa ishlatiladi.`, err);
+      try {
+        if (db && typeof db.invalidateEmbeddingsCache === "function") db.invalidateEmbeddingsCache();
+      } catch {
+      }
+      return typeof zaxira === "function" ? zaxira() : zaxira;
+    }
+  }
   var BOOT_DB_MS = 2e4;
   var BOOT_SESSION_MS = 12e3;
   var BOOT_SETTINGS_MS = 12e3;
@@ -5851,9 +6187,16 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       return await vaqtBilanCheklash(chaqiruv, DAVOMAT_KUTISH_MS);
     } catch (err) {
       if (!tarmoqXatosimi(err)) throw err;
-      console.warn("Davomat bazaga yozilmadi \u2014 navbatga qo'yildi:", err);
-      navbatgaQoy({ mode: mode2, employeeId: employee.id, employeeName: fullName, at, branch });
+      console.warn("Davomat bazaga yozilmadi \u2014 navbatga qo'yiladi:", err);
+      const qoyildi = navbatgaQoy({ mode: mode2, employeeId: employee.id, employeeName: fullName, at, branch });
       navbatBelgisiniYangila();
+      if (!qoyildi) {
+        const e = new Error(
+          "Internet yo'q va yozuvni qurilmaga ham saqlab bo'lmadi.\n\nIltimos, administratorga ayting \u2014 kelish/ketish vaqtingiz QO'LDA kiritilishi kerak."
+        );
+        e.__shifoatNavbatToldi = true;
+        throw e;
+      }
       return {
         status: mode2 === "OUT" ? AttendanceStatus.CHECKED_OUT : AttendanceStatus.CHECKED_IN,
         employeeName: fullName,
@@ -5941,13 +6284,24 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     }
     cameraStatus.textContent = currentBranch ? `${SCAN_HINT_TEXT}
 \u{1F4CD} ${currentBranch.name}` : SCAN_HINT_TEXT;
-    requiredFrames = numSetting(await db.getSetting("recognition_hold_frames"), 12);
-    const requiredBlinks = numSetting(await db.getSetting("liveness_required_blinks"), 1);
-    const minMovement = numSetting(await db.getSetting("liveness_min_movement"), 0.035);
+    requiredFrames = numSetting(
+      await oqishYokiZaxira(db.getSetting("recognition_hold_frames"), null, "Freym sozlamasi"),
+      12
+    );
+    const requiredBlinks = numSetting(
+      await oqishYokiZaxira(db.getSetting("liveness_required_blinks"), null, "Liveness sozlamasi"),
+      1
+    );
+    const minMovement = numSetting(
+      await oqishYokiZaxira(db.getSetting("liveness_min_movement"), null, "Harakat sozlamasi"),
+      0.035
+    );
     livenessTracker = new LivenessTracker({ requiredBlinks, minMovement });
     collectedFrames = 0;
     bestDescriptor = null;
     frameDescriptors = [];
+    bosh_yoq = 0;
+    cameraOchilganVaqt = Date.now();
     recognitionInProgress = false;
     try {
       await loadModels();
@@ -5978,11 +6332,31 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     await videoEl.play();
     overlayEl.width = videoEl.videoWidth || CAMERA_WIDTH;
     overlayEl.height = videoEl.videoHeight || CAMERA_HEIGHT;
-    detectLoopHandle = setInterval(runDetectionTick, 120);
+    boshlaDetectLoop();
+  }
+  function boshlaDetectLoop() {
+    loopToxtadi = false;
+    tickBusy = false;
+    const qadam = async () => {
+      if (loopToxtadi) return;
+      if (!tickBusy) {
+        tickBusy = true;
+        try {
+          await runDetectionTick();
+        } catch (err) {
+          console.error("Aniqlash qadamida xato:", err);
+        } finally {
+          tickBusy = false;
+        }
+      }
+      if (!loopToxtadi) detectLoopHandle = setTimeout(qadam, 40);
+    };
+    qadam();
   }
   function stopCamera() {
+    loopToxtadi = true;
     if (detectLoopHandle) {
-      clearInterval(detectLoopHandle);
+      clearTimeout(detectLoopHandle);
       detectLoopHandle = null;
     }
     if (mediaStream) {
@@ -5996,9 +6370,10 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
   }
   async function runDetectionTick() {
     if (!mediaStream || recognitionInProgress) return;
+    const deskriptorKerak = frameDescriptors.length < DESKRIPTOR_KERAK && collectedFrames % 2 === 0;
     let detection;
     try {
-      detection = await detectFace(videoEl);
+      detection = await detectFace(videoEl, { descriptor: deskriptorKerak });
     } catch (err) {
       console.error("detectFace failed:", err);
       return;
@@ -6007,22 +6382,44 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     ctx.clearRect(0, 0, overlayEl.width, overlayEl.height);
     if (!detection) {
       cameraStatus.textContent = SCAN_HINT_TEXT;
+      bosh_yoq += 1;
+      if (bosh_yoq >= YUZ_YOQ_CHEGARA && collectedFrames > 0) {
+        collectedFrames = 0;
+        frameDescriptors = [];
+        if (livenessTracker && typeof livenessTracker.reset === "function") livenessTracker.reset();
+      }
+      if (Date.now() - cameraOchilganVaqt > KAMERA_BEKOR_MS) {
+        console.warn("Kamera bekor ochiq turdi \u2014 yopildi.");
+        stopCameraAndGoHome();
+      }
       return;
     }
+    bosh_yoq = 0;
     const box = detection.detection.box;
     ctx.strokeStyle = "#ED2040";
     ctx.lineWidth = 3;
     ctx.strokeRect(box.x, box.y, box.width, box.height);
     livenessTracker.addSample(detection.landmarks);
     collectedFrames += 1;
-    frameDescriptors.push(detection.descriptor);
+    if (detection.descriptor) frameDescriptors.push(detection.descriptor);
     cameraStatus.textContent = SCAN_HINT_TEXT;
     if (collectedFrames < requiredFrames) return;
+    if (!frameDescriptors.length) {
+      // Deskriptor umuman olinmagan bo'lsa (kamdan-kam), oxirgi
+      // freymdan bittasini olib ko'ramiz — bo'sh tanish qilmaymiz.
+      const oxirgi = await detectFace(videoEl).catch(() => null);
+      if (oxirgi && oxirgi.descriptor) frameDescriptors.push(oxirgi.descriptor);
+      if (!frameDescriptors.length) {
+        collectedFrames = 0;
+        return;
+      }
+    }
     bestDescriptor = averageDescriptor(frameDescriptors);
     if (recognitionInProgress) return;
     recognitionInProgress = true;
+    loopToxtadi = true;
     if (detectLoopHandle) {
-      clearInterval(detectLoopHandle);
+      clearTimeout(detectLoopHandle);
       detectLoopHandle = null;
     }
     cameraStatus.textContent = "Tekshirilmoqda\u2026";
@@ -6069,20 +6466,22 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     }
     try {
       const [thresholdRaw, candidates] = await Promise.all([
-        db.getSetting("face_match_threshold").then((v) => {
-          saqlaThreshold(v);
-          return v;
-        }).catch((err) => {
-          console.warn("Sozlama o'qilmadi, oflayn nusxadan olinadi:", err);
-          return oqiThreshold();
-        }),
-        db.getAllActiveEmbeddings().then((rows) => {
-          saqlaEmbeddings(rows);
-          return rows;
-        }).catch((err) => {
-          console.warn("Yuz vektorlari o'qilmadi, oflayn nusxadan olinadi:", err);
-          return oqiEmbeddings();
-        })
+        oqishYokiZaxira(
+          db.getSetting("face_match_threshold").then((v) => {
+            saqlaThreshold(v);
+            return v;
+          }),
+          oqiThreshold,
+          "Tanish chegarasi"
+        ),
+        oqishYokiZaxira(
+          db.getAllActiveEmbeddings().then((rows) => {
+            saqlaEmbeddings(rows);
+            return rows;
+          }),
+          oqiEmbeddings,
+          "Yuz vektorlari"
+        )
       ]);
       const threshold = numSetting(thresholdRaw, 0.5);
       const { employeeId } = bestMatch(bestDescriptor, candidates, threshold);
@@ -6091,10 +6490,11 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
         showResultError("\u26A0\uFE0F Xodim aniqlanmadi", "Iltimos, administratorga murojaat qiling.");
         return;
       }
-      const employee = await db.getEmployee(employeeId).catch((err) => {
-        console.warn("Xodim ma'lumoti o'qilmadi, oflayn nusxadan olinadi:", err);
-        return oqiXodim(employeeId);
-      });
+      const employee = await oqishYokiZaxira(
+        db.getEmployee(employeeId),
+        () => oqiXodim(employeeId),
+        "Xodim ma'lumoti"
+      );
       if (!employee || !employee.isActive) {
         showResultError("\u26A0\uFE0F Xodim aniqlanmadi", "Iltimos, administratorga murojaat qiling.");
         return;
@@ -6102,7 +6502,11 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       const fullName = `${employee.firstName} ${employee.lastName || ""}`.trim();
       let branches = [];
       if (currentBranch && employee.branchId && employee.branchId !== currentBranch.id) {
-        branches = await db.listBranches({ activeOnly: true }).catch(() => []);
+        branches = await oqishYokiZaxira(
+          db.listBranches({ activeOnly: true }),
+          [],
+          "Filiallar ro'yxati"
+        );
       }
       if (!await strictLocationGate(employee, branches)) return;
       const result = await davomatYoz(
@@ -6194,8 +6598,8 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       await enterAdminPanelAs(adminUser);
     });
   }
-  function nextAutoMode(record) {
-    if (!record || !record.checkInTime) return "IN";
+  function nextAutoMode(record, kechagiOchiq = false) {
+    if (!record || !record.checkInTime) return kechagiOchiq ? "OUT" : "IN";
     if (!record.checkOutTime) return "OUT";
     if (!record.checkInTime2) return "IN";
     if (!record.checkOutTime2) return "OUT";
@@ -6204,14 +6608,36 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
   async function handleEmployeeLogin(employee) {
     const fullName = `${employee.firstName} ${employee.lastName || ""}`.trim();
     try {
-      const todayRecord = await getTodayRecord(db, employee.id);
+      const todayRecord = await oqishYokiZaxira(
+        getTodayRecord(db, employee.id),
+        null,
+        "Bugungi yozuv"
+      );
       let branches = [];
       if (currentBranch && employee.branchId && employee.branchId !== currentBranch.id) {
-        branches = await db.listBranches({ activeOnly: true }).catch(() => []);
+        branches = await oqishYokiZaxira(
+          db.listBranches({ activeOnly: true }),
+          [],
+          "Filiallar ro'yxati"
+        );
       }
       if (!await strictLocationGate(employee, branches)) return;
+      let kechagiOchiq = false;
+      if (!todayRecord || !todayRecord.checkInTime) {
+        const kecha = addDaysToKey(tashkentDateKey(), -1);
+        const kechagi = await oqishYokiZaxira(
+          db.getAttendanceForDate(employee.id, kecha),
+          null,
+          "Kechagi yozuv"
+        );
+        const tugash = openShiftEndOf(kechagi);
+        if (tugash) {
+          const farq = Math.abs(Date.now() - tugash.getTime());
+          if (farq <= ROLLOVER_OYNA_MS) kechagiOchiq = true;
+        }
+      }
       const result = await davomatYoz(
-        nextAutoMode(todayRecord) === "IN" ? "IN" : "OUT",
+        nextAutoMode(todayRecord, kechagiOchiq) === "IN" ? "IN" : "OUT",
         employee,
         fullName,
         /* @__PURE__ */ new Date(),
@@ -6279,7 +6705,11 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     if (!isStrictLocationEmployee(employee)) return true;
     let list = branches;
     if ((!list || !list.length) && employee.branchId) {
-      list = await db.listBranches({ activeOnly: true }).catch(() => []);
+      list = await oqishYokiZaxira(
+        db.listBranches({ activeOnly: true }),
+        [],
+        "Filiallar ro'yxati"
+      );
     }
     const verdict = evaluateStrictLocation(employee, lastGate, list || []);
     if (verdict.allowed) return true;
@@ -6831,6 +7261,11 @@ ${branchNote}` : branchNote;
     return [...qualified].sort(compareForRanking)[0];
   }
 
+  // src/utils/html.js
+  function escapeHtml(text) {
+    return String(text == null ? "" : text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  }
+
   // src/ui/admin/openShiftsAlert.js
   var OGOH_SOAT = 4;
   var ORQAGA_KUN = 7;
@@ -6916,7 +7351,7 @@ ${branchNote}` : branchNote;
       box.className = "modal-box";
       box.style.width = "420px";
       const kun = `${ddmmyyyy(item.dateKey)} (${weekdayNameUz(item.dateKey)})`;
-      box.innerHTML = `<h3 style="margin-top:0;">Ketish vaqtini to'g'rilash</h3><p class="muted" style="margin-top:0;">${item.name} &middot; ${kun}` + (item.ikkinchiSmena ? " &middot; 2-smena" : "") + `</p><p style="font-size:14px; color:#4E5478;">Kelgan: <b>${item.kelgan}</b><br>Ish vaqti rejada <b>${item.rejaTugash}</b> da tugagan.</p><div class="form-row"><label>Haqiqiy ketish vaqti</label><input type="time" id="oshiftTime" value="${item.rejaTugash.slice(0, 5)}" /></div><p class="muted" style="font-size:12.5px;">Bu qo'lda tuzatish jurnalga yozib qo'yiladi \u2014 kim va qachon o'zgartirgani bilinib turadi.</p><p class="error-text" id="oshiftError"></p><div style="display:flex; gap:10px; justify-content:flex-end;"><button class="btn btn-secondary" id="oshiftCancel">Bekor qilish</button><button class="btn btn-primary" id="oshiftSave">Saqlash</button></div>`;
+      box.innerHTML = `<h3 style="margin-top:0;">Ketish vaqtini to'g'rilash</h3><p class="muted" style="margin-top:0;">${escapeHtml(item.name)} &middot; ${kun}` + (item.ikkinchiSmena ? " &middot; 2-smena" : "") + `</p><p style="font-size:14px; color:#4E5478;">Kelgan: <b>${item.kelgan}</b><br>Ish vaqti rejada <b>${item.rejaTugash}</b> da tugagan.</p><div class="form-row"><label>Haqiqiy ketish vaqti</label><input type="time" id="oshiftTime" value="${item.rejaTugash.slice(0, 5)}" /></div><p class="muted" style="font-size:12.5px;">Bu qo'lda tuzatish jurnalga yozib qo'yiladi \u2014 kim va qachon o'zgartirgani bilinib turadi.</p><p class="error-text" id="oshiftError"></p><div style="display:flex; gap:10px; justify-content:flex-end;"><button class="btn btn-secondary" id="oshiftCancel">Bekor qilish</button><button class="btn btn-primary" id="oshiftSave">Saqlash</button></div>`;
       overlay.appendChild(box);
       document.body.appendChild(overlay);
       const yopish = (natija) => {
@@ -6995,7 +7430,7 @@ ${branchNote}` : branchNote;
       const info = document.createElement("div");
       info.className = "oshift-info";
       const kun = `${ddmmyyyy(item.dateKey)} (${weekdayNameUz(item.dateKey)})`;
-      info.innerHTML = `<span class="oshift-name">${item.name}</span>` + (item.position ? ` <span class="muted">\xB7 ${item.position}</span>` : "") + `<br>${kun} \xB7 keldi <b>${item.kelgan}</b> \xB7 ish vaqti <b>${item.rejaTugash}</b> da tugagan` + (item.ikkinchiSmena ? " \xB7 2-smena" : "");
+      info.innerHTML = `<span class="oshift-name">${escapeHtml(item.name)}</span>` + (item.position ? ` <span class="muted">\xB7 ${escapeHtml(item.position)}</span>` : "") + `<br>${kun} \xB7 keldi <b>${item.kelgan}</b> \xB7 ish vaqti <b>${item.rejaTugash}</b> da tugagan` + (item.ikkinchiSmena ? " \xB7 2-smena" : "");
       row.appendChild(info);
       const kech = document.createElement("span");
       kech.className = "oshift-late";
@@ -7360,7 +7795,7 @@ ${branchNote}` : branchNote;
       <div class="champion-body">
         ${avatarHtml(champion, "champion-photo", "champion-photo-placeholder")}
         <div style="min-width:220px;">
-          <p class="champion-name">${champion.employeeName}</p>
+          <p class="champion-name">${escapeHtml(champion.employeeName)}</p>
           <p class="champion-score">${champion.score}/100 ball</p>
           <div class="champion-stats">
             <span>Vaqtida kelish: <b>${champion.onTimePercent}%</b></span>
@@ -7389,7 +7824,7 @@ ${branchNote}` : branchNote;
       <div class="rating-place">${i + 1}.</div>
       ${avatarHtml(s, "rating-photo", "rating-photo-placeholder")}
       <div>
-        <div class="rating-name">${s.employeeName}</div>
+        <div class="rating-name">${escapeHtml(s.employeeName)}</div>
         <div class="rating-sub">${subLine(s)}</div>
       </div>
       <div class="rating-score">
@@ -7724,11 +8159,6 @@ ${origLine}${reasonLine}` });
     }
   }
 
-  // src/utils/html.js
-  function escapeHtml(text) {
-    return String(text == null ? "" : text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-  }
-
   // src/ui/admin/faceEnrollModal.js
   var POSES = ["To'g'ri qarang", "Biroz chapga buriling", "Biroz o'ngga buriling"];
   var YAW_TURN_THRESHOLD = 0.09;
@@ -7746,16 +8176,19 @@ ${origLine}${reasonLine}` });
   var holdDescriptors = [];
   var capturedEmbeddings = [];
   var resolvePromise = null;
-  var TICK_MS = 150;
-  var HOLD_TICKS = 6;
-  var COOLDOWN_MS = 1400;
+  var TICK_MS = 60;
+  var HOLD_TICKS = 4;
+  var COOLDOWN_MS = 400;
+  var enrollBusy = false;
+  var enrollToxtadi = false;
   var holdCount = 0;
   var paused = false;
   var yawAccum = 0;
   var poseYaws = [];
   async function stopCamera2() {
+    enrollToxtadi = true;
     if (detectLoop) {
-      clearInterval(detectLoop);
+      clearTimeout(detectLoop);
       detectLoop = null;
     }
     if (mediaStream2) {
@@ -7779,9 +8212,31 @@ ${origLine}${reasonLine}` });
     }
     return { ok: true };
   }
+  function boshlaEnrollLoop() {
+    enrollToxtadi = false;
+    enrollBusy = false;
+    const qadam = async () => {
+      if (enrollToxtadi) return;
+      if (!enrollBusy) {
+        enrollBusy = true;
+        try {
+          await tick();
+        } catch (err) {
+          console.error("Yuz qayd qilish qadamida xato:", err);
+        } finally {
+          enrollBusy = false;
+        }
+      }
+      if (!enrollToxtadi) detectLoop = setTimeout(qadam, TICK_MS);
+    };
+    qadam();
+  }
   async function tick() {
     if (paused) return;
-    const detection = await detectFace(videoEl2).catch(() => null);
+    // Kuzatish bosqichida deskriptor kerak emas — faqat yuz qayerda
+    // turgani va qay tomonga burilgani. Og'ir tarmoq faqat rasmga
+    // olish lahzasida ishlaydi.
+    const detection = await detectFace(videoEl2, { descriptor: false }).catch(() => null);
     const ctx = overlayEl2.getContext("2d");
     ctx.clearRect(0, 0, overlayEl2.width, overlayEl2.height);
     if (!detection) {
@@ -7810,23 +8265,34 @@ ${origLine}${reasonLine}` });
       }
       return;
     }
-    lastDescriptor = detection.descriptor;
-    holdDescriptors.push(detection.descriptor);
     holdCount++;
     yawAccum += yaw;
     if (holdCount >= HOLD_TICKS) {
       const avgYaw = yawAccum / holdCount;
       holdCount = 0;
       yawAccum = 0;
-      autoCapture(avgYaw);
+      await autoCapture(avgYaw);
       return;
     }
     const dotsLeft = Math.max(1, HOLD_TICKS - holdCount);
     statusLabel.textContent = `Yuz to'g'ri turibdi. Qimirlamang\u2026 ${dotsLeft}`;
   }
-  function autoCapture(avgYaw) {
-    const embedding = averageDescriptor(holdDescriptors) || lastDescriptor;
-    if (!embedding) return;
+  async function autoCapture(avgYaw) {
+    paused = true;
+    statusLabel.textContent = "Rasmga olinmoqda\u2026";
+    const vektorlar = [];
+    for (let i = 0; i < 2; i++) {
+      const d = await detectFace(videoEl2).catch(() => null);
+      if (d && d.descriptor) vektorlar.push(d.descriptor);
+    }
+    const embedding = averageDescriptor(vektorlar) || lastDescriptor;
+    if (!embedding) {
+      paused = false;
+      holdCount = 0;
+      yawAccum = 0;
+      statusLabel.textContent = "Rasm olinmadi \u2014 qayta urinilmoqda\u2026";
+      return;
+    }
     capturedEmbeddings.push(embedding);
     poseYaws.push(typeof avgYaw === "number" ? avgYaw : poseYaws[poseYaws.length - 1] || 0);
     const done = capturedEmbeddings.length >= POSES.length;
@@ -7838,7 +8304,6 @@ ${origLine}${reasonLine}` });
     }
     poseLabel.textContent = `${capturedEmbeddings.length + 1}/${POSES.length}: ${POSES[capturedEmbeddings.length]}`;
     statusLabel.textContent = "Rasmga olindi \u2705. Endi ko'rsatilgan tomonga buriling\u2026";
-    paused = true;
     lastDescriptor = null;
     holdCount = 0;
     yawAccum = 0;
@@ -7863,16 +8328,25 @@ ${origLine}${reasonLine}` });
       resolvePromise = resolve;
       (async () => {
         try {
+          if (!modelsLoaded) {
+            statusLabel.textContent = "Yuz modeli yuklanmoqda\u2026 (birinchi marta 10-30 soniya)";
+          }
           await loadModels();
+          statusLabel.textContent = "Kamera ishga tushmoqda\u2026";
           if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             throw { name: "SecurityError" };
           }
-          mediaStream2 = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          // Telefon standart holda 1280x720 yoki undan kattaroq kadr
+          // beradi — bu ortiqcha yuk. 640x480 yetarli.
+          mediaStream2 = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+            audio: false
+          });
           videoEl2.srcObject = mediaStream2;
           await videoEl2.play();
           overlayEl2.width = videoEl2.videoWidth || 480;
           overlayEl2.height = videoEl2.videoHeight || 360;
-          detectLoop = setInterval(tick, TICK_MS);
+          boshlaEnrollLoop();
         } catch (err) {
           statusLabel.textContent = `Kamera xatosi: ${uzError(err)}`;
         }
@@ -7880,6 +8354,7 @@ ${origLine}${reasonLine}` });
     });
   }
   captureBtn.addEventListener("click", () => {
+    if (paused) return;
     holdCount = 0;
     autoCapture();
   });
@@ -7976,7 +8451,7 @@ ${origLine}${reasonLine}` });
       const value = current || guessGender(employee.firstName);
       const row = document.createElement("div");
       row.className = "gender-row";
-      row.innerHTML = `<span class="gender-name">${fullName}</span><select data-employee-id="${employee.id}"><option value="">\u2014 belgilanmagan</option><option value="male">Erkak</option><option value="female">Ayol</option></select>` + (current ? "" : `<span class="gender-guess">${value ? "taxmin" : "tanlang"}</span>`);
+      row.innerHTML = `<span class="gender-name">${escapeHtml(fullName)}</span><select data-employee-id="${employee.id}"><option value="">\u2014 belgilanmagan</option><option value="male">Erkak</option><option value="female">Ayol</option></select>` + (current ? "" : `<span class="gender-guess">${value ? "taxmin" : "tanlang"}</span>`);
       row.querySelector("select").value = value;
       list.appendChild(row);
     }
@@ -8261,7 +8736,7 @@ ${origLine}${reasonLine}` });
       const genderText = employee.gender && GENDER_LABEL[employee.gender] ? `<span class="gender-pill gender-pill-${employee.gender}">${GENDER_LABEL[employee.gender]}</span>` : `<span class="muted">\u2014</span>`;
       tr.innerHTML = `
       <td>${photoCell}</td>
-      <td>${fullName}${employee.strictLocation ? ` <span class="strict-pill" title="Qattiq joylashuv nazorati: faqat o'z ish joyida, joylashuv aniq o'lchanganda belgilanadi">\u{1F512} joylashuv</span>` : ""}</td><td>${employee.position || ""}</td>
+      <td>${escapeHtml(fullName)}${employee.strictLocation ? ` <span class="strict-pill" title="Qattiq joylashuv nazorati: faqat o'z ish joyida, joylashuv aniq o'lchanganda belgilanadi">\u{1F512} joylashuv</span>` : ""}</td><td>${escapeHtml(employee.position || "")}</td>
       <td>${genderText}</td>
       <td>${branchText}</td>
       <td>${scheduleText}</td><td>${employee.isActive ? "Ha" : "Yo'q"}</td>
@@ -8939,6 +9414,10 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
       employeeName: `${employee.firstName} ${employee.lastName || ""}`.trim(),
       position: employee.position,
       department: employee.department,
+      // 29.09.2026: hisobotda "Filial" katagi DOIM bo'sh chiqardi, chunki
+      // u ishlatilmaydigan eski "department" maydonini o'qirdi. Endi
+      // xodimning haqiqiy filiali yoziladi (nomini chaqiruvchi qo'yadi).
+      branchId: employee.branchId || null,
       year,
       month,
       plannedWorkDays: 0,
@@ -9006,8 +9485,9 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
           report.totalWorkedMinutes += workedMinutesOf(att);
           ({ overtimeMinutes, undertimeMinutes } = deriveOvertimeUndertime(att));
         }
-        lateMinutes = att.lateMinutes || 0;
-        latePenalty = att.latePenalty || 0;
+        const ishKuni = WORK_LIKE_STATUSES.has(status);
+        lateMinutes = ishKuni ? att.lateMinutes || 0 : 0;
+        latePenalty = ishKuni ? att.latePenalty || 0 : 0;
         if (lateMinutes > 0) report.lateDays++;
         report.totalLateMinutes += lateMinutes;
         report.totalLatePenalty += latePenalty;
@@ -9059,6 +9539,7 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
   var _canExport;
   var _canEditAttendance;
   var _lastReport = null;
+  var _branchNameById = /* @__PURE__ */ new Map();
   var _editMode = false;
   var employeeSelect2 = document.getElementById("reportEmployeeSelect");
   var branchSelect = document.getElementById("reportBranchSelect");
@@ -9113,6 +9594,7 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
       })
     ]);
     _allEmployees = employees;
+    _branchNameById = new Map(branches.map((b2) => [b2.id, b2.name]));
     if (branchSelect) {
       const show = branches.length > 0;
       branchSelect.style.display = show ? "" : "none";
@@ -9317,7 +9799,11 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
     if (!_lastReport) return;
     try {
       const { exportMonthlyReportDocx: exportMonthlyReportDocx2 } = await Promise.resolve().then(() => (init_wordExport(), wordExport_exports));
-      await exportMonthlyReportDocx2(_lastReport);
+      // 29.09.2026: hisobotga filial nomi va uni kim chop etgani qo'shiladi.
+      _lastReport.branchName = _lastReport.branchId
+        ? _branchNameById.get(_lastReport.branchId) || null
+        : null;
+      await exportMonthlyReportDocx2(_lastReport, _user4 && _user4.username);
     } catch (err) {
       await alertDialog({ title: "Xatolik", message: `Word fayl yaratilmadi: ${uzError(err)}` });
     }
@@ -9894,7 +10380,7 @@ Qulf ishlashi uchun "Locatsiya qulfi yoqilgan" katagini belgilab, qaytadan "Saql
       const passwordCellStyle = viewerIsPrimary ? "" : ' style="display:none;"';
       const passwordCellText = viewerIsPrimary ? u.recoveryPassword || "\u2014" : "";
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${u.username}</td><td>${u.fullName || ""}</td><td>${isSuper ? "Super Admin" : "Admin"}</td><td>${permCount}</td><td>${linkedText}</td><td class="admin-password-cell"${passwordCellStyle}>${passwordCellText}</td><td></td>`;
+      tr.innerHTML = `<td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.fullName || "")}</td><td>${isSuper ? "Super Admin" : "Admin"}</td><td>${permCount}</td><td>${escapeHtml(linkedText)}</td><td class="admin-password-cell"${passwordCellStyle}>${passwordCellText}</td><td></td>`;
       const actionsCell = tr.lastElementChild;
       if (!isSuper) {
         const promoteBtn = document.createElement("button");
@@ -9904,7 +10390,7 @@ Qulf ishlashi uchun "Locatsiya qulfi yoqilgan" katagini belgilab, qaytadan "Saql
         promoteBtn.addEventListener("click", async () => {
           const ok = await confirmDialog({
             title: "Super Admin huquqi",
-            message: `"${u.username}" hisobiga to'liq (Super Admin) huquq berilsinmi?`,
+            message: `"${escapeHtml(u.username)}" hisobiga to'liq (Super Admin) huquq berilsinmi?`,
             okText: "Ha, berish",
             cancelText: "Bekor qilish"
           });
@@ -9926,7 +10412,7 @@ Qulf ishlashi uchun "Locatsiya qulfi yoqilgan" katagini belgilab, qaytadan "Saql
         changePwBtn.addEventListener("click", async () => {
           const newPassword = await promptDialog({
             title: "Parolni almashtirish",
-            message: `"${u.username}" uchun yangi parol kiriting (kamida ${MIN_PASSWORD_LENGTH} ta belgi):`,
+            message: `"${escapeHtml(u.username)}" uchun yangi parol kiriting (kamida ${MIN_PASSWORD_LENGTH} ta belgi):`,
             placeholder: "Yangi parol"
           });
           if (newPassword === null) return;
@@ -9937,7 +10423,7 @@ Qulf ishlashi uchun "Locatsiya qulfi yoqilgan" katagini belgilab, qaytadan "Saql
           try {
             await _db8.resetAdminPassword(u.id, newPassword, _user6.id);
             await refreshAdmins();
-            await alertDialog({ title: "Bajarildi", message: `"${u.username}" uchun parol yangilandi.` });
+            await alertDialog({ title: "Bajarildi", message: `"${escapeHtml(u.username)}" uchun parol yangilandi.` });
           } catch (err) {
             await alertDialog({ title: "Xatolik", message: uzError(err) });
           }
@@ -9960,7 +10446,7 @@ Qulf ishlashi uchun "Locatsiya qulfi yoqilgan" katagini belgilab, qaytadan "Saql
         deleteBtn.addEventListener("click", async () => {
           const ok = await confirmDialog({
             title: "Adminni o'chirish",
-            message: `"${u.username}" admin hisobini butunlay o'chirmoqchimisiz?
+            message: `"${escapeHtml(u.username)}" admin hisobini butunlay o'chirmoqchimisiz?
 Bu amalni orqaga qaytarib bo'lmaydi.`,
             okText: "Ha, o'chirish",
             cancelText: "Bekor qilish",
@@ -9970,7 +10456,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
           try {
             await _db8.deleteAdminUser(u.id, _user6.id);
             await refreshAdmins();
-            await alertDialog({ title: "Bajarildi", message: `"${u.username}" o'chirildi.` });
+            await alertDialog({ title: "Bajarildi", message: `"${escapeHtml(u.username)}" o'chirildi.` });
           } catch (err) {
             await alertDialog({ title: "Xatolik", message: uzError(err) });
           }
@@ -10167,10 +10653,10 @@ UID: ${debugInfo.uid || "yo'q"}, users hujjati: ${debugInfo.hasUserDoc ? "bor" :
       tr.innerHTML = `
       <td>${r.dateLabel}</td>
       <td>${r.type}</td>
-      <td>${r.employeeName}</td>
+      <td>${escapeHtml(r.employeeName)}</td>
       <td>${r.detail}</td>
-      <td>${r.reason}</td>
-      <td>${r.grantedByName}</td>
+      <td>${escapeHtml(r.reason)}</td>
+      <td>${escapeHtml(r.grantedByName)}</td>
       <td></td>`;
       const actionsCell = tr.lastElementChild;
       const editBtn = document.createElement("button");
@@ -10421,7 +10907,15 @@ Agar bu 'Ruxsat yo'q' bo'lsa \u2014 Firebase Console > Firestore > Rules bo'limi
   function openPhoto(row, at) {
     const modal2 = document.getElementById("photoLightboxModal");
     if (!modal2) return;
-    document.getElementById("photoLightboxImg").src = row.photoUrl || "";
+    const img = document.getElementById("photoLightboxImg");
+    img.src = row.photoUrl || "";
+    img.style.display = "";
+    const initial = document.getElementById("photoLightboxInitial");
+    if (initial) initial.style.display = "none";
+    const pos = document.getElementById("photoLightboxPosition");
+    if (pos) pos.textContent = "";
+    const quality = document.getElementById("photoLightboxQuality");
+    if (quality) quality.textContent = "";
     document.getElementById("photoLightboxName").textContent = "Noma'lum yuz";
     document.getElementById("photoLightboxSchedule").textContent = `${weekdayNameUz(row.dateKey || at)}, ${ddmmyyyy(row.dateKey || at)} \u2014 soat ${hhmm(at)}`;
     modal2.classList.add("active");
@@ -11414,7 +11908,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-09-23 18:05 UTC";
+  var BUILD_STAMP = "2026-09-29 19:10 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
