@@ -1192,7 +1192,28 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       <div class="toolbar">
         <button class="btn btn-primary" id="btnSecUnknownFaces">👤 Noma'lum Xodimlar</button>
         <button class="btn btn-primary" id="btnSecGeoBreaches">📍 Joylashuvni buzish urinishlari</button>
+        <button class="btn btn-primary" id="btnSecFaceAudit">🧬 Yuzlar o'xshashligini tekshirish</button>
         <div style="flex:1"></div>
+      </div>
+
+      <!-- 02.10.2026: bir xodim boshqasi deb tanilib qolgan edi. Bu
+           asbob qaysi ikki xodimning yuz ma'lumoti bir-biriga xavfli
+           darajada yaqinligini topadi - sababni shu yerdan ko'rasiz. -->
+      <div id="secFacePanel" style="display:none;">
+        <p class="muted">
+          Tizim ikki xodimni adashtirishi mumkin bo'lgan joylarni ko'rsatadi.
+          Raqam qancha <b>kichik</b> bo'lsa, ikkala yuz shuncha o'xshash.
+          <b>0.45 dan kichik</b> bo'lsa — o'sha xodimlarning yuzini qayta oling.
+        </p>
+        <div class="toolbar">
+          <button class="btn btn-secondary" id="btnSecFaceRun">Tekshirishni boshlash</button>
+          <div style="flex:1"></div>
+          <span class="muted" id="secFaceCount"></span>
+        </div>
+        <div style="overflow-x:auto;"><table class="data-table" id="secFaceTable">
+          <thead><tr><th>Xodim</th><th>Kim bilan adashishi mumkin</th><th>Yaqinlik</th><th>Holat</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
       </div>
 
       <!-- 02.10.2026: ish joyidan uzoqda turib kirishga urinilgan
@@ -4214,11 +4235,20 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   var DETECT_WIDTH = 320;
   var _detectCanvas = null;
   var _detectOptions = null;
+  var _deskriptorOptions = null;
   function detectOptions() {
     if (!_detectOptions) {
       _detectOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
     }
     return _detectOptions;
+  }
+  function deskriptorOptions() {
+    // Tanish bosqichi: yuzni to'liq o'lchamda, katta inputSize bilan
+    // tekshiramiz - bu yerda tezlikdan ko'ra ANIQLIK muhim.
+    if (!_deskriptorOptions) {
+      _deskriptorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 });
+    }
+    return _deskriptorOptions;
   }
   function detectSource(videoEl3) {
     const vw = videoEl3.videoWidth || videoEl3.width || 0;
@@ -4280,8 +4310,14 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     // ko'z pirpiratishini tekshirish va ramka chizish uchun u kerak
     // emas; u faqat xodimni taniyotgan freymda kerak.
     const wantDescriptor = !opts || opts.descriptor !== false;
-    const src = detectSource(videoEl3);
-    let task = faceapi.detectSingleFace(src, detectOptions()).withFaceLandmarks();
+    // 02.10.2026 - MUHIM TUZATISH. Tezlik uchun kadr 320 px ga
+    // kichraytirilgan edi. Yuzni KUZATISH uchun bu yetarli, lekin yuz
+    // "barmoq izi"ni (deskriptor) kichraytirilgan kadrdan olish uni
+    // sifatsiz qiladi va odamlarni ADASHTIRIB yuborishi mumkin.
+    // Shuning uchun deskriptor DOIM to'liq kadrdan olinadi.
+    const src = wantDescriptor ? videoEl3 : detectSource(videoEl3);
+    const options = wantDescriptor ? deskriptorOptions() : detectOptions();
+    let task = faceapi.detectSingleFace(src, options).withFaceLandmarks();
     if (wantDescriptor) task = task.withFaceDescriptor();
     let result = await task;
     if (!result) return null;
@@ -4318,7 +4354,32 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     return sum;
   }
   var CORROBORATION_MULTIPLIER = 1.35;
-  var MIN_MARGIN_FROM_RUNNER_UP = 0.08;
+  // 02.10.2026: bir xodim boshqasi deb tanilib qoldi. Ikkinchi nomzoddan
+  // farq kichik bo'lsa - bu "ikkisiga ham o'xshaydi" degani, ya'ni
+  // ishonchsiz. Chegara 0.08 dan 0.14 ga oshirildi.
+  var MIN_MARGIN_FROM_RUNNER_UP = 0.14;
+  // Tanish chegarasi qanchalik bo'sh qo'yilgan bo'lsa ham, bundan
+  // yuqoriga chiqmaydi - aks holda yolg'on tanish xavfi ortadi.
+  var MAX_THRESHOLD = 0.52;
+  // Har bir freym AYNAN bir xil odamni ko'rsatishi shart. Birortasi
+  // boshqa odamni ko'rsatsa yoki umuman tanimasa - tanish bekor.
+  function qatiyMatch(freymlar, ortachaVektor, candidates, threshold) {
+    const chegara = Math.min(Number(threshold) || 0.5, MAX_THRESHOLD);
+    const ortacha = bestMatch(ortachaVektor, candidates, chegara);
+    if (!ortacha.employeeId) {
+      return { employeeId: null, sabab: "chegaradan uzoq", distance: ortacha.distance };
+    }
+    if (!freymlar || freymlar.length < 2) {
+      return { employeeId: null, sabab: "freym kam" };
+    }
+    for (const vektor of freymlar) {
+      const bitta = bestMatch(vektor, candidates, chegara);
+      if (bitta.employeeId !== ortacha.employeeId) {
+        return { employeeId: null, sabab: "freymlar kelishmadi" };
+      }
+    }
+    return { employeeId: ortacha.employeeId, distance: ortacha.distance };
+  }
   function bestMatch(queryDescriptor, candidates, threshold) {
     const distancesByEmployee = /* @__PURE__ */ new Map();
     for (const { employeeId, vector } of candidates) {
@@ -6254,6 +6315,7 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
   var resultTimer = null;
   var recognitionInProgress = false;
   var bosh_yoq = 0;
+  var kichik_yuz = 0;
   var cameraOchilganVaqt = 0;
   var YUZ_YOQ_CHEGARA = 10;
   // 29.09.2026: ilgari setInterval(120ms) ishlatilardi. Telefonda bitta
@@ -6265,6 +6327,11 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
   // 12 ta freymning hammasidan og'ir deskriptor olinardi. Tanish uchun
   // 4 tasi yetarli; qolgan freymlar faqat ko'z pirpiratishini kuzatadi.
   var DESKRIPTOR_KERAK = 4;
+  // Yuz kadrning kamida shuncha qismini egallashi kerak. Uzoqdan
+  // olingan kichik yuzdan sifatli "barmoq izi" chiqmaydi.
+  var MIN_YUZ_ULUSHI = 0.12;
+  // Yuz uzoq vaqt kichik bo'lib tursa - cheksiz kutib qolmaslik uchun.
+  var KICHIK_YUZ_CHEGARA = 45;
   var KAMERA_BEKOR_MS = 45e3;
   var videoEl = document.getElementById("cameraVideo");
   var overlayEl = document.getElementById("cameraOverlay");
@@ -6481,6 +6548,7 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     bestDescriptor = null;
     frameDescriptors = [];
     bosh_yoq = 0;
+    kichik_yuz = 0;
     cameraOchilganVaqt = Date.now();
     recognitionInProgress = false;
     try {
@@ -6550,7 +6618,7 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
   }
   async function runDetectionTick() {
     if (!mediaStream || recognitionInProgress) return;
-    const deskriptorKerak = frameDescriptors.length < DESKRIPTOR_KERAK && collectedFrames % 2 === 0;
+    const deskriptorKerak = frameDescriptors.length < DESKRIPTOR_KERAK;
     let detection;
     try {
       detection = await detectFace(videoEl, { descriptor: deskriptorKerak });
@@ -6579,6 +6647,24 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     ctx.strokeStyle = "#ED2040";
     ctx.lineWidth = 3;
     ctx.strokeRect(box.x, box.y, box.width, box.height);
+    // Yuz juda kichik bo'lsa (uzoqda turibdi) - bu freym hisobga
+    // olinmaydi, aks holda sifatsiz "barmoq izi" olinadi.
+    const kadrEni = overlayEl.width || videoEl.videoWidth || 1;
+    if (box.width < kadrEni * MIN_YUZ_ULUSHI) {
+      kichik_yuz += 1;
+      if (kichik_yuz >= KICHIK_YUZ_CHEGARA) {
+        // Cheksiz "yaqinroq keling" deb turib qolmasin.
+        stopCamera();
+        showResultWarning(
+          "Yuz juda uzoqda",
+          "Kameraga yaqinroq turib, qaytadan urinib ko'ring."
+        );
+        return;
+      }
+      cameraStatus.textContent = "Kameraga yaqinroq keling\u2026";
+      return;
+    }
+    kichik_yuz = 0;
     livenessTracker.addSample(detection.landmarks);
     collectedFrames += 1;
     if (detection.descriptor) frameDescriptors.push(detection.descriptor);
@@ -6664,8 +6750,18 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
         )
       ]);
       const threshold = numSetting(thresholdRaw, 0.5);
-      const { employeeId } = bestMatch(bestDescriptor, candidates, threshold);
+      const natija = qatiyMatch(frameDescriptors, bestDescriptor, candidates, threshold);
+      const employeeId = natija.employeeId;
       if (!employeeId) {
+        if (natija.sabab === "freymlar kelishmadi" || natija.sabab === "freym kam") {
+          // Bu "noma'lum odam" emas - tizim ishonchi yetmadi.
+          // Noto'g'ri odamni ko'rsatgandan ko'ra qayta so'ragan yaxshi.
+          showResultWarning(
+            "Aniq tanib bo'lmadi",
+            "Kameraga to'g'ri va yaqinroq qarang, so'ng qayta urinib ko'ring."
+          );
+          return;
+        }
         captureUnknownFace().catch((err) => console.error("Unknown-face capture failed (non-fatal):", err));
         showResultError("\u26A0\uFE0F Xodim aniqlanmadi", "Iltimos, administratorga murojaat qiling.");
         return;
@@ -6711,7 +6807,7 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
         db.getAllAdminFaceCandidates()
       ]);
       const threshold = numSetting(thresholdRaw, 0.5);
-      const { employeeId: adminUserId } = bestMatch(bestDescriptor, candidates, threshold);
+      const { employeeId: adminUserId } = qatiyMatch(frameDescriptors, bestDescriptor, candidates, threshold);
       if (!adminUserId) {
         showResultError("\u26A0\uFE0F Ruxsat yo'q", "Administrator sifatida tanilmadingiz.");
         return;
@@ -8557,10 +8653,10 @@ ${origLine}${reasonLine}` });
           if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             throw { name: "SecurityError" };
           }
-          // Telefon standart holda 1280x720 yoki undan kattaroq kadr
-          // beradi — bu ortiqcha yuk. 640x480 yetarli.
+          // 02.10.2026: ro'yxatdan o'tkazishda SIFAT birinchi o'rinda —
+          // bu yerda olingan "barmoq izi" keyin oylab ishlatiladi.
           mediaStream2 = await navigator.mediaDevices.getUserMedia({
-            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+            video: { width: { ideal: 960 }, height: { ideal: 720 }, facingMode: "user" },
             audio: false
           });
           videoEl2.srcObject = mediaStream2;
@@ -11276,6 +11372,77 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       if (ochilyapti) renderGeoBreaches();
     });
     document.getElementById("btnSecGeoRefresh").addEventListener("click", renderGeoBreaches);
+    const faceBtn = document.getElementById("btnSecFaceAudit");
+    faceBtn.addEventListener("click", () => {
+      const panel = document.getElementById("secFacePanel");
+      const ochilyapti = panel.style.display === "none";
+      panel.style.display = ochilyapti ? "" : "none";
+      if (ochilyapti) renderFaceAudit();
+    });
+    document.getElementById("btnSecFaceRun").addEventListener("click", renderFaceAudit);
+  }
+  async function renderFaceAudit() {
+    const tbody = document.getElementById("secFaceTable").querySelector("tbody");
+    const countEl = document.getElementById("secFaceCount");
+    tbody.innerHTML = `<tr><td colspan="4" class="muted">Hisoblanmoqda\u2026</td></tr>`;
+    let rows, employees, thresholdRaw;
+    try {
+      [rows, employees, thresholdRaw] = await Promise.all([
+        _db10.getAllActiveEmbeddings(),
+        _db10.listEmployees({ activeOnly: true }),
+        _db10.getSetting("face_match_threshold")
+      ]);
+    } catch (err) {
+      tbody.innerHTML = "";
+      countEl.textContent = "";
+      await alertDialog({ title: "Tekshirib bo'lmadi", message: uzError(err) });
+      return;
+    }
+    const threshold = Math.min(Number(thresholdRaw) || 0.5, 0.52);
+    const nomlar = new Map(employees.map((e) => [e.id, `${e.firstName || ""} ${e.lastName || ""}`.trim()]));
+    // Har bir xodim juftligi uchun ENG YAQIN masofani topamiz.
+    const eng = /* @__PURE__ */ new Map();
+    for (let i = 0; i < rows.length; i++) {
+      for (let j = i + 1; j < rows.length; j++) {
+        const a = rows[i], b2 = rows[j];
+        if (!a.employeeId || !b2.employeeId || a.employeeId === b2.employeeId) continue;
+        const d = euclideanDistance(a.vector, b2.vector);
+        const kalit = a.employeeId < b2.employeeId ? `${a.employeeId}|${b2.employeeId}` : `${b2.employeeId}|${a.employeeId}`;
+        if (!eng.has(kalit) || d < eng.get(kalit)) eng.set(kalit, d);
+      }
+    }
+    const juftlar = [...eng.entries()].map(([kalit, d]) => {
+      const [x, y] = kalit.split("|");
+      return { a: nomlar.get(x) || x, b: nomlar.get(y) || y, d };
+    }).sort((p1, p2) => p1.d - p2.d);
+    const xavfli = juftlar.filter((p) => p.d < threshold + 0.14);
+    countEl.textContent = `${rows.length} ta yuz yozuvi \u2014 ${xavfli.length} ta xavfli juft`;
+    tbody.innerHTML = "";
+    if (!juftlar.length) {
+      tbody.innerHTML = `<tr><td colspan="4" class="muted">Taqqoslash uchun kamida ikkita xodimning yuzi kerak.</td></tr>`;
+      return;
+    }
+    for (const juft of juftlar.slice(0, 40)) {
+      const tr = document.createElement("tr");
+      let holat, rang;
+      if (juft.d < threshold) {
+        holat = "\u{1F534} XAVFLI \u2014 yuzni qayta oling";
+        rang = "#C41230";
+      } else if (juft.d < threshold + 0.14) {
+        holat = "\u{1F7E0} Chegaraga yaqin \u2014 kuzating";
+        rang = "#B35A00";
+      } else {
+        holat = "\u{1F7E2} Yaxshi";
+        rang = "#0E6B3A";
+      }
+      tr.innerHTML = `<td>${escapeHtml(juft.a)}</td><td>${escapeHtml(juft.b)}</td><td><b>${juft.d.toFixed(3)}</b></td><td style="color:${rang}">${holat}</td>`;
+      tbody.appendChild(tr);
+    }
+    if (juftlar.length > 40) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="4" class="muted">Eng yaqin 40 juft ko'rsatildi (jami ${juftlar.length}).</td>`;
+      tbody.appendChild(tr);
+    }
   }
   async function renderGeoBreaches() {
     const grid2 = document.getElementById("secGeoGrid");
@@ -11361,6 +11528,8 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     if (panel && panel.style.display !== "none") await renderUnknownFaces();
     const geoPanel = document.getElementById("secGeoPanel");
     if (geoPanel && geoPanel.style.display !== "none") await renderGeoBreaches();
+    const facePanel = document.getElementById("secFacePanel");
+    if (facePanel && facePanel.style.display !== "none") await renderFaceAudit();
   }
   async function renderUnknownFaces() {
     const grid2 = document.getElementById("secUnknownGrid");
@@ -12449,7 +12618,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-10-02 13:30 UTC";
+  var BUILD_STAMP = "2026-10-02 15:10 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
