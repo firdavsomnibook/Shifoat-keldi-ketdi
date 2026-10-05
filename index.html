@@ -12677,6 +12677,21 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
     document.body.appendChild(bar);
   }
   var BOOT_SOQCHI_MS = 9e3;
+  // 04.10.2026: link orqali to'g'ridan-to'g'ri admin kirish oynasini ochish
+  // uchun ("?admin=1" parametri bilan) — masalan Shifoat Dorixonasi ilovasidagi
+  // "Face ID tizimi" tugmasi shu linkdan foydalanadi, shunda rahbar har safar
+  // "Boshqa" tugmasini qo'lda bosib o'tirmasdan to'g'ri login oynasiga tushadi.
+  function maybeAutoOpenAdminLogin() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("admin") === "1") {
+        const modal = document.getElementById("adminLoginModal");
+        if (modal) modal.classList.add("active");
+      }
+    } catch (err) {
+      console.error("Admin login oynasini avtomatik ochishda xato:", err);
+    }
+  }
   async function bootstrap() {
     const backHomeBtn = document.getElementById("btnBackHome");
     if (backHomeBtn) backHomeBtn.addEventListener("click", goHome);
@@ -12711,6 +12726,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
         }
       } else {
         await bootKiosk();
+        maybeAutoOpenAdminLogin();
       }
     } catch (err) {
       console.error("Dastur ochilishida xato:", err);
