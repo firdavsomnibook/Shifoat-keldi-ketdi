@@ -4375,23 +4375,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     if (!freymlar || freymlar.length < 2) {
       return { employeeId: null, sabab: "freym kam" };
     }
-    // 05.10.2026: avval HAR BIR freym tanishi shart edi - bitta shovqinli
-    // freym ham butun urinishni bekor qilardi va "tanimadi" chiqardi.
-    // Endi qoida ikkita:
-    //   1) birorta freym BOSHQA odamni ko'rsatsa - bekor (adashtirmaslik)
-    //   2) kamida ikkita freym AYNAN o'sha odamni ko'rsatishi shart
-    // Hech kimni tanimagan ("bo'sh") freymlar shunchaki e'tiborsiz.
-    let tasdiq = 0;
     for (const vektor of freymlar) {
       const bitta = bestMatch(vektor, candidates, chegara);
-      if (!bitta.employeeId) continue;
       if (bitta.employeeId !== ortacha.employeeId) {
         return { employeeId: null, sabab: "freymlar kelishmadi" };
       }
-      tasdiq += 1;
-    }
-    if (tasdiq < 2) {
-      return { employeeId: null, sabab: "tasdiq kam" };
     }
     return { employeeId: ortacha.employeeId, distance: ortacha.distance };
   }
@@ -5511,25 +5499,10 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
     return Math.round(2 * R * Math.asin(Math.min(1, Math.sqrt(a))));
   }
-  // 05.10.2026 o'lchovi: noutbukda joylashuv javobi 4-soniyada keldi,
-  // lekin dastur yana 6 soniya "yaxshiroq aniqlik" kutib turdi - noutbukda
-  // esa u hech qachon yaxshilanmaydi. Endi birinchi javobdan keyin
-  // ko'pi bilan QOSHIMCHA_KUTISH davomida kutamiz, keyin boramiz.
-  var QOSHIMCHA_KUTISH_MS = 900;
-  // Ertalab xodimlar ketma-ket keladi. Qurilma qimirlamagan bo'lsa,
-  // har safar joylashuvni qaytadan aniqlash - bekor kutish. Oxirgi
-  // o'lchov bir daqiqa davomida qayta ishlatiladi.
-  var JOY_KESH_MS = 6e4;
-  var _oxirgiJoy = null;
-  var _oxirgiJoyVaqti = 0;
   function getBestPosition({ maxWaitMs = 6e3, targetAccuracyM = 20 } = {}) {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
         reject(new Error(isFilePage() ? describeGeoError({ code: 1 }) : "Bu brauzer joylashuvni aniqlashni qo'llab-quvvatlamaydi."));
-        return;
-      }
-      if (_oxirgiJoy && Date.now() - _oxirgiJoyVaqti < JOY_KESH_MS) {
-        resolve(_oxirgiJoy);
         return;
       }
       let best = null;
@@ -5540,13 +5513,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         done = true;
         if (watchId !== null) navigator.geolocation.clearWatch(watchId);
         clearTimeout(timer2);
-        if (best) {
-          _oxirgiJoy = best;
-          _oxirgiJoyVaqti = Date.now();
-          resolve(best);
-        } else {
-          reject(err || new Error(describeGeoError({ code: 3 })));
-        }
+        if (best) resolve(best);
+        else reject(err || new Error(describeGeoError({ code: 3 })));
       };
       const timer2 = setTimeout(() => finish2(), maxWaitMs);
       watchId = navigator.geolocation.watchPosition(
@@ -5556,17 +5524,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
             lng: pos.coords.longitude,
             accuracy: Math.round(pos.coords.accuracy || 0)
           };
-          const birinchi = !best;
           if (!best || reading.accuracy < best.accuracy) best = reading;
-          if (best.accuracy <= targetAccuracyM) {
-            finish2();
-            return;
-          }
-          if (birinchi) {
-            // Birinchi javob keldi. Yaxshirog'i kelsa olamiz, lekin
-            // uzoq kutmaymiz.
-            setTimeout(() => finish2(), QOSHIMCHA_KUTISH_MS);
-          }
+          if (best.accuracy <= targetAccuracyM) finish2();
         },
         (err) => {
           if (best) {
@@ -6360,12 +6319,6 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
   var recognitionInProgress = false;
   var bosh_yoq = 0;
   var kichik_yuz = 0;
-  var geoVada = null;
-  // Ishonch yetmaganda darhol "tanimadi" demaymiz - jimgina yana
-  // skaner qilamiz. Xodim buni sezmaydi, shunchaki bir soniya ko'proq
-  // turadi.
-  var qaytaUrinish = 0;
-  var MAX_QAYTA_URINISH = 2;
   var cameraOchilganVaqt = 0;
   var YUZ_YOQ_CHEGARA = 10;
   // 29.09.2026: ilgari setInterval(120ms) ishlatilardi. Telefonda bitta
@@ -6552,16 +6505,35 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     cameraStatus.textContent = SCAN_HINT_TEXT;
     showScreen("camera");
     await ensureReady();
-    // 05.10.2026 so'rovi: "birinchi yuzni skaner qilsin, keyin joylashuvni".
-    // Joylashuv endi KUTILMAYDI - u fon rejimida, kamera bilan BIR VAQTDA
-    // aniqlanadi. Natija xodim tanilgandan keyin, davomat yozilishidan
-    // OLDIN tekshiriladi (qarang finishRecognition). Shunday qilib
-    // himoya ham saqlanadi, 10 soniyalik kutish ham yo'qoladi.
-    geoVada = checkLocationGate().catch((err) => {
+    cameraStatus.textContent = "Joylashuv tekshirilmoqda\u2026";
+    let geo;
+    try {
+      geo = await checkLocationGate();
+    } catch (err) {
       console.error("Geofence check failed:", err);
-      return { allowed: true };
-    });
-    cameraStatus.textContent = SCAN_HINT_TEXT;
+      geo = { allowed: true };
+    }
+    if (!geo.allowed) {
+      stopCamera();
+      showScreen("home");
+      if (geo.unavailable) {
+        const retry = await confirmDialog({
+          title: "Joylashuv aniqlanmadi",
+          message: (geo.reason || "Joylashuvni aniqlab bo'lmadi.") + '\n\nBu \u2014 "ish joyidan tashqaridasiz" degani EMAS: qurilma joylashuvni umuman bermadi.',
+          okText: "Qayta urinish",
+          cancelText: "Yopish"
+        });
+        if (retry) await startCamera(mode2);
+        return;
+      }
+      await alertDialog({
+        title: "Ish joyidan tashqarida",
+        message: geo.reason || "Siz ish joyidan tashqaridasiz."
+      });
+      return;
+    }
+    cameraStatus.textContent = currentBranch ? `${SCAN_HINT_TEXT}
+\u{1F4CD} ${currentBranch.name}` : SCAN_HINT_TEXT;
     requiredFrames = numSetting(
       await oqishYokiZaxira(db.getSetting("recognition_hold_frames"), null, "Freym sozlamasi"),
       12
@@ -6580,7 +6552,6 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     frameDescriptors = [];
     bosh_yoq = 0;
     kichik_yuz = 0;
-    qaytaUrinish = 0;
     cameraOchilganVaqt = Date.now();
     recognitionInProgress = false;
     try {
@@ -6750,42 +6721,7 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       mode: currentMode2
     });
   }
-  async function joylashuvNatijasi() {
-    // Kamera ishlagan vaqtda joylashuv ham aniqlanib bo'lgan - odatda
-    // bu yerda kutish 0 ga teng.
-    if (!geoVada) return { allowed: true };
-    try {
-      return await geoVada;
-    } catch (err) {
-      console.error("Geofence promise failed:", err);
-      return { allowed: true };
-    }
-  }
-  async function joylashuvTosigi(mode2) {
-    const geo = await joylashuvNatijasi();
-    if (geo.allowed) return true;
-    stopCamera();
-    showScreen("home");
-    if (geo.unavailable) {
-      const retry = await confirmDialog({
-        title: "Joylashuv aniqlanmadi",
-        message: (geo.reason || "Joylashuvni aniqlab bo'lmadi.") + '\n\nBu \u2014 "ish joyidan tashqaridasiz" degani EMAS: qurilma joylashuvni umuman bermadi.',
-        okText: "Qayta urinish",
-        cancelText: "Yopish"
-      });
-      if (retry) await startCamera(mode2 || currentMode2);
-      return false;
-    }
-    await alertDialog({
-      title: "Ish joyidan tashqarida",
-      message: geo.reason || "Siz ish joyidan tashqaridasiz."
-    });
-    return false;
-  }
   async function finishRecognition() {
-    // Yuz tanildi - endi joylashuvni tekshiramiz (davomat yozilishidan
-    // oldin). Agar ish joyidan tashqarida bo'lsa, hech narsa yozilmaydi.
-    if (!await joylashuvTosigi(currentMode2)) return;
     if (!livenessTracker.isLive) {
       showResultWarning(
         "Yuzingiz yaxshi ko'rinmayapti.",
@@ -6820,20 +6756,7 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       const natija = qatiyMatch(frameDescriptors, bestDescriptor, candidates, threshold);
       const employeeId = natija.employeeId;
       if (!employeeId) {
-        const ishonchsiz = natija.sabab === "freymlar kelishmadi" || natija.sabab === "freym kam" || natija.sabab === "tasdiq kam";
-        if (ishonchsiz && qaytaUrinish < MAX_QAYTA_URINISH && mediaStream) {
-          // Jimgina yana bir bor urinamiz.
-          qaytaUrinish += 1;
-          collectedFrames = 0;
-          frameDescriptors = [];
-          bestDescriptor = null;
-          bosh_yoq = 0;
-          if (livenessTracker && typeof livenessTracker.reset === "function") livenessTracker.reset();
-          cameraStatus.textContent = "Biroz kuting\u2026";
-          boshlaDetectLoop();
-          return;
-        }
-        if (ishonchsiz) {
+        if (natija.sabab === "freymlar kelishmadi" || natija.sabab === "freym kam") {
           // Bu "noma'lum odam" emas - tizim ishonchi yetmadi.
           // Noto'g'ri odamni ko'rsatgandan ko'ra qayta so'ragan yaxshi.
           showResultWarning(
@@ -6911,7 +6834,7 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     stopCamera();
     try {
       const user = await db.login(adminUser.username, adminUser.recoveryPassword);
-      sessionStorage.setItem("shifoat_admin_user_id", user.id);
+      localStorage.setItem("shifoat_admin_user_id", user.id);
       if (window.__shifoatEnterAdmin) {
         await window.__shifoatEnterAdmin();
       } else {
@@ -7267,7 +7190,7 @@ ${branchNote}` : branchNote;
           await refuseOutsideLogin(gate.reason);
           return;
         }
-        sessionStorage.setItem("shifoat_admin_user_id", adminUser.id);
+        localStorage.setItem("shifoat_admin_user_id", adminUser.id);
         if (window.__shifoatEnterAdmin) {
           await window.__shifoatEnterAdmin();
         } else {
@@ -7299,7 +7222,7 @@ ${branchNote}` : branchNote;
       errorEl.textContent = "Login yoki parol noto'g'ri.";
     }
     async function refuseOutsideLogin(reason) {
-      sessionStorage.removeItem("shifoat_admin_user_id");
+      localStorage.removeItem("shifoat_admin_user_id");
       try {
         if (typeof db.signOutCurrentUser === "function") await db.signOutCurrentUser();
       } catch (err) {
@@ -12536,7 +12459,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
   async function bootAdminInner() {
     const db2 = await getDb();
-    const userId = sessionStorage.getItem("shifoat_admin_user_id");
+    const userId = localStorage.getItem("shifoat_admin_user_id");
     if (!userId) return showNotLoggedIn();
     const user = await db2.getUserById(userId);
     if (!user || !user.isActive) return showNotLoggedIn();
@@ -12550,7 +12473,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
     if (!logoutBtn.dataset.wired) {
       logoutBtn.dataset.wired = "1";
       logoutBtn.addEventListener("click", () => {
-        sessionStorage.removeItem("shifoat_admin_user_id");
+        localStorage.removeItem("shifoat_admin_user_id");
         window.location.reload();
       });
     }
@@ -12701,14 +12624,14 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-10-05 10:30 UTC";
+  var BUILD_STAMP = "2026-10-05 07:50 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
   buildTag.style.cssText = "position:fixed; bottom:4px; right:8px; font-size:10px; color:#B9BCD6; z-index:9999; pointer-events:none; font-family:monospace;";
   document.body.appendChild(buildTag);
   function goHome() {
-    sessionStorage.removeItem("shifoat_admin_user_id");
+    localStorage.removeItem("shifoat_admin_user_id");
     window.location.reload();
   }
   async function enterAdmin() {
@@ -12754,6 +12677,21 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
     document.body.appendChild(bar);
   }
   var BOOT_SOQCHI_MS = 9e3;
+  // 04.10.2026: link orqali to'g'ridan-to'g'ri admin kirish oynasini ochish
+  // uchun ("?admin=1" parametri bilan) — masalan Shifoat Dorixonasi ilovasidagi
+  // "Face ID tizimi" tugmasi shu linkdan foydalanadi, shunda rahbar har safar
+  // "Boshqa" tugmasini qo'lda bosib o'tirmasdan to'g'ri login oynasiga tushadi.
+  function maybeAutoOpenAdminLogin() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("admin") === "1") {
+        const modal = document.getElementById("adminLoginModal");
+        if (modal) modal.classList.add("active");
+      }
+    } catch (err) {
+      console.error("Admin login oynasini avtomatik ochishda xato:", err);
+    }
+  }
   async function bootstrap() {
     const backHomeBtn = document.getElementById("btnBackHome");
     if (backHomeBtn) backHomeBtn.addEventListener("click", goHome);
@@ -12765,7 +12703,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
       }
     }, BOOT_SOQCHI_MS);
     try {
-      const adminUserId = sessionStorage.getItem("shifoat_admin_user_id");
+      const adminUserId = localStorage.getItem("shifoat_admin_user_id");
       if (adminUserId) {
         try {
           await bootAdmin();
@@ -12775,19 +12713,20 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
             const kiosk = document.getElementById("kioskRoot");
             if (kiosk) kiosk.style.display = "none";
           } else {
-            sessionStorage.removeItem("shifoat_admin_user_id");
+            localStorage.removeItem("shifoat_admin_user_id");
             const eskirgan = document.getElementById("notLoggedInScreen");
             if (eskirgan) eskirgan.style.display = "none";
             await bootKiosk();
           }
         } catch (err) {
           console.error("Admin panel ochilmadi, kioskka qaytamiz:", err);
-          sessionStorage.removeItem("shifoat_admin_user_id");
+          localStorage.removeItem("shifoat_admin_user_id");
           await bootKiosk();
           xatoBanner("Admin paneliga kirib bo'lmadi \u2014 bosh ekran ochildi.");
         }
       } else {
         await bootKiosk();
+        maybeAutoOpenAdminLogin();
       }
     } catch (err) {
       console.error("Dastur ochilishida xato:", err);
