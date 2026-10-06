@@ -2125,6 +2125,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       getAuth,
       initializeAuth,
       inMemoryPersistence,
+      indexedDBLocalPersistence,
+      browserLocalPersistence,
       signInWithEmailAndPassword,
       createUserWithEmailAndPassword,
       signOut: fbSignOut,
@@ -2136,7 +2138,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
     let auth;
     try {
-      auth = initializeAuth(app, { persistence: inMemoryPersistence });
+      // 06.10.2026: asosiy sessiya brauzerda saqlanadi (IndexedDB, bo'lmasa
+      // localStorage). Avval inMemoryPersistence edi — sahifa yopilgach Firebase
+      // sessiyasi yo'qolib, "shifoat_admin_user_id" bilan qayta ochilganda
+      // Firestore o'qishi rad etilar va admin qayta login qilishga majbur bo'lardi.
+      auth = initializeAuth(app, { persistence: [indexedDBLocalPersistence, browserLocalPersistence, inMemoryPersistence] });
     } catch (err) {
       auth = getAuth(app);
     }
@@ -2888,6 +2894,16 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     function onAuthChange(callback) {
       return onAuthStateChanged(auth, callback);
     }
+    // Saqlangan sessiya tiklanguncha kutadi (sahifa qayta ochilganda).
+    async function waitForAuthReady2() {
+      try {
+        if (typeof auth.authStateReady === "function") await auth.authStateReady();
+      } catch (err) {
+        console.warn("authStateReady failed:", err);
+      }
+      const u = auth.currentUser;
+      return u ? { uid: u.uid, isAnonymous: !!u.isAnonymous } : null;
+    }
     async function getUserById2(id) {
       const snap = await getDoc(doc(dbFs, "users", id));
       return snap.exists() ? docToObject(snap) : null;
@@ -3198,6 +3214,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       exportBackupJson: exportBackupJson2,
       importBackupJson: importBackupJson2,
       ensureKioskSession: ensureKioskSession2,
+      waitForAuthReady: waitForAuthReady2,
       mode: "firebase"
     };
   }
@@ -12461,6 +12478,10 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
     const db2 = await getDb();
     const userId = localStorage.getItem("shifoat_admin_user_id");
     if (!userId) return showNotLoggedIn();
+    if (typeof db2.waitForAuthReady === "function") {
+      const session = await db2.waitForAuthReady();
+      if (!session || session.isAnonymous || session.uid !== userId) return showNotLoggedIn();
+    }
     const user = await db2.getUserById(userId);
     if (!user || !user.isActive) return showNotLoggedIn();
     if (user.role === "SUPER_ADMIN" && db2.forceUpdateSpeedSettings) {
@@ -12472,8 +12493,13 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
     const logoutBtn = document.getElementById("btnLogout");
     if (!logoutBtn.dataset.wired) {
       logoutBtn.dataset.wired = "1";
-      logoutBtn.addEventListener("click", () => {
+      logoutBtn.addEventListener("click", async () => {
         localStorage.removeItem("shifoat_admin_user_id");
+        try {
+          if (typeof db2.signOutCurrentUser === "function") await db2.signOutCurrentUser();
+        } catch (err) {
+          console.error("Sign-out on logout failed:", err);
+        }
         window.location.reload();
       });
     }
@@ -12630,8 +12656,14 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   buildTag.textContent = "build: " + BUILD_STAMP;
   buildTag.style.cssText = "position:fixed; bottom:4px; right:8px; font-size:10px; color:#B9BCD6; z-index:9999; pointer-events:none; font-family:monospace;";
   document.body.appendChild(buildTag);
-  function goHome() {
+  async function goHome() {
     localStorage.removeItem("shifoat_admin_user_id");
+    try {
+      const db2 = await getDb();
+      if (typeof db2.signOutCurrentUser === "function") await db2.signOutCurrentUser();
+    } catch (err) {
+      console.error("Sign-out on goHome failed:", err);
+    }
     window.location.reload();
   }
   async function enterAdmin() {
