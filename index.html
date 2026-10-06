@@ -3126,6 +3126,9 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       );
     }
     async function ensureKioskSession2() {
+      // Saqlangan (masalan admin) sessiya tiklanishini kutamiz — aks holda
+      // currentUser hali null bo'lib, anonim kirish admin sessiyasini almashtirib yuboradi.
+      await waitForAuthReady2();
       if (!auth.currentUser) {
         await signInAnonymously(auth);
       }
@@ -12650,7 +12653,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-10-05 07:50 UTC";
+  var BUILD_STAMP = "2026-10-06 admin-sessiya-v2";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
@@ -12724,6 +12727,23 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
       console.error("Admin login oynasini avtomatik ochishda xato:", err);
     }
   }
+  // localStorage'dagi kalit yo'qolgan bo'lsa-yu, Firebase sessiyasi (IndexedDB)
+  // saqlanib qolgan bo'lsa, adminni sessiyadan tiklaymiz.
+  async function saqlanganAdminniTiklash() {
+    try {
+      const db2 = await getDb();
+      if (typeof db2.waitForAuthReady !== "function") return null;
+      const session = await db2.waitForAuthReady();
+      if (!session || session.isAnonymous) return null;
+      const user = await db2.getUserById(session.uid);
+      if (!user || !user.isActive) return null;
+      localStorage.setItem("shifoat_admin_user_id", user.id);
+      return user.id;
+    } catch (err) {
+      console.warn("Saqlangan admin sessiyasini tiklab bo'lmadi:", err);
+      return null;
+    }
+  }
   async function bootstrap() {
     const backHomeBtn = document.getElementById("btnBackHome");
     if (backHomeBtn) backHomeBtn.addEventListener("click", goHome);
@@ -12735,7 +12755,8 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
       }
     }, BOOT_SOQCHI_MS);
     try {
-      const adminUserId = localStorage.getItem("shifoat_admin_user_id");
+      let adminUserId = localStorage.getItem("shifoat_admin_user_id");
+      if (!adminUserId) adminUserId = await saqlanganAdminniTiklash();
       if (adminUserId) {
         try {
           await bootAdmin();
@@ -12745,16 +12766,19 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
             const kiosk = document.getElementById("kioskRoot");
             if (kiosk) kiosk.style.display = "none";
           } else {
+            // Sessiya haqiqatan yaroqsiz (chiqilgan / admin o'chirilgan) — kalitni tozalaymiz.
             localStorage.removeItem("shifoat_admin_user_id");
             const eskirgan = document.getElementById("notLoggedInScreen");
             if (eskirgan) eskirgan.style.display = "none";
             await bootKiosk();
+            maybeAutoOpenAdminLogin();
           }
         } catch (err) {
+          // Vaqtinchalik xato (internet sekin va h.k.) — kalitni O'CHIRMAYMIZ,
+          // keyingi ochilishda admin paneli yana avtomatik ochilsin.
           console.error("Admin panel ochilmadi, kioskka qaytamiz:", err);
-          localStorage.removeItem("shifoat_admin_user_id");
           await bootKiosk();
-          xatoBanner("Admin paneliga kirib bo'lmadi \u2014 bosh ekran ochildi.");
+          xatoBanner("Admin paneliga kirib bo'lmadi \u2014 bosh ekran ochildi. Qayta urinib ko'ring.");
         }
       } else {
         await bootKiosk();
