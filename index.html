@@ -12983,8 +12983,8 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/autoUpdate.js
-  var CHECK_MS = 10 * 60 * 1e3;
-  var FIRST_CHECK_MS = 60 * 1e3;
+  var CHECK_MS = 2 * 60 * 1e3;
+  var FIRST_CHECK_MS = 15 * 1e3;
   var MAX_RELOADS = 3;
   var TAG_KEY = "shifoat_build_tag";
   var COUNT_KEY = "shifoat_reload_count";
@@ -13018,7 +13018,10 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
     const el2 = document.getElementById("adminRoot");
     return !!el2 && getComputedStyle(el2).display !== "none";
   }
+  var dialogOchiq = false;
   function showUpdateDialog() {
+    if (dialogOchiq) return;
+    dialogOchiq = true;
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay active";
     overlay.style.cssText = "position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.3);";
@@ -13046,7 +13049,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
     btnCancel.type = "button";
     btnCancel.style.cssText = "padding:10px 20px; border:1px solid #D4D8E9; background:#fff; color:#5A6071; border-radius:6px; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit;";
     btnCancel.textContent = "Keyinroq";
-    btnCancel.addEventListener("click", () => overlay.remove());
+    btnCancel.addEventListener("click", () => { overlay.remove(); dialogOchiq = false; });
 
     const btnOk = document.createElement("button");
     btnOk.type = "button";
@@ -13108,8 +13111,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
         return;
       }
       if (tag === baseTag) return;
-      if (kioskIdle()) showUpdateDialog();
-      else if (adminOpen()) showAdminBanner();
+      if (kioskIdle() || adminOpen()) showUpdateDialog();
     } catch {
     }
   }
@@ -13129,7 +13131,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-10-07 18:45 UTC - GITHUB TEST UPDATE";
+  var BUILD_STAMP = "2026-10-07 21:00 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
