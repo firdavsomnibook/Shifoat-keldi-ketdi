@@ -1823,7 +1823,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         children: [
           hbKatak(day.dateStr, { size: KICHIK, align: AlignmentType.CENTER, fill: fon }),
           hbKatak(day.weekdayUz, { size: KICHIK, fill: fon }),
-          hbKatak(day.statusLabel, { size: KICHIK, fill: fon }),
+          hbKatak(day.offlineQueued
+            ? [new Paragraph({ spacing: { before: 0, after: 0, line: 200, lineRule: "auto" }, children: [
+                new TextRun({ text: String(day.statusLabel), size: KICHIK }),
+                new TextRun({ text: " \u00B7 oflayn", size: KICHIK, bold: true, color: "B26A00" })] })]
+            : day.statusLabel, { size: KICHIK, fill: fon }),
           hbKatak(day.checkIn, { size: KICHIK, align: AlignmentType.CENTER, fill: fon }),
           hbKatak(day.checkOut, { size: KICHIK, align: AlignmentType.CENTER, fill: fon }),
           hbKatak(kech, { size: KICHIK, align: AlignmentType.CENTER, fill: fon,
@@ -1875,6 +1879,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       hbBoshQator(),
       hbKunlik(report.days),
       hbBoshQator(),
+      ...(report.days.some((d) => d.offlineQueued) ? [hbMatn("\u00ABoflayn\u00BB \u2014 internet yo'q paytda qurilmada saqlanib, aloqa tiklangach yuborilgan yozuv.", { size: 13, color: "B26A00" })] : []),
       hbMatn(`${BRAND_NAME} ${BRAND_SINCE} — Face ID tizimi tomonidan avtomatik shakllantirildi.`,
            { italics: true, size: 13, color: "666666" }),
       hbBoshQator(),
@@ -5793,6 +5798,7 @@ Masofa: ~${distanceM} metr (ruxsat: ${cfg.radiusM} metr).`,
   async function resolveBranchByLocation(db2) {
     let branches = [];
     try {
+      if (oflaynRejim()) throw new Error("oflayn rejim");
       branches = await db2.listBranches({ activeOnly: true });
       saqlaFiliallar(branches);
     } catch (err) {
@@ -6059,9 +6065,16 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
       return { yuborildi: 0, qoldi: list.length };
     }
+    if (oflaynRejim()) return { yuborildi: 0, qoldi: list.length };
     _yuborilmoqda = true;
     let yuborildi = 0;
     try {
+      try {
+        await vaqtBilanCheklash(db2.ensureKioskSession(), 12e3);
+      } catch (e) {
+        console.warn("Oflayn navbat: server sessiyasi hali yo'q, keyin uriniladi.", e);
+        return { yuborildi: 0, qoldi: list.length };
+      }
       list.sort((a, b) => String(a.atIso).localeCompare(String(b.atIso)));
       const yiqilgan = /* @__PURE__ */ new Set();
       for (const yozuv of [...list]) {
@@ -6373,6 +6386,7 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     banner2.style.cssText = "position:fixed; top:0; left:0; right:0; z-index:9997; background:#FFF6E5; color:#9A6B00; border-bottom:2px solid #E0A400; padding:10px 16px; font-size:13px; text-align:center; font-weight:600;";
     banner2.textContent = "\u26A0\uFE0F " + message;
     document.body.appendChild(banner2);
+    return banner2;
   }
   function numSetting(raw, fallback) {
     if (raw === null || raw === void 0 || raw === "") return fallback;
@@ -6568,10 +6582,33 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     setTimeout(bootBelgisiniYop, BOOT_BUSY_MAX_MS);
     return kioskReady;
   }
+  // 08.10.2026: internet yo'q / server javob bermayotgan holat belgisi.
+  // true bo'lsa davomat bazaga urinmasdan to'g'ridan-to'g'ri qurilma
+  // navbatiga yoziladi va internet tiklangach o'zi yuboriladi.
+  var kioskOflayn = false;
+  function oflaynRejim() {
+    return kioskOflayn || currentMode() === "local-fallback";
+  }
+  // Internet tiklanganda sahifani yangilash — faqat xodim skaner qilmayotgan paytda.
+  function boshEkrandaYangila() {
+    const t = setInterval(() => {
+      const home = document.getElementById("screen-home");
+      const adminEl = document.getElementById("adminRoot");
+      const adminOchiq = !!adminEl && getComputedStyle(adminEl).display !== "none";
+      if (home && home.classList.contains("active") && !adminOchiq && !document.querySelector(".modal-overlay.active")) {
+        clearInterval(t);
+        location.reload();
+      }
+    }, 1e3);
+  }
   var BOOT_BUSY_MAX_MS = 6e3;
   var SCAN_READ_MS = 8e3;
   var ROLLOVER_OYNA_MS = 6 * 60 * 60 * 1e3;
   async function oqishYokiZaxira(promise, zaxira, nima) {
+    if (oflaynRejim()) {
+      try { if (promise && promise.catch) promise.catch(() => {}); } catch {}
+      return typeof zaxira === "function" ? zaxira() : zaxira;
+    }
     try {
       return await vaqtBilanCheklash(promise, SCAN_READ_MS);
     } catch (err) {
@@ -6588,12 +6625,60 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
   var BOOT_SETTINGS_MS = 12e3;
   async function bootKioskBackground() {
     db = await vaqtBilanCheklash(getDb(), BOOT_DB_MS);
-    try {
+    // 08.10.2026: kiosk sessiyasi ochilmasa (internet sekin / Firebase javob
+    // bermadi) avval faqat "Kiosk kirish tizimi ishga tushmadi" yozilardi —
+    // sababi va nima qilish kerakligi aytilmasdi, qayta urinish ham yo'q edi.
+    // Endi: sabab aniq yoziladi, har 8 soniyada o'zi qayta urinadi, ochilgach
+    // sahifa o'zi yangilanadi. Sessiyasiz "admin yo'q" deb ishonib bo'lmaydi,
+    // shuning uchun birinchi admin oynasi ham ochilmaydi.
+    let kioskSessiyaOchiq = true;
+    if (currentMode() === "local-fallback") {
+      // Firebase kutubxonasi yuklanmadi (internet yo'q edi). Mahalliy bo'sh baza
+      // bilan ishlash xavfli: davomat yo'qoladi. Oflayn rejimga o'tamiz,
+      // internet kelishi bilan sahifa o'zi yangilanadi.
+      kioskOflayn = true;
+      kioskSessiyaOchiq = false;
+      // Xodimga hech narsa ko'rsatilmaydi (08.10.2026 so'rovi).
+      console.warn("Oflayn rejim: Firebase yuklanmadi, yozuvlar qurilma navbatiga tushadi.");
+      const kut = setInterval(async () => {
+        try {
+          const r = await fetch("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js", { mode: "no-cors", cache: "no-store" });
+          if (r) { clearInterval(kut); boshEkrandaYangila(); }
+        } catch {
+        }
+      }, 8e3);
+    }
+    if (currentMode() === "local-fallback") {
+      // pastdagi sessiya urinishini o'tkazib yuboramiz
+    } else try {
       await vaqtBilanCheklash(db.ensureKioskSession(), BOOT_SESSION_MS);
     } catch (err) {
+      kioskSessiyaOchiq = false;
+      kioskOflayn = true;
       console.error("Kiosk session failed to start:", err);
       const code = typeof err?.code === "string" && err.code ? ` [${err.code}]` : "";
-      showKioskSessionWarning(uzError(err, "Kiosk kirish tizimi ishga tushmadi.") + code);
+      const sekin = !!(err && err.__shifoatTimeout);
+      const xabar = sekin
+        ? "Serverga ulanib bo'lmadi. Kelish/ketish qurilmaga yoziladi va internet tiklanganda o'zi yuboriladi. Dastur o'zi qayta urinmoqda\u2026"
+        : uzError(err, "Kiosk kirish tizimi ishga tushmadi. Internetni tekshiring \u2014 dastur o'zi qayta urinmoqda\u2026") + code;
+      const doimiyXato = !!(err && typeof err.code === "string" && /operation-not-allowed|admin-restricted|configuration-not-found|api-key|unauthorized-domain/.test(err.code));
+      // Internet uzilishi xodimga bilinmaydi; faqat sozlama xatosi (doimiy) ko'rsatiladi.
+      const panel = doimiyXato ? showKioskSessionWarning(xabar) : null;
+      if (!doimiyXato) console.warn("Oflayn rejim:", xabar);
+      if (doimiyXato) kioskOflayn = false;
+      if (!doimiyXato) {
+        const urin = setInterval(async () => {
+          try {
+            await vaqtBilanCheklash(db.ensureKioskSession(), BOOT_SESSION_MS);
+            clearInterval(urin);
+            kioskOflayn = false;
+            if (panel && panel.remove) panel.remove();
+            boshEkrandaYangila();
+          } catch (e2) {
+            console.warn("Kiosk sessiyasini qayta ochish: hali bo'lmadi", e2);
+          }
+        }, 8e3);
+      }
     }
     initBranding(db);
     loadModels().catch((err) => console.error("Face models failed to preload:", err));
@@ -6614,16 +6699,21 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
         return null;
       })
     ]);
-    if (!hasAdmin) {
+    if (!hasAdmin && kioskSessiyaOchiq) {
       document.getElementById("firstRunModal").classList.add("active");
     }
     if (Number(fullscreenSetting) === 1) {
       document.body.addEventListener("click", requestFullscreenOnce, { once: true });
     }
-    db.getAllActiveEmbeddings().then((rows) => saqlaEmbeddings(rows)).catch((err) => console.error("Embeddings prefetch failed (non-fatal):", err));
-    db.listEmployees({ activeOnly: true }).then((list) => saqlaXodimlar(list)).catch((err) => console.error("Oflayn xodimlar nusxasi olinmadi (muhim emas):", err));
+    // 08.10.2026: oflayn rejimda mahalliy (bo'sh) bazadan o'qib, internet bor
+    // paytda saqlangan xodimlar nusxasini o'chirib yubormaslik kerak.
+    if (!oflaynRejim()) {
+      db.getAllActiveEmbeddings().then((rows) => saqlaEmbeddings(rows)).catch((err) => console.error("Embeddings prefetch failed (non-fatal):", err));
+      db.listEmployees({ activeOnly: true }).then((list) => saqlaXodimlar(list)).catch((err) => console.error("Oflayn xodimlar nusxasi olinmadi (muhim emas):", err));
+    }
     navbatKuzatuvchisi((soni) => navbatBelgisiniYangila(soni));
     navbatBelgisiniYangila();
+    setInterval(() => navbatBelgisiniYangila(), 5e3);
     try {
       oflaynSinxronniBoshla(db);
     } catch (err) {
@@ -6632,8 +6722,13 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
   }
   var DAVOMAT_KUTISH_MS = 8e3;
   async function davomatYoz(mode2, employee, fullName, at, branch) {
-    const chaqiruv = mode2 === "OUT" ? checkOut(db, employee.id, fullName, at, branch) : checkIn(db, employee.id, fullName, at, branch);
     try {
+      if (oflaynRejim()) {
+        const e0 = new Error("oflayn rejim: internet yo'q");
+        e0.__shifoatTimeout = true;
+        throw e0;
+      }
+      const chaqiruv = mode2 === "OUT" ? checkOut(db, employee.id, fullName, at, branch) : checkIn(db, employee.id, fullName, at, branch);
       return await vaqtBilanCheklash(chaqiruv, DAVOMAT_KUTISH_MS);
     } catch (err) {
       if (!tarmoqXatosimi(err)) throw err;
@@ -6660,7 +6755,10 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
   function navbatBelgisiniYangila(soni) {
     const n = soni == null ? navbatSoni() : soni;
     let el2 = document.getElementById("offlineQueueBadge");
-    if (!n) {
+    // 08.10.2026: xodimga bilinmasin — belgi faqat admin paneli ochiq bo'lsa.
+    const adminEl = document.getElementById("adminRoot");
+    const adminKorinadi = !!adminEl && getComputedStyle(adminEl).display !== "none";
+    if (!n || !adminKorinadi) {
       if (el2) el2.remove();
       return;
     }
@@ -6670,7 +6768,7 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       el2.style.cssText = "position:fixed; left:8px; bottom:6px; z-index:120; background:#FFF1D6; border:1px solid #F0C365; color:#8A5A00; border-radius:999px; padding:5px 12px; font-size:12px; font-weight:700; pointer-events:none;";
       document.body.appendChild(el2);
     }
-    el2.textContent = `\u23F3 ${n} ta yozuv yuborilishini kutmoqda`;
+    el2.textContent = `\u{1F4F6} ${n} ta oflayn yozuv internet kutmoqda`;
   }
   function requestFullscreenOnce() {
     const el2 = document.documentElement;
@@ -9686,7 +9784,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       const lateText = lateMinutes ? `<span title="Kechikish: ${lateMinutes} min${lateParts} \xB7 Jarima: ${latePenalty.toLocaleString("uz-UZ")} so'm">${lateMinutes} min</span>` : "\u2014";
       const tr = document.createElement("tr");
       if (lateMinutes > 0) tr.className = "row-late";
-      const oflaynBelgi = att && att.offlineQueued ? ` <span class="offline-pill" title="Bu yozuv internet uzilganda qurilmada saqlangan va aloqa tiklangach yuborilgan">\u{1F4F6}</span>` : "";
+      const oflaynBelgi = att && att.offlineQueued ? ` <span class="offline-pill" title="Bu yozuv internet uzilganda qurilmada saqlangan va aloqa tiklangach yuborilgan" style="background:#FFF1D6;color:#8A5A00;border-radius:999px;padding:1px 7px;font-weight:700;">\u{1F4F6} oflayn</span>` : "";
       tr.innerHTML = `
       <td>${fullName}${oflaynBelgi}</td><td>${DAY_STATUS_LABELS_UZ[status] || status}</td>
       <td>${checkIn2}</td><td>${checkOut2}</td><td>${lateText}</td>
@@ -10288,7 +10386,7 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
       const earlyText = day.earlyMinutes ? `${day.earlyMinutes} min` : "\u2014";
       const joylar = [day.branchName, day.branchName2].filter((x) => !!x).filter((x, i, arr) => arr.indexOf(x) === i);
       const branchText = joylar.length ? `<span class="branch-pill">${escapeHtml(joylar.join(" \xB7 "))}</span>` : "\u2014";
-      const oflaynBelgi = day.offlineQueued ? ` <span class="offline-pill" title="Bu yozuv internet uzilganda qurilmada saqlangan va aloqa tiklangach yuborilgan">\u{1F4F6}</span>` : "";
+      const oflaynBelgi = day.offlineQueued ? ` <span class="offline-pill" title="Bu yozuv internet uzilganda qurilmada saqlangan va aloqa tiklangach yuborilgan" style="background:#FFF1D6;color:#8A5A00;border-radius:999px;padding:1px 7px;font-weight:700;">\u{1F4F6} oflayn</span>` : "";
       const sanaKatak = `${day.dateStr} (${day.weekdayUz})${oflaynBelgi}`;
       const tr = document.createElement("tr");
       tr.dataset.dateKey = day.dateKey;
@@ -13131,7 +13229,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-10-07 21:00 UTC";
+  var BUILD_STAMP = "2026-10-08 12:00 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
