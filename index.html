@@ -1217,7 +1217,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
           <span class="muted" id="secDiagCount"></span>
         </div>
         <div style="overflow-x:auto;"><table class="data-table" id="secDiagTable">
-          <thead><tr><th>Vaqt</th><th>Natija</th><th>Kim</th><th>Masofa</th><th>2-nomzod</th><th>Soniya</th><th>Yuz %</th><th>Izoh</th></tr></thead>
+          <thead><tr><th>Vaqt</th><th>Tugma</th><th>Natija</th><th>Kim</th><th>Davomat</th><th>Masofa</th><th>2-nomzod</th><th>Soniya</th><th>Yuz %</th><th>Izoh</th></tr></thead>
           <tbody></tbody>
         </table></div>
       </div>
@@ -6123,6 +6123,15 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       );
     });
   }
+  var NAVBAT_JURNAL = "shifoat_navbat_jurnal";
+  function navbatJurnaliga(yozuv, holat, sabab) {
+    try {
+      const j = JSON.parse(localStorage.getItem(NAVBAT_JURNAL) || "[]");
+      j.push({ vaqt: (/* @__PURE__ */ new Date()).toISOString(), xodim: yozuv.employeeName, mode: yozuv.mode, atIso: yozuv.atIso, holat, sabab: sabab ? String(sabab).slice(0, 160) : "" });
+      localStorage.setItem(NAVBAT_JURNAL, JSON.stringify(j.slice(-100)));
+    } catch {
+    }
+  }
   function navbatdanOlib(id) {
     const hozirgi = oqi2().filter((e) => e.id !== id);
     yoz2(hozirgi);
@@ -6174,10 +6183,14 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
           const natija = yozuv.mode === "OUT" ? await checkOut(...args) : await checkIn(...args);
           if (natija && natija.status === "NO_CHECKIN_TODAY") {
             const urinish = urinishniOshir(yozuv.id, new Error("kelish yozuvi hali yo'q"));
-            if (urinish >= MAX_URINISH) navbatdanOlib(yozuv.id);
+            if (urinish >= MAX_URINISH) {
+              navbatJurnaliga(yozuv, "TASHLANDI", "kelish yozuvi topilmadi");
+              navbatdanOlib(yozuv.id);
+            }
             yiqilgan.add(kun);
             continue;
           }
+          navbatJurnaliga(yozuv, "YUBORILDI", natija && natija.status);
           navbatdanOlib(yozuv.id);
           yuborildi++;
         } catch (err) {
@@ -6187,7 +6200,10 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
           }
           console.error("Oflayn navbat yozuvi yuborilmadi:", err);
           const urinish = urinishniOshir(yozuv.id, err);
-          if (urinish >= MAX_URINISH) navbatdanOlib(yozuv.id);
+          if (urinish >= MAX_URINISH) {
+            navbatJurnaliga(yozuv, "TASHLANDI", err && err.message || err);
+            navbatdanOlib(yozuv.id);
+          }
           yiqilgan.add(`${yozuv.employeeId}|${yozuv.atIso.slice(0, 10)}`);
         }
       }
@@ -6563,6 +6579,28 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     } catch (err) {
       console.warn("Tashxis yozilmadi:", err);
     }
+  }
+  // 14.10.2026: tanilgandan keyin davomat AYNAN nima bo'lganini yozamiz
+  // (saqlandi / navbatga qo'yildi / allaqachon bor / xato).
+  function tashxisgaDavomat(matn) {
+    try {
+      const royxat = JSON.parse(localStorage.getItem(TASHXIS_KALIT) || "[]");
+      if (!Array.isArray(royxat) || !royxat.length) return;
+      royxat[royxat.length - 1].davomat = String(matn).slice(0, 80);
+      localStorage.setItem(TASHXIS_KALIT, JSON.stringify(royxat));
+    } catch {
+    }
+  }
+  function davomatMatni(result) {
+    if (!result) return "\u2014";
+    const S = AttendanceStatus;
+    if (result.offlineQueued) return result.status === S.CHECKED_OUT ? "Ketdi \u2014 navbatda (internet kutadi)" : "Keldi \u2014 navbatda (internet kutadi)";
+    if (result.status === S.CHECKED_IN) return `Keldi ${result.timeStr || ""} \u2014 saqlandi`;
+    if (result.status === S.CHECKED_OUT) return `Ketdi ${result.timeStr || ""} \u2014 saqlandi`;
+    if (result.status === S.ALREADY_CHECKED_IN) return `Allaqachon kelgan (${result.timeStr || ""}) \u2014 hech narsa yozilmadi`;
+    if (result.status === S.ALREADY_CHECKED_OUT) return `Allaqachon ketgan (${result.timeStr || ""}) \u2014 hech narsa yozilmadi`;
+    if (result.status === S.NO_CHECKIN_TODAY) return "Kelish yozuvi topilmadi \u2014 ketish yozilmadi";
+    return String(result.status || "");
   }
   var cameraOchilganVaqt = 0;
   var YUZ_YOQ_CHEGARA = 10;
@@ -7506,9 +7544,11 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
         /* @__PURE__ */ new Date(),
         currentBranch
       );
+      tashxisgaDavomat(davomatMatni(result));
       showAttendanceResult(result, employee.photoUrl, branchNoteFor(employee, branches));
     } catch (err) {
       console.error("finishRecognition failed:", err);
+      tashxisgaDavomat("XATO: " + uzError(err));
       showResultError("Xatolik yuz berdi", uzError(err));
     }
   }
@@ -12203,6 +12243,21 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
         if (malum && qur !== "webgl") tezlikMatn += "\n\u26A0\uFE0F Brauzer videokartadan foydalanmayapti \u2014 skaner sekin ishlaydi. Chrome: Sozlamalar \u2192 Tizim \u2192 \u00ABGrafik tezlatgichdan foydalanish\u00BB ni yoqing va brauzerni qayta oching.";
         else if (desk != null && desk > 900) tezlikMatn += "\n\u26A0\uFE0F Noutbuk yuzni sekin hisoblayapti \u2014 boshqa dasturlarni yoping, noutbukni quvvatga ulang.";
       }
+      try {
+        const nj = JSON.parse(localStorage.getItem("shifoat_navbat_jurnal") || "[]");
+        const tashlangan = nj.filter((x) => x.holat === "TASHLANDI");
+        const yuborilgan = nj.filter((x) => x.holat === "YUBORILDI");
+        if (nj.length) {
+          tezlikMatn += `\nOflayn navbat: ${yuborilgan.length} ta keyin yuborildi`;
+          if (tashlangan.length) {
+            tezlikMatn += `, \u26A0\uFE0F ${tashlangan.length} ta YUBORILMADI: ` + tashlangan.slice(-5).map((x) => {
+              const t = new Date(x.atIso);
+              return `${x.xodim} (${x.mode === "OUT" ? "ketish" : "kelish"} ${ddmmyyyy(t)} ${hhmm(t)} \u2014 ${x.sabab})`;
+            }).join("; ");
+          }
+        }
+      } catch {
+      }
       xulosa.textContent = `Tanish darajasi: ${foiz}% (${tanildi.length}/${yakuniy.length}) — o'rtacha ${ortacha} soniya` + (sababMatn ? `\nTanilmaganlar: ${sababMatn}` : "") + (qaytaOlish ? `\n\u{1F4F8} Yuzini qayta olish tavsiya etiladi: ${qaytaOlish}` : "") + tezlikMatn;
     }
     tbody.innerHTML = "";
@@ -12210,11 +12265,11 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       const t = new Date(r.vaqt);
       const kim = r.xodim || (r.yaqinXodimId ? `(${nomlar.get(r.yaqinXodimId) || "?"}ga yaqin)` : "—");
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td style="white-space:nowrap;">${ddmmyyyy(t)} ${hhmm(t)}</td><td style="white-space:nowrap;">${TASHXIS_NOMI[r.natija] || escapeHtml(r.natija || "")}</td><td>${escapeHtml(kim)}</td><td>${r.masofa != null ? r.masofa.toFixed(3) : "—"}</td><td>${r.ikkinchi != null ? r.ikkinchi.toFixed(3) : "—"}</td><td>${r.soniya != null ? r.soniya : "—"}</td><td>${r.yuzUlushi != null ? r.yuzUlushi : "—"}</td><td class="muted">${escapeHtml(tashxisIzohi(r))}</td>`;
+      tr.innerHTML = `<td style="white-space:nowrap;">${ddmmyyyy(t)} ${hhmm(t)}</td><td style="white-space:nowrap;">${r.rejim === "OUT" ? "\u{1F534} Ketyapman" : r.rejim === "IN" ? "\u{1F7E2} Kelyapman" : escapeHtml(r.rejim || "\u2014")}</td><td style="white-space:nowrap;">${TASHXIS_NOMI[r.natija] || escapeHtml(r.natija || "")}</td><td>${escapeHtml(kim)}</td><td style="white-space:nowrap;">${escapeHtml(r.davomat || "\u2014")}</td><td>${r.masofa != null ? r.masofa.toFixed(3) : "—"}</td><td>${r.ikkinchi != null ? r.ikkinchi.toFixed(3) : "—"}</td><td>${r.soniya != null ? r.soniya : "—"}</td><td>${r.yuzUlushi != null ? r.yuzUlushi : "—"}</td><td class="muted">${escapeHtml(tashxisIzohi(r))}</td>`;
       tbody.appendChild(tr);
     }
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="8" class="muted">Yozuv yo'q.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10" class="muted">Yozuv yo'q.</td></tr>`;
     }
   }
   async function renderFaceAudit() {
@@ -13562,7 +13617,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-10-10 12:00 UTC";
+  var BUILD_STAMP = "2026-10-14 10:00 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
