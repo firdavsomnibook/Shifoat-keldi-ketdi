@@ -1193,35 +1193,12 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         <button class="btn btn-primary" id="btnSecUnknownFaces">👤 Noma'lum Xodimlar</button>
         <button class="btn btn-primary" id="btnSecGeoBreaches">📍 Joylashuvni buzish urinishlari</button>
         <button class="btn btn-primary" id="btnSecFaceAudit">🧬 Yuzlar o'xshashligini tekshirish</button>
-        <button class="btn btn-primary" id="btnSecScanDiag">🩺 Skaner tashxisi</button>
         <div style="flex:1"></div>
       </div>
 
       <!-- 02.10.2026: bir xodim boshqasi deb tanilib qolgan edi. Bu
            asbob qaysi ikki xodimning yuz ma'lumoti bir-biriga xavfli
            darajada yaqinligini topadi - sababni shu yerdan ko'rasiz. -->
-      <!-- 07.10.2026: "tanimayapti" shikoyatlarini dalil bilan hal qilish.
-           Har bir KELYAPMAN/KETYAPMAN urinishining natijasi va SABABI shu
-           qurilmada yoziladi. Faqat shu noutbukdagi urinishlar ko'rinadi. -->
-      <div id="secDiagPanel" style="display:none;">
-        <p class="muted">
-          Shu qurilmadagi oxirgi 200 ta skaner urinishi. Har birida: tanildimi,
-          tanilmagan bo'lsa — NIMA uchun. <b>Masofa</b> qancha kichik bo'lsa,
-          yuz ro'yxatdagi rasmga shuncha o'xshash (chegara odatda 0.50).
-        </p>
-        <p id="secDiagSummary" style="font-weight:700; font-size:15px; margin:10px 0; white-space:pre-line;"></p>
-        <div class="toolbar">
-          <button class="btn btn-secondary" id="btnSecDiagRefresh">Yangilash</button>
-          <button class="btn btn-secondary" id="btnSecDiagClear">Tozalash</button>
-          <div style="flex:1"></div>
-          <span class="muted" id="secDiagCount"></span>
-        </div>
-        <div style="overflow-x:auto;"><table class="data-table" id="secDiagTable">
-          <thead><tr><th>Vaqt</th><th>Tugma</th><th>Natija</th><th>Kim</th><th>Davomat</th><th>Masofa</th><th>2-nomzod</th><th>Soniya</th><th>Yuz %</th><th>Izoh</th></tr></thead>
-          <tbody></tbody>
-        </table></div>
-      </div>
-
       <div id="secFacePanel" style="display:none;">
         <p class="muted">
           Tizim ikki xodimni adashtirishi mumkin bo'lgan joylarni ko'rsatadi.
@@ -1231,7 +1208,6 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
           🟢 0.55 dan katta — bemalol farqlanadi.
         </p>
         <p id="secFaceSummary" style="font-weight:700; font-size:15px; margin:10px 0;"></p>
-        <p id="secFaceOld" style="font-size:14px; margin:6px 0 12px; white-space:pre-line;"></p>
         <div class="toolbar">
           <button class="btn btn-secondary" id="btnSecFaceRun">Tekshirishni boshlash</button>
           <div style="flex:1"></div>
@@ -1796,6 +1772,12 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
        ["Jami qo'shimcha ish", `${r.totalOvertimeMinutes} daqiqa`, false],
        ["Jami ishlagan vaqt", soat, false]],
     ];
+    if (r.chek && r.chek.found) {
+      const f = (n) => (Number(n) || 0).toLocaleString("uz-UZ") + " so'm";
+      qatorlar.push([["Bonus (cheklist)", "+" + f(r.chek.bonus), false],
+        ["Qo'shimcha jarima (cheklist)", "\u2212" + f(r.chek.jarima), true],
+        ["Jami jarima (kechikish + qo'shimcha)", "\u2212" + f((r.totalLatePenalty || 0) + r.chek.jarima), true]]);
+    }
     return new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
       layout: "fixed",
@@ -1823,11 +1805,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         children: [
           hbKatak(day.dateStr, { size: KICHIK, align: AlignmentType.CENTER, fill: fon }),
           hbKatak(day.weekdayUz, { size: KICHIK, fill: fon }),
-          hbKatak(day.offlineQueued
-            ? [new Paragraph({ spacing: { before: 0, after: 0, line: 200, lineRule: "auto" }, children: [
-                new TextRun({ text: String(day.statusLabel), size: KICHIK }),
-                new TextRun({ text: " \u00B7 oflayn", size: KICHIK, bold: true, color: "B26A00" })] })]
-            : day.statusLabel, { size: KICHIK, fill: fon }),
+          hbKatak(day.statusLabel, { size: KICHIK, fill: fon }),
           hbKatak(day.checkIn, { size: KICHIK, align: AlignmentType.CENTER, fill: fon }),
           hbKatak(day.checkOut, { size: KICHIK, align: AlignmentType.CENTER, fill: fon }),
           hbKatak(kech, { size: KICHIK, align: AlignmentType.CENTER, fill: fon,
@@ -1879,7 +1857,6 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       hbBoshQator(),
       hbKunlik(report.days),
       hbBoshQator(),
-      ...(report.days.some((d) => d.offlineQueued) ? [hbMatn("\u00ABoflayn\u00BB \u2014 internet yo'q paytda qurilmada saqlanib, aloqa tiklangach yuborilgan yozuv.", { size: 13, color: "B26A00" })] : []),
       hbMatn(`${BRAND_NAME} ${BRAND_SINCE} — Face ID tizimi tomonidan avtomatik shakllantirildi.`,
            { italics: true, size: 13, color: "666666" }),
       hbBoshQator(),
@@ -2309,7 +2286,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     async function getScheduleForDate2(employeeId, dateKey) {
       const q = query(collection(dbFs, "schedules"), where("employeeId", "==", employeeId));
       const snap = await getDocs(q);
-      const applicable = snap.docs.map(docToObject).filter((v) => v.effectiveFrom <= dateKey).sort(versiyaTartibi);
+      const applicable = snap.docs.map(docToObject).filter((v) => v.effectiveFrom <= dateKey).sort((a, b) => a.effectiveFrom < b.effectiveFrom ? 1 : -1);
       return applicable[0] || null;
     }
     async function getCurrentSchedule2(employeeId, todayKey) {
@@ -2318,7 +2295,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     async function listScheduleHistory2(employeeId) {
       const q = query(collection(dbFs, "schedules"), where("employeeId", "==", employeeId));
       const snap = await getDocs(q);
-      return snap.docs.map(docToObject).sort(versiyaTartibi);
+      return snap.docs.map(docToObject).sort((a, b) => a.effectiveFrom < b.effectiveFrom ? 1 : -1);
     }
     async function listAllSchedules2() {
       const snap = await getDocs(collection(dbFs, "schedules"));
@@ -2364,7 +2341,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
             getDocs(collection(dbFs, "embeddings"))
           ]);
           const activeIds = new Set(employees.map((e) => e.id));
-          const rows = snap.docs.map(docToObject).filter((row) => activeIds.has(row.employeeId)).map((row) => ({ employeeId: row.employeeId, vector: row.vector, createdAt: row.createdAt || null }));
+          const rows = snap.docs.map(docToObject).filter((row) => activeIds.has(row.employeeId)).map((row) => ({ employeeId: row.employeeId, vector: row.vector }));
           embeddingsCache = rows;
           embeddingsCacheAt = Date.now();
           return rows;
@@ -2445,18 +2422,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       });
       return { id: existingDoc.id, ...docToObject(existingDoc), ...payload };
     }
-    async function writeAttendanceSnapshot2(employeeId, dateKey, snapshot, malumId) {
-      // 10.10.2026: yozuv id si oldindan ma'lum bo'lsa, uni qaytadan
-      // qidirmaymiz — sekin internetda bitta to'liq so'rov tejaladi.
-      if (typeof malumId === "string" && malumId) {
-        const payload2 = { ...snapshot, updatedAt: nowIso2() };
-        await updateDoc(doc(dbFs, "attendance", malumId), {
-          ...payload2,
-          manuallyEditedBy: deleteField(),
-          manuallyEditedAt: deleteField()
-        });
-        return { id: malumId, employeeId, dateKey, ...payload2 };
-      }
+    async function writeAttendanceSnapshot2(employeeId, dateKey, snapshot) {
       const existingDoc = await findAttendanceDoc(employeeId, dateKey);
       if (!existingDoc) throw new Error("Attendance row not found.");
       const payload = { ...snapshot, updatedAt: nowIso2() };
@@ -3624,7 +3590,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   }
   async function getScheduleForDate(employeeId, dateKey) {
     const versions = await getAllByIndex("schedules", "employeeId", employeeId);
-    const applicable = versions.filter((v) => v.effectiveFrom <= dateKey).sort(versiyaTartibi);
+    const applicable = versions.filter((v) => v.effectiveFrom <= dateKey).sort((a, b) => a.effectiveFrom < b.effectiveFrom ? 1 : -1);
     return applicable[0] || null;
   }
   async function getCurrentSchedule(employeeId, todayKey) {
@@ -3632,7 +3598,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   }
   async function listScheduleHistory(employeeId) {
     const versions = await getAllByIndex("schedules", "employeeId", employeeId);
-    return versions.sort(versiyaTartibi);
+    return versions.sort((a, b) => a.effectiveFrom < b.effectiveFrom ? 1 : -1);
   }
   async function listAllSchedules() {
     return getAll("schedules");
@@ -3668,7 +3634,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     const employees = await listEmployees({ activeOnly: true });
     const activeIds = new Set(employees.map((e) => e.id));
     const all = await getAll("embeddings");
-    return all.filter((row) => activeIds.has(row.employeeId)).map((row) => ({ employeeId: row.employeeId, vector: row.vector, createdAt: row.createdAt || null }));
+    return all.filter((row) => activeIds.has(row.employeeId)).map((row) => ({ employeeId: row.employeeId, vector: row.vector }));
   }
   async function saveAdminFaceVectors(userId, vectors, actorId) {
     const existing = await get("users", userId);
@@ -4189,8 +4155,6 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     "getRecoveryCredentials",
     "docToObject"
   ]);
-  var YENGIL_YOZUV = /^(writeAttendanceSnapshot|addAuditLog|addUnknownFace)$/;
-  var YENGIL_KESH = /^(listAttendance|listUnknownFaces|listAuditLogs)/;
   var WRITE_PREFIX = /^(create|update|delete|write|set|add|save|move|grant|remove|clear|invalidate|sign|login|logout|ensure|reset|import|force|enroll|apply|toggle|rename|seed)/;
   function wrapWithCache(adapter) {
     const cache = /* @__PURE__ */ new Map();
@@ -4202,31 +4166,9 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         continue;
       }
       if (WRITE_PREFIX.test(key)) {
-        // 10.10.2026: avval HAR QANDAY yozuv (davomat, kiosk sessiyasi,
-        // audit jurnali) butun keshni tozalardi — keyingi xodimning skaneri
-        // hamma narsani serverdan qaytadan so'rardi. Endi davomatga oid
-        // yozuvlar faqat davomat keshini tozalaydi.
-        const yengil = YENGIL_YOZUV.test(key);
-        if (key === "ensureKioskSession") {
-          wrapped[key] = fn;
-          continue;
-        }
         wrapped[key] = (...args) => {
           const out = fn(...args);
-          return Promise.resolve(out).finally(() => {
-            if (!yengil) {
-              cache.clear();
-              // Admin xodim/yuz/sozlamani o'zgartirdi — kiosk xotirasi eskirdi.
-              try {
-                xotiraEskirdi();
-              } catch {
-              }
-              return;
-            }
-            for (const k of [...cache.keys()]) {
-              if (YENGIL_KESH.test(k)) cache.delete(k);
-            }
-          });
+          return Promise.resolve(out).finally(() => cache.clear());
         };
         continue;
       }
@@ -4274,25 +4216,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       cachedAdapter = localAdapter_exports;
       cachedMode = "local";
     }
-    cachedAdapter = wrapWithCache(sinovKechikishi(cachedAdapter));
+    cachedAdapter = wrapWithCache(cachedAdapter);
     return cachedAdapter;
-  }
-  // Faqat SINOV uchun: window.__shifoatSinovKechikish = 1500 qo'yilsa, har bir
-  // baza chaqiruvi shuncha ms kechikib javob beradi (sekin internetni taqlid).
-  // Oddiy ishda bu o'zgaruvchi yo'q va hech narsa o'zgarmaydi.
-  function sinovKechikishi(adapter) {
-    const out = {};
-    for (const key of Object.keys(adapter)) {
-      const fn = adapter[key];
-      if (typeof fn !== "function" || key === "docToObject") { out[key] = fn; continue; }
-      out[key] = (...args) => {
-        const r = fn(...args);
-        const ms = typeof window !== "undefined" ? Number(window.__shifoatSinovKechikish) || 0 : 0;
-        if (!ms || !r || typeof r.then !== "function") return r;
-        return new Promise((ok, no) => setTimeout(() => r.then(ok, no), ms));
-      };
-    }
-    return out;
   }
   function currentMode() {
     return cachedMode;
@@ -4379,17 +4304,6 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       try {
         await loadFrom(url);
         modelsLoaded = true;
-        // 10.10.2026: brauzer videokartani (WebGL) ishlatmayotgan bo'lsa,
-        // skaner 5-10 barobar sekin ishlaydi. Imkoni bo'lsa WebGL'ga o'tamiz.
-        try {
-          const tf = faceapi.tf;
-          if (tf && tf.getBackend && tf.getBackend() !== "webgl" && tf.findBackend && tf.findBackend("webgl")) {
-            await tf.setBackend("webgl");
-          }
-          console.info("Yuz tanish qurilmasi:", tf && tf.getBackend ? tf.getBackend() : "?");
-        } catch (e) {
-          console.warn("WebGL'ga o'tib bo'lmadi:", e);
-        }
         warmUpFace();
         return;
       } catch (err) {
@@ -4452,14 +4366,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   // 02.10.2026: bir xodim boshqasi deb tanilib qoldi. Ikkinchi nomzoddan
   // farq kichik bo'lsa - bu "ikkisiga ham o'xshaydi" degani, ya'ni
   // ishonchsiz. Chegara 0.08 dan 0.14 ga oshirildi.
-  // 07.10.2026: 0.14 juda qattiq bo'lib chiqdi - jonli kameradagi yuz
-  // ro'yxatdagi rasmdan doim biroz farq qiladi va haqiqiy xodim ham
-  // "ishonchsiz" bo'lib qolardi. Endi: tanish juda aniq bo'lsa (0.40 dan
-  // yaqin) 0.06 farq yetarli, aks holda 0.10. Adashtirishdan asosiy
-  // himoya - freymlar kelishuvi (qatiyMatch) - o'z joyida.
-  var MIN_MARGIN_FROM_RUNNER_UP = 0.1;
-  var ANIQ_TANISH_MASOFA = 0.4;
-  var ANIQ_TANISH_FARQ = 0.06;
+  var MIN_MARGIN_FROM_RUNNER_UP = 0.14;
   // Tanish chegarasi qanchalik bo'sh qo'yilgan bo'lsa ham, bundan
   // yuqoriga chiqmaydi - aks holda yolg'on tanish xavfi ortadi.
   var MAX_THRESHOLD = 0.52;
@@ -4474,23 +4381,11 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     if (!freymlar || freymlar.length < 2) {
       return { employeeId: null, sabab: "freym kam" };
     }
-    // 05.10.2026: avval HAR BIR freym tanishi shart edi - bitta shovqinli
-    // freym ham butun urinishni bekor qilardi va "tanimadi" chiqardi.
-    // Endi qoida ikkita:
-    //   1) birorta freym BOSHQA odamni ko'rsatsa - bekor (adashtirmaslik)
-    //   2) kamida ikkita freym AYNAN o'sha odamni ko'rsatishi shart
-    // Hech kimni tanimagan ("bo'sh") freymlar shunchaki e'tiborsiz.
-    let tasdiq = 0;
     for (const vektor of freymlar) {
       const bitta = bestMatch(vektor, candidates, chegara);
-      if (!bitta.employeeId) continue;
       if (bitta.employeeId !== ortacha.employeeId) {
         return { employeeId: null, sabab: "freymlar kelishmadi" };
       }
-      tasdiq += 1;
-    }
-    if (tasdiq < 2) {
-      return { employeeId: null, sabab: "tasdiq kam" };
     }
     return { employeeId: ortacha.employeeId, distance: ortacha.distance };
   }
@@ -4515,8 +4410,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     }
     if (perEmployee.length >= 2) {
       const runnerUpBest = perEmployee[1].best;
-      const kerakliFarq = top.best < ANIQ_TANISH_MASOFA ? ANIQ_TANISH_FARQ : MIN_MARGIN_FROM_RUNNER_UP;
-      if (runnerUpBest - top.best < kerakliFarq) {
+      if (runnerUpBest - top.best < MIN_MARGIN_FROM_RUNNER_UP) {
         return { employeeId: null, distance: top.best };
       }
     }
@@ -4775,16 +4669,6 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   }
 
   // src/business/scheduleService.js
-  // 09.10.2026: bir kunda grafik bir necha marta o'zgartirilsa, bir xil
-  // effectiveFrom'li bir nechta versiya paydo bo'lardi va ulardan qaysi biri
-  // "joriy" ekani tasodifiy edi — oxirgi o'zgarish (masalan, dushanba 17:00
-  // istisnosi) "yo'qolib" qolardi. Endi teng bo'lsa ENG OXIRGI yozilgani olinadi.
-  function versiyaTartibi(a, b) {
-    if (a.effectiveFrom !== b.effectiveFrom) return a.effectiveFrom < b.effectiveFrom ? 1 : -1;
-    const ca = String(a.createdAt || ""), cb = String(b.createdAt || "");
-    if (ca !== cb) return ca < cb ? 1 : -1;
-    return 0;
-  }
   var REST_DAY_NONE = -1;
   function hasWeeklyRest(schedule) {
     return !!schedule && schedule.weeklyRestDay !== REST_DAY_NONE && schedule.weeklyRestDay != null;
@@ -4808,7 +4692,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     return !!(schedule && schedule.workStart2 && schedule.workEnd2);
   }
   function pickScheduleForDate(scheduleHistory, dateKey) {
-    const applicable = scheduleHistory.filter((v) => v.effectiveFrom <= dateKey).sort(versiyaTartibi);
+    const applicable = scheduleHistory.filter((v) => v.effectiveFrom <= dateKey).sort((a, b) => a.effectiveFrom < b.effectiveFrom ? 1 : -1);
     return applyWeekdayOverride(applicable[0] || null, dateKey);
   }
   function computeDayStatusFromSchedule(schedule, dateKey) {
@@ -4896,24 +4780,6 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
   }
   async function checkIn(db2, employeeId, employeeName, at = /* @__PURE__ */ new Date(), branch = null, opts = null) {
     const dateKey = tashkentDateKey(at);
-    // 10.10.2026: bu so'rovlar avval KETMA-KET yuborilardi (har biri sekin
-    // internetda 1-2 soniya). Endi hammasi BIR VAQTDA ketadi.
-    const parallel = Promise.all([
-      db2.getExplicitDayStatus(employeeId, dateKey),
-      db2.getScheduleForDate(employeeId, dateKey),
-      db2.getLatePermission(employeeId, dateKey).catch((err) => {
-        console.error("getLatePermission failed (non-fatal, falling back to normal schedule):", err);
-        return null;
-      })
-    ]);
-    const sozlamaVada = Promise.all([
-      db2.getSetting("late_grace_minutes"),
-      db2.getSetting("late_penalty_per_minute")
-    ]);
-    parallel.catch(() => {
-    });
-    sozlamaVada.catch(() => {
-    });
     const existing = await db2.getAttendanceForDate(employeeId, dateKey);
     const maybeSecondShift = !!(existing && existing.checkInTime && existing.checkOutTime && !existing.checkInTime2);
     if (existing && existing.checkInTime && !maybeSecondShift) {
@@ -4928,7 +4794,14 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         message: `Siz bugun ${which}${existingTime} da ishga kelgansiz.`
       };
     }
-    const [explicitStatus, rawSchedule, latePermission] = await parallel;
+    const [explicitStatus, rawSchedule, latePermission] = await Promise.all([
+      db2.getExplicitDayStatus(employeeId, dateKey),
+      db2.getScheduleForDate(employeeId, dateKey),
+      db2.getLatePermission(employeeId, dateKey).catch((err) => {
+        console.error("getLatePermission failed (non-fatal, falling back to normal schedule):", err);
+        return null;
+      })
+    ]);
     const schedule = applyWeekdayOverride(rawSchedule, dateKey);
     const dayStatus = explicitStatus || computeDayStatusFromSchedule(schedule, dateKey);
     const period = maybeSecondShift && hasSecondShift(schedule) ? 2 : 1;
@@ -4952,7 +4825,10 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       scheduledEnd = endDate.toISOString();
       expectedMinutes = Math.round((endDate.getTime() - startDate.getTime()) / 6e4);
       if (WORK_LIKE_STATUSES.has(dayStatus)) {
-        const [grace, penaltyRate] = await sozlamaVada;
+        const [grace, penaltyRate] = await Promise.all([
+          db2.getSetting("late_grace_minutes"),
+          db2.getSetting("late_penalty_per_minute")
+        ]);
         const result = computeLate(startDate, at, Number(grace), Number(penaltyRate));
         lateMinutes = result.lateMinutes;
         latePenalty = result.latePenalty;
@@ -4974,7 +4850,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         branchId2: branch ? branch.id : null,
         branchName2: branch ? branch.name : null,
         ...opts && opts.offlineQueued ? { offlineQueued: true } : {}
-      }, existing && existing.id);
+      });
       return {
         status: AttendanceStatus.CHECKED_IN,
         employeeName,
@@ -5103,7 +4979,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         overtimeMinutes: firstOver + overtimeMinutes,
         undertimeMinutes: firstUnder + undertimeMinutes,
         ...opts && opts.offlineQueued ? { offlineQueued: true } : {}
-      }, existing && existing.id);
+      });
       return {
         status: AttendanceStatus.CHECKED_OUT,
         employeeName,
@@ -5629,25 +5505,10 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
     return Math.round(2 * R * Math.asin(Math.min(1, Math.sqrt(a))));
   }
-  // 05.10.2026 o'lchovi: noutbukda joylashuv javobi 4-soniyada keldi,
-  // lekin dastur yana 6 soniya "yaxshiroq aniqlik" kutib turdi - noutbukda
-  // esa u hech qachon yaxshilanmaydi. Endi birinchi javobdan keyin
-  // ko'pi bilan QOSHIMCHA_KUTISH davomida kutamiz, keyin boramiz.
-  var QOSHIMCHA_KUTISH_MS = 900;
-  // Ertalab xodimlar ketma-ket keladi. Qurilma qimirlamagan bo'lsa,
-  // har safar joylashuvni qaytadan aniqlash - bekor kutish. Oxirgi
-  // o'lchov bir daqiqa davomida qayta ishlatiladi.
-  var JOY_KESH_MS = 6e4;
-  var _oxirgiJoy = null;
-  var _oxirgiJoyVaqti = 0;
   function getBestPosition({ maxWaitMs = 6e3, targetAccuracyM = 20 } = {}) {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
         reject(new Error(isFilePage() ? describeGeoError({ code: 1 }) : "Bu brauzer joylashuvni aniqlashni qo'llab-quvvatlamaydi."));
-        return;
-      }
-      if (_oxirgiJoy && Date.now() - _oxirgiJoyVaqti < JOY_KESH_MS) {
-        resolve(_oxirgiJoy);
         return;
       }
       let best = null;
@@ -5658,13 +5519,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         done = true;
         if (watchId !== null) navigator.geolocation.clearWatch(watchId);
         clearTimeout(timer2);
-        if (best) {
-          _oxirgiJoy = best;
-          _oxirgiJoyVaqti = Date.now();
-          resolve(best);
-        } else {
-          reject(err || new Error(describeGeoError({ code: 3 })));
-        }
+        if (best) resolve(best);
+        else reject(err || new Error(describeGeoError({ code: 3 })));
       };
       const timer2 = setTimeout(() => finish2(), maxWaitMs);
       watchId = navigator.geolocation.watchPosition(
@@ -5674,17 +5530,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
             lng: pos.coords.longitude,
             accuracy: Math.round(pos.coords.accuracy || 0)
           };
-          const birinchi = !best;
           if (!best || reading.accuracy < best.accuracy) best = reading;
-          if (best.accuracy <= targetAccuracyM) {
-            finish2();
-            return;
-          }
-          if (birinchi) {
-            // Birinchi javob keldi. Yaxshirog'i kelsa olamiz, lekin
-            // uzoq kutmaymiz.
-            setTimeout(() => finish2(), QOSHIMCHA_KUTISH_MS);
-          }
+          if (best.accuracy <= targetAccuracyM) finish2();
         },
         (err) => {
           if (best) {
@@ -5879,7 +5726,6 @@ Masofa: ~${distanceM} metr (ruxsat: ${cfg.radiusM} metr).`,
   async function resolveBranchByLocation(db2) {
     let branches = [];
     try {
-      if (oflaynRejim()) throw new Error("oflayn rejim");
       branches = await db2.listBranches({ activeOnly: true });
       saqlaFiliallar(branches);
     } catch (err) {
@@ -6123,15 +5969,6 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       );
     });
   }
-  var NAVBAT_JURNAL = "shifoat_navbat_jurnal";
-  function navbatJurnaliga(yozuv, holat, sabab) {
-    try {
-      const j = JSON.parse(localStorage.getItem(NAVBAT_JURNAL) || "[]");
-      j.push({ vaqt: (/* @__PURE__ */ new Date()).toISOString(), xodim: yozuv.employeeName, mode: yozuv.mode, atIso: yozuv.atIso, holat, sabab: sabab ? String(sabab).slice(0, 160) : "" });
-      localStorage.setItem(NAVBAT_JURNAL, JSON.stringify(j.slice(-100)));
-    } catch {
-    }
-  }
   function navbatdanOlib(id) {
     const hozirgi = oqi2().filter((e) => e.id !== id);
     yoz2(hozirgi);
@@ -6155,16 +5992,9 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
       return { yuborildi: 0, qoldi: list.length };
     }
-    if (oflaynRejim()) return { yuborildi: 0, qoldi: list.length };
     _yuborilmoqda = true;
     let yuborildi = 0;
     try {
-      try {
-        await vaqtBilanCheklash(db2.ensureKioskSession(), 12e3);
-      } catch (e) {
-        console.warn("Oflayn navbat: server sessiyasi hali yo'q, keyin uriniladi.", e);
-        return { yuborildi: 0, qoldi: list.length };
-      }
       list.sort((a, b) => String(a.atIso).localeCompare(String(b.atIso)));
       const yiqilgan = /* @__PURE__ */ new Set();
       for (const yozuv of [...list]) {
@@ -6183,14 +6013,10 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
           const natija = yozuv.mode === "OUT" ? await checkOut(...args) : await checkIn(...args);
           if (natija && natija.status === "NO_CHECKIN_TODAY") {
             const urinish = urinishniOshir(yozuv.id, new Error("kelish yozuvi hali yo'q"));
-            if (urinish >= MAX_URINISH) {
-              navbatJurnaliga(yozuv, "TASHLANDI", "kelish yozuvi topilmadi");
-              navbatdanOlib(yozuv.id);
-            }
+            if (urinish >= MAX_URINISH) navbatdanOlib(yozuv.id);
             yiqilgan.add(kun);
             continue;
           }
-          navbatJurnaliga(yozuv, "YUBORILDI", natija && natija.status);
           navbatdanOlib(yozuv.id);
           yuborildi++;
         } catch (err) {
@@ -6200,10 +6026,7 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
           }
           console.error("Oflayn navbat yozuvi yuborilmadi:", err);
           const urinish = urinishniOshir(yozuv.id, err);
-          if (urinish >= MAX_URINISH) {
-            navbatJurnaliga(yozuv, "TASHLANDI", err && err.message || err);
-            navbatdanOlib(yozuv.id);
-          }
+          if (urinish >= MAX_URINISH) navbatdanOlib(yozuv.id);
           yiqilgan.add(`${yozuv.employeeId}|${yozuv.atIso.slice(0, 10)}`);
         }
       }
@@ -6483,7 +6306,6 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     banner2.style.cssText = "position:fixed; top:0; left:0; right:0; z-index:9997; background:#FFF6E5; color:#9A6B00; border-bottom:2px solid #E0A400; padding:10px 16px; font-size:13px; text-align:center; font-weight:600;";
     banner2.textContent = "\u26A0\uFE0F " + message;
     document.body.appendChild(banner2);
-    return banner2;
   }
   function numSetting(raw, fallback) {
     if (raw === null || raw === void 0 || raw === "") return fallback;
@@ -6503,105 +6325,6 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
   var recognitionInProgress = false;
   var bosh_yoq = 0;
   var kichik_yuz = 0;
-  var geoVada = null;
-  // Ishonch yetmaganda darhol "tanimadi" demaymiz - jimgina yana
-  // skaner qilamiz. Xodim buni sezmaydi, shunchaki bir soniya ko'proq
-  // turadi.
-  var qaytaUrinish = 0;
-  var MAX_QAYTA_URINISH = 3;
-  // 07.10.2026: "tanimayapti" shikoyatlarini taxmin bilan emas, DALIL
-  // bilan hal qilish uchun - har bir urinish natijasi va sababi shu
-  // qurilmaning xotirasiga yoziladi (oxirgi 200 ta). Xavfsizlik
-  // bo'limida "Skaner tashxisi" orqali ko'rinadi.
-  var TASHXIS_KALIT = "shifoat_skaner_tashxis";
-  var TASHXIS_MAX = 200;
-  var _skanerBoshi = 0;
-  // 10.10.2026: tezlik o'lchovlari (Skaner tashxisi panelida ko'rinadi).
-  var _bosilganVaqt = 0;
-  var _kadrJamiMs = 0;
-  var _kadrSoni = 0;
-  var _deskJamiMs = 0;
-  var _deskSoni = 0;
-  var _kameraTayyorMs = null;
-  var _buSkanerdaYangilandi = false;
-  function qurilmaTuri() {
-    try {
-      return faceapi && faceapi.tf && faceapi.tf.getBackend ? String(faceapi.tf.getBackend() || "?") : "?";
-    } catch {
-      return "?";
-    }
-  }
-  function tashxisMasofalar(vektor, candidates) {
-    const eng = /* @__PURE__ */ new Map();
-    if (!vektor || !candidates) return { birinchi: null, birinchiId: null, ikkinchi: null };
-    for (const { employeeId, vector } of candidates) {
-      const d = euclideanDistance(vektor, vector);
-      if (!eng.has(employeeId) || d < eng.get(employeeId)) eng.set(employeeId, d);
-    }
-    const tartib = [...eng.entries()].sort((a, b) => a[1] - b[1]);
-    return {
-      birinchi: tartib[0] ? tartib[0][1] : null,
-      birinchiId: tartib[0] ? tartib[0][0] : null,
-      ikkinchi: tartib[1] ? tartib[1][1] : null
-    };
-  }
-  function tashxisYoz(natija, qoshimcha) {
-    try {
-      const yozuv = {
-        vaqt: (/* @__PURE__ */ new Date()).toISOString(),
-        natija,
-        rejim: currentMode2 || "",
-        soniya: _skanerBoshi ? Math.round((Date.now() - _skanerBoshi) / 100) / 10 : null,
-        freym: collectedFrames,
-        deskriptor: frameDescriptors.length,
-        kozYumish: livenessTracker ? livenessTracker.blinkCount : null,
-        harakat: livenessTracker ? Math.round(livenessTracker.movementRange * 1e3) / 1e3 : null,
-        yuzUlushi: Math.round(_sunggiYuzUlushi * 100),
-        yoruglik: _sunggiYoruglik != null ? Math.round(_sunggiYoruglik) : null,
-        qaytaUrinish,
-        kadrMs: _kadrSoni ? Math.round(_kadrJamiMs / _kadrSoni) : null,
-        deskMs: _deskSoni ? Math.round(_deskJamiMs / _deskSoni) : null,
-        kameraS: _kameraTayyorMs != null ? Math.round(_kameraTayyorMs / 100) / 10 : null,
-        qurilma: qurilmaTuri(),
-        oflayn: oflaynRejim() ? 1 : 0,
-        ...qoshimcha || {}
-      };
-      let royxat = [];
-      try {
-        royxat = JSON.parse(localStorage.getItem(TASHXIS_KALIT) || "[]");
-        if (!Array.isArray(royxat)) royxat = [];
-      } catch (err) {
-        royxat = [];
-      }
-      royxat.push(yozuv);
-      if (royxat.length > TASHXIS_MAX) royxat = royxat.slice(-TASHXIS_MAX);
-      localStorage.setItem(TASHXIS_KALIT, JSON.stringify(royxat));
-    } catch (err) {
-      console.warn("Tashxis yozilmadi:", err);
-    }
-  }
-  // 14.10.2026: tanilgandan keyin davomat AYNAN nima bo'lganini yozamiz
-  // (saqlandi / navbatga qo'yildi / allaqachon bor / xato).
-  function tashxisgaDavomat(matn) {
-    try {
-      const royxat = JSON.parse(localStorage.getItem(TASHXIS_KALIT) || "[]");
-      if (!Array.isArray(royxat) || !royxat.length) return;
-      royxat[royxat.length - 1].davomat = String(matn).slice(0, 80);
-      localStorage.setItem(TASHXIS_KALIT, JSON.stringify(royxat));
-    } catch {
-    }
-  }
-  function davomatMatni(result) {
-    if (!result) return "\u2014";
-    const S = AttendanceStatus;
-    if (result.offlineQueued) return result.status === S.CHECKED_OUT ? "Ketdi \u2014 navbatda (internet kutadi)" : "Keldi \u2014 navbatda (internet kutadi)";
-    if (result.status === S.CHECKED_IN) return `Keldi ${result.timeStr || ""} \u2014 saqlandi`;
-    if (result.status === S.CHECKED_OUT) return `Ketdi ${result.timeStr || ""} \u2014 saqlandi`;
-    if (result.status === S.ALREADY_CHECKED_IN) return `Allaqachon kelgan (${result.timeStr || ""}) \u2014 hech narsa yozilmadi`;
-    if (result.status === S.ALREADY_CHECKED_OUT) return `Allaqachon ketgan (${result.timeStr || ""}) \u2014 hech narsa yozilmadi`;
-    if (result.status === S.NO_CHECKIN_TODAY) return "Kelish yozuvi topilmadi \u2014 ketish yozilmadi";
-    return String(result.status || "");
-  }
   var cameraOchilganVaqt = 0;
   var YUZ_YOQ_CHEGARA = 10;
   // 29.09.2026: ilgari setInterval(120ms) ishlatilardi. Telefonda bitta
@@ -6615,79 +6338,9 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
   var DESKRIPTOR_KERAK = 4;
   // Yuz kadrning kamida shuncha qismini egallashi kerak. Uzoqdan
   // olingan kichik yuzdan sifatli "barmoq izi" chiqmaydi.
-  var MIN_YUZ_ULUSHI = 0.1;
-  // 07.10.2026 - ASOSIY TUZATISH. Tezlashtirishdan keyin skaner 6 ta
-  // freymni ~1.5 soniyada yig'ib, DARHOL hukm chiqarardi. Odam esa
-  // o'rtacha 3-4 soniyada bir marta ko'z yumadi va kamera oldida
-  // qimirlamay turadi - 1.5 soniyada "tirik odam" isboti ko'pincha
-  // kelmasdi va "Yuzingiz yaxshi ko'rinmayapti" chiqardi.
-  // Endi isbot kelguncha TIRIKLIK_MAX_MS gacha kutamiz.
-  var TIRIKLIK_MAX_MS = 7e3;
-  var TIRIKLIK_MASLAHAT_MS = 2500;
-  // Kamera ochilganda odam hali yuzini to'g'rilab olmagan bo'ladi -
-  // dastlabki freymlardan "barmoq izi" olinmaydi.
-  var JOYLASHISH_FREYM = 2;
-  var _birinchiYuzVaqti = 0;
-  var _sunggiYuzUlushi = 0;
+  var MIN_YUZ_ULUSHI = 0.12;
   // Yuz uzoq vaqt kichik bo'lib tursa - cheksiz kutib qolmaslik uchun.
   var KICHIK_YUZ_CHEGARA = 45;
-  // 07.10.2026 so'rovi: "aniqlanmadi" deb qo'pol xabar o'rniga - xodimga
-  // NIMA qilishini ayt: yaqinroq kel, to'g'ri qara, yorug'roq joyga tur.
-  // Ko'rsatma kameraning tepasidagi katta yozuvda chiqadi.
-  var SKANER_MAX_MS = 2e4;
-  var KATTA_YUZ_ULUSHI = 0.62;
-  var BURILGAN_YAW = 0.25;
-  var QORONGI_CHEGARA = 60;
-  var _yoriqMatn = "";
-  var _yoriqVaqt = 0;
-  var _sunggiYoruglik = null;
-  var _yuzYoqKetma = 0;
-  function yoriqnoma(matn, ogohlantirish) {
-    // Ko'rsatma tez-tez "miltillamasin" - har biri kamida 0.7 s tursin,
-    // faqat ogohlantirish darhol almashtira oladi.
-    const hozir = Date.now();
-    if (matn === _yoriqMatn) return;
-    if (!ogohlantirish && hozir - _yoriqVaqt < 700) return;
-    _yoriqMatn = matn;
-    _yoriqVaqt = hozir;
-    cameraInstruction.textContent = matn;
-    cameraInstruction.style.color = ogohlantirish ? "#B35A00" : "";
-  }
-  function yuzYorugligi(box) {
-    // Yuz qismining o'rtacha yorug'ligi (0 - qop-qora, 255 - oppoq).
-    // Kichraytirilgan kuzatuv tuvalidan o'qiladi - tez.
-    try {
-      const c = _detectCanvas;
-      if (!c || !c.width) return null;
-      const vw = videoEl.videoWidth || overlayEl.width || 1;
-      const k = c.width / vw;
-      const x = Math.max(0, Math.floor(box.x * k));
-      const y = Math.max(0, Math.floor(box.y * k));
-      const w = Math.min(c.width - x, Math.ceil(box.width * k));
-      const h = Math.min(c.height - y, Math.ceil(box.height * k));
-      if (w < 4 || h < 4) return null;
-      const d = c.getContext("2d").getImageData(x, y, w, h).data;
-      let jami = 0, soni = 0;
-      for (let i = 0; i < d.length; i += 16) {
-        jami += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-        soni += 1;
-      }
-      return soni ? jami / soni : null;
-    } catch (err) {
-      return null;
-    }
-  }
-  function qiyinchilikMaslahati() {
-    // Oxirgi kuzatuvga qarab - eng to'g'ri maslahatni beramiz.
-    const qatorlar = [];
-    if (_sunggiYuzUlushi && _sunggiYuzUlushi < 0.16) qatorlar.push("\u2022 Kameraga sal yaqinroq keling");
-    if (_sunggiYoruglik != null && _sunggiYoruglik < QORONGI_CHEGARA) qatorlar.push("\u2022 Yuzingiz qorong'i ko'rinyapti \u2014 yorug'roq joyga turing");
-    qatorlar.push("\u2022 Kameraga to'g'ri qarab, qimirlamay turing");
-    qatorlar.push("\u2022 Ko'zoynak, niqob yoki bosh kiyim bo'lsa \u2014 yechib ko'ring");
-    qatorlar.push("");
-    qatorlar.push("Qaytadan urinib ko'ring. Yana takrorlansa \u2014 administratorga ayting: yuzingizni qayta ro'yxatdan o'tkazish kerak bo'lishi mumkin.");
-    return qatorlar.join("\n");
-  }
   var KAMERA_BEKOR_MS = 45e3;
   var videoEl = document.getElementById("cameraVideo");
   var overlayEl = document.getElementById("cameraOverlay");
@@ -6721,145 +6374,10 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     setTimeout(bootBelgisiniYop, BOOT_BUSY_MAX_MS);
     return kioskReady;
   }
-  // 08.10.2026: internet yo'q / server javob bermayotgan holat belgisi.
-  // true bo'lsa davomat bazaga urinmasdan to'g'ridan-to'g'ri qurilma
-  // navbatiga yoziladi va internet tiklangach o'zi yuboriladi.
-  var kioskOflayn = false;
-  var dbVada = null;
-  var kioskSessiyaVada = null;
-  // -------------------------------------------------------------------
-  // 10.10.2026 — "TEZ TANISH" XOTIRASI
-  // -------------------------------------------------------------------
-  // Muammo: har bir skanerda dastur yuz vektorlari, sozlamalar va xodim
-  // ma'lumotini serverdan qaytadan so'rardi (har bir davomat yozuvi keshni
-  // tozalardi). Sekin internetda faqat kamera ochilishi 3-5 soniya, tanish
-  // esa yana bir necha soniya kutardi — tizim "qotib" qolgandek ko'rinardi.
-  // Yechim: hammasi kiosk XOTIRASIDA turadi va fonda yangilanib boradi.
-  // Skaner endi internetni KUTMAYDI — tanish bir zumda bo'ladi.
-  var XOTIRA_YANGILASH_MS = 3 * 60 * 1e3;
-  var tezXotira = {
-    embeddings: null,
-    threshold: null,
-    frames: null,
-    blinks: null,
-    movement: null,
-    xodimlar: /* @__PURE__ */ new Map(),
-    vaqt: 0,
-    sozlamaBor: false
-  };
-  var _xotiraVada = null;
-  function xotiraniNusxadanTold() {
-    try {
-      const nusxa = oqi();
-      if (!tezXotira.embeddings && Array.isArray(nusxa.embeddings) && nusxa.embeddings.length) {
-        tezXotira.embeddings = nusxa.embeddings;
-      }
-      if (tezXotira.threshold == null && nusxa.threshold != null) tezXotira.threshold = nusxa.threshold;
-      const sz = nusxa.sozlama;
-      if (sz && typeof sz === "object" && !tezXotira.sozlamaBor) {
-        tezXotira.frames = sz.frames ?? null;
-        tezXotira.blinks = sz.blinks ?? null;
-        tezXotira.movement = sz.movement ?? null;
-        tezXotira.sozlamaBor = true;
-      }
-      if (Array.isArray(nusxa.employees)) {
-        for (const e of nusxa.employees) {
-          if (e && e.id && !tezXotira.xodimlar.has(e.id)) tezXotira.xodimlar.set(e.id, { ...e, photoUrl: null, __nusxa: true });
-        }
-      }
-    } catch (err) {
-      console.warn("Xotirani nusxadan to'ldirib bo'lmadi:", err);
-    }
-  }
-  function xotiraEskirdi() {
-    tezXotira.vaqt = 0;
-  }
-  function xotiraniYangila(majburiy, keshsiz) {
-    if (_xotiraVada) return _xotiraVada;
-    if (!majburiy && Date.now() - tezXotira.vaqt < XOTIRA_YANGILASH_MS) return Promise.resolve();
-    if (!db || oflaynRejim()) return Promise.resolve();
-    if (keshsiz && typeof db.__clearReadCache === "function") db.__clearReadCache();
-    _xotiraVada = (async () => {
-      const [emb, thr, fr, bl, mv, xod] = await Promise.allSettled([
-        db.getAllActiveEmbeddings(),
-        db.getSetting("face_match_threshold"),
-        db.getSetting("recognition_hold_frames"),
-        db.getSetting("liveness_required_blinks"),
-        db.getSetting("liveness_min_movement"),
-        db.listEmployees({ activeOnly: true })
-      ]);
-      if (oflaynRejim()) return;
-      let ok = false;
-      if (emb.status === "fulfilled" && Array.isArray(emb.value)) {
-        tezXotira.embeddings = emb.value;
-        saqlaEmbeddings(emb.value);
-        ok = true;
-      }
-      if (thr.status === "fulfilled") {
-        tezXotira.threshold = thr.value;
-        saqlaThreshold(thr.value);
-      }
-      if (fr.status === "fulfilled" && bl.status === "fulfilled" && mv.status === "fulfilled") {
-        tezXotira.frames = fr.value;
-        tezXotira.blinks = bl.value;
-        tezXotira.movement = mv.value;
-        tezXotira.sozlamaBor = true;
-        yoz({ sozlama: { frames: fr.value, blinks: bl.value, movement: mv.value } });
-      }
-      if (xod.status === "fulfilled" && Array.isArray(xod.value)) {
-        const m = /* @__PURE__ */ new Map();
-        for (const e of xod.value) m.set(e.id, e);
-        tezXotira.xodimlar = m;
-        saqlaXodimlar(xod.value);
-      }
-      if (ok) tezXotira.vaqt = Date.now();
-    })().catch((err) => console.warn("Xotirani yangilab bo'lmadi (muhim emas):", err)).finally(() => {
-      _xotiraVada = null;
-    });
-    return _xotiraVada;
-  }
-  // Avtomatik sahifa yangilash cheklovi: 10 daqiqada ko'pi bilan 3 marta —
-  // aks holda sekin internetda sahifa to'xtovsiz qayta yuklanib qolardi.
-  function avtoYangilashMumkin() {
-    try {
-      const k = "shifoat_avto_yangilash";
-      const endi = Date.now();
-      const list = JSON.parse(sessionStorage.getItem(k) || "[]").filter((t) => endi - t < 10 * 60 * 1e3);
-      if (list.length >= 3) return false;
-      list.push(endi);
-      sessionStorage.setItem(k, JSON.stringify(list));
-      return true;
-    } catch {
-      return true;
-    }
-  }
-  // file:// orqali ochilganda (sinov/ishlab chiqish) mahalliy baza — oddiy ish rejimi.
-  function zaxiraRejimi() {
-    return currentMode() === "local-fallback" && location.protocol !== "file:";
-  }
-  function oflaynRejim() {
-    return kioskOflayn || zaxiraRejimi();
-  }
-  // Internet tiklanganda sahifani yangilash — faqat xodim skaner qilmayotgan paytda.
-  function boshEkrandaYangila() {
-    const t = setInterval(() => {
-      const home = document.getElementById("screen-home");
-      const adminEl = document.getElementById("adminRoot");
-      const adminOchiq = !!adminEl && getComputedStyle(adminEl).display !== "none";
-      if (home && home.classList.contains("active") && !adminOchiq && !document.querySelector(".modal-overlay.active")) {
-        clearInterval(t);
-        location.reload();
-      }
-    }, 1e3);
-  }
   var BOOT_BUSY_MAX_MS = 6e3;
   var SCAN_READ_MS = 8e3;
   var ROLLOVER_OYNA_MS = 6 * 60 * 60 * 1e3;
   async function oqishYokiZaxira(promise, zaxira, nima) {
-    if (oflaynRejim()) {
-      try { if (promise && promise.catch) promise.catch(() => {}); } catch {}
-      return typeof zaxira === "function" ? zaxira() : zaxira;
-    }
     try {
       return await vaqtBilanCheklash(promise, SCAN_READ_MS);
     } catch (err) {
@@ -6875,81 +6393,13 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
   var BOOT_SESSION_MS = 12e3;
   var BOOT_SETTINGS_MS = 12e3;
   async function bootKioskBackground() {
-    // 10.10.2026: avval xotirani qurilmadagi nusxadan to'ldiramiz — internet
-    // sekin bo'lsa ham birinchi xodim darhol tanilsin.
-    xotiraniNusxadanTold();
-    dbVada = vaqtBilanCheklash(getDb(), BOOT_DB_MS);
-    db = await dbVada;
-    // 08.10.2026: kiosk sessiyasi ochilmasa (internet sekin / Firebase javob
-    // bermadi) avval faqat "Kiosk kirish tizimi ishga tushmadi" yozilardi —
-    // sababi va nima qilish kerakligi aytilmasdi, qayta urinish ham yo'q edi.
-    // Endi: sabab aniq yoziladi, har 8 soniyada o'zi qayta urinadi, ochilgach
-    // sahifa o'zi yangilanadi. Sessiyasiz "admin yo'q" deb ishonib bo'lmaydi,
-    // shuning uchun birinchi admin oynasi ham ochilmaydi.
-    let kioskSessiyaOchiq = true;
-    if (zaxiraRejimi()) {
-      // Firebase kutubxonasi yuklanmadi (internet yo'q edi). Mahalliy bo'sh baza
-      // bilan ishlash xavfli: davomat yo'qoladi. Oflayn rejimga o'tamiz,
-      // internet kelishi bilan sahifa o'zi yangilanadi.
-      kioskOflayn = true;
-      kioskSessiyaOchiq = false;
-      // Xodimga hech narsa ko'rsatilmaydi (08.10.2026 so'rovi).
-      console.warn("Oflayn rejim: Firebase yuklanmadi, yozuvlar qurilma navbatiga tushadi.");
-      const kut = setInterval(async () => {
-        try {
-          const r = await fetch("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js", { mode: "no-cors", cache: "no-store" });
-          if (r && avtoYangilashMumkin()) { clearInterval(kut); boshEkrandaYangila(); }
-        } catch {
-        }
-      }, 15e3);
-    }
-    if (zaxiraRejimi()) {
-      // pastdagi sessiya urinishini o'tkazib yuboramiz
-    } else try {
-      kioskSessiyaVada = db.ensureKioskSession();
-      await vaqtBilanCheklash(kioskSessiyaVada, BOOT_SESSION_MS);
+    db = await vaqtBilanCheklash(getDb(), BOOT_DB_MS);
+    try {
+      await vaqtBilanCheklash(db.ensureKioskSession(), BOOT_SESSION_MS);
     } catch (err) {
-      kioskSessiyaOchiq = false;
-      kioskOflayn = true;
       console.error("Kiosk session failed to start:", err);
       const code = typeof err?.code === "string" && err.code ? ` [${err.code}]` : "";
-      const sekin = !!(err && err.__shifoatTimeout);
-      const xabar = sekin
-        ? "Serverga ulanib bo'lmadi. Kelish/ketish qurilmaga yoziladi va internet tiklanganda o'zi yuboriladi. Dastur o'zi qayta urinmoqda\u2026"
-        : uzError(err, "Kiosk kirish tizimi ishga tushmadi. Internetni tekshiring \u2014 dastur o'zi qayta urinmoqda\u2026") + code;
-      const doimiyXato = !!(err && typeof err.code === "string" && /operation-not-allowed|admin-restricted|configuration-not-found|api-key|unauthorized-domain/.test(err.code));
-      // Internet uzilishi xodimga bilinmaydi; faqat sozlama xatosi (doimiy) ko'rsatiladi.
-      const panel = doimiyXato ? showKioskSessionWarning(xabar) : null;
-      if (!doimiyXato) console.warn("Oflayn rejim:", xabar);
-      if (doimiyXato) kioskOflayn = false;
-      if (!doimiyXato) {
-        // 10.10.2026: sessiya ochilgach sahifa QAYTA YUKLANMAYDI (avval
-        // yuklanardi — har safar yuz modellari qaytadan yuklanib, sekin
-        // internetda tizim "qotib" qolardi). Endi shunchaki onlayn rejimga
-        // qaytamiz, navbatdagi yozuvlar yuboriladi, xotira yangilanadi.
-        let urin = null;
-        const tiklandi = () => {
-          if (urin) clearInterval(urin);
-          urin = null;
-          if (!kioskOflayn) return;
-          kioskOflayn = false;
-          kioskSessiyaVada = Promise.resolve();
-          if (panel && panel.remove) panel.remove();
-          console.info("Kiosk sessiyasi tiklandi \u2014 onlayn rejim.");
-          xotiraniYangila(true);
-          navbatniYubor(db).catch(() => {});
-        };
-        kioskSessiyaVada.then(tiklandi).catch(() => {});
-        urin = setInterval(async () => {
-          try {
-            const v = db.ensureKioskSession();
-            await vaqtBilanCheklash(v, BOOT_SESSION_MS);
-            tiklandi();
-          } catch (e2) {
-            console.warn("Kiosk sessiyasini qayta ochish: hali bo'lmadi", e2);
-          }
-        }, 1e4);
-      }
+      showKioskSessionWarning(uzError(err, "Kiosk kirish tizimi ishga tushmadi.") + code);
     }
     initBranding(db);
     loadModels().catch((err) => console.error("Face models failed to preload:", err));
@@ -6970,42 +6420,27 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
         return null;
       })
     ]);
-    if (!hasAdmin && kioskSessiyaOchiq) {
+    if (!hasAdmin) {
       document.getElementById("firstRunModal").classList.add("active");
     }
     if (Number(fullscreenSetting) === 1) {
       document.body.addEventListener("click", requestFullscreenOnce, { once: true });
     }
-    // 08.10.2026: oflayn rejimda mahalliy (bo'sh) bazadan o'qib, internet bor
-    // paytda saqlangan xodimlar nusxasini o'chirib yubormaslik kerak.
-    // 10.10.2026: xotira (yuz vektorlari, xodimlar, sozlamalar) fonda
-    // yangilanadi va har 3 daqiqada yangilanib turadi.
-    xotiraniYangila(true);
-    setInterval(() => xotiraniYangila(false), XOTIRA_YANGILASH_MS);
+    db.getAllActiveEmbeddings().then((rows) => saqlaEmbeddings(rows)).catch((err) => console.error("Embeddings prefetch failed (non-fatal):", err));
+    db.listEmployees({ activeOnly: true }).then((list) => saqlaXodimlar(list)).catch((err) => console.error("Oflayn xodimlar nusxasi olinmadi (muhim emas):", err));
     navbatKuzatuvchisi((soni) => navbatBelgisiniYangila(soni));
     navbatBelgisiniYangila();
-    setInterval(() => navbatBelgisiniYangila(), 5e3);
     try {
       oflaynSinxronniBoshla(db);
     } catch (err) {
       console.error("Oflayn sinxronni ishga tushirib bo'lmadi (muhim emas):", err);
     }
   }
-  var DAVOMAT_KUTISH_MS = 6e3;
+  var DAVOMAT_KUTISH_MS = 8e3;
   async function davomatYoz(mode2, employee, fullName, at, branch) {
+    const chaqiruv = mode2 === "OUT" ? checkOut(db, employee.id, fullName, at, branch) : checkIn(db, employee.id, fullName, at, branch);
     try {
-      if (oflaynRejim()) {
-        const e0 = new Error("oflayn rejim: internet yo'q");
-        e0.__shifoatTimeout = true;
-        throw e0;
-      }
-      const boshlandi = Date.now();
-      // Sessiya hali ochilayotgan bo'lsa (sahifa endigina ochilgan) — kutamiz,
-      // aks holda yozuv "ruxsat yo'q" bilan rad etiladi.
-      if (kioskSessiyaVada) await vaqtBilanCheklash(kioskSessiyaVada, 3e3);
-      const qoldi = Math.max(2e3, DAVOMAT_KUTISH_MS - (Date.now() - boshlandi));
-      const chaqiruv = mode2 === "OUT" ? checkOut(db, employee.id, fullName, at, branch) : checkIn(db, employee.id, fullName, at, branch);
-      return await vaqtBilanCheklash(chaqiruv, qoldi);
+      return await vaqtBilanCheklash(chaqiruv, DAVOMAT_KUTISH_MS);
     } catch (err) {
       if (!tarmoqXatosimi(err)) throw err;
       console.warn("Davomat bazaga yozilmadi \u2014 navbatga qo'yiladi:", err);
@@ -7031,10 +6466,7 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
   function navbatBelgisiniYangila(soni) {
     const n = soni == null ? navbatSoni() : soni;
     let el2 = document.getElementById("offlineQueueBadge");
-    // 08.10.2026: xodimga bilinmasin — belgi faqat admin paneli ochiq bo'lsa.
-    const adminEl = document.getElementById("adminRoot");
-    const adminKorinadi = !!adminEl && getComputedStyle(adminEl).display !== "none";
-    if (!n || !adminKorinadi) {
+    if (!n) {
       if (el2) el2.remove();
       return;
     }
@@ -7044,7 +6476,7 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       el2.style.cssText = "position:fixed; left:8px; bottom:6px; z-index:120; background:#FFF1D6; border:1px solid #F0C365; color:#8A5A00; border-radius:999px; padding:5px 12px; font-size:12px; font-weight:700; pointer-events:none;";
       document.body.appendChild(el2);
     }
-    el2.textContent = `\u{1F4F6} ${n} ta oflayn yozuv internet kutmoqda`;
+    el2.textContent = `\u23F3 ${n} ta yozuv yuborilishini kutmoqda`;
   }
   function requestFullscreenOnce() {
     const el2 = document.documentElement;
@@ -7064,17 +6496,7 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
   }
   var SCAN_HINT_TEXT = "Iltimos, yuzingizni yaqinroq olib keling, qaddingizni tik tuting, kameraga tik qarang.";
   async function ensureReady() {
-    // 10.10.2026: avval butun ishga tushish jarayoni (sessiya, sozlamalar,
-    // admin tekshiruvi — sekin internetda 30 soniyagacha) kutilardi. Endi
-    // faqat baza ulanishi kutiladi; qolgani fonda davom etadi.
-    if (!db && dbVada) {
-      try {
-        db = await dbVada;
-      } catch (err) {
-        console.error("Baza ulanmadi:", err);
-      }
-    }
-    if (!db && kioskReady) {
+    if (kioskReady) {
       try {
         await kioskReady;
       } catch (err) {
@@ -7084,55 +6506,58 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
     if (!db) db = await getDb();
   }
   async function startCamera(mode2) {
-    _bosilganVaqt = Date.now();
-    _kadrJamiMs = 0;
-    _kadrSoni = 0;
-    _deskJamiMs = 0;
-    _deskSoni = 0;
-    _kameraTayyorMs = null;
-    _buSkanerdaYangilandi = false;
     currentMode2 = mode2;
     cameraInstruction.textContent = "Iltimos, kameraga qarab turing\u2026";
     cameraStatus.textContent = SCAN_HINT_TEXT;
     showScreen("camera");
     await ensureReady();
-    // 05.10.2026 so'rovi: "birinchi yuzni skaner qilsin, keyin joylashuvni".
-    // Joylashuv endi KUTILMAYDI - u fon rejimida, kamera bilan BIR VAQTDA
-    // aniqlanadi. Natija xodim tanilgandan keyin, davomat yozilishidan
-    // OLDIN tekshiriladi (qarang finishRecognition). Shunday qilib
-    // himoya ham saqlanadi, 10 soniyalik kutish ham yo'qoladi.
-    geoVada = checkLocationGate().catch((err) => {
+    cameraStatus.textContent = "Joylashuv tekshirilmoqda\u2026";
+    let geo;
+    try {
+      geo = await checkLocationGate();
+    } catch (err) {
       console.error("Geofence check failed:", err);
-      return { allowed: true };
-    });
-    cameraStatus.textContent = SCAN_HINT_TEXT;
-    // 10.10.2026: sozlamalar XOTIRADAN olinadi — serverni kutmaymiz.
-    // Faqat dastur hech qachon sozlamani ko'rmagan bo'lsa (birinchi ishga
-    // tushish), ko'pi bilan 2.5 soniya kutamiz.
-    if (!tezXotira.sozlamaBor) {
-      await vaqtBilanCheklash(xotiraniYangila(true), 2500).catch(() => {
-      });
-    } else {
-      xotiraniYangila(false);
+      geo = { allowed: true };
     }
-    requiredFrames = numSetting(tezXotira.frames, 12);
-    const requiredBlinks = numSetting(tezXotira.blinks, 1);
-    const minMovement = numSetting(tezXotira.movement, 0.035);
+    if (!geo.allowed) {
+      stopCamera();
+      showScreen("home");
+      if (geo.unavailable) {
+        const retry = await confirmDialog({
+          title: "Joylashuv aniqlanmadi",
+          message: (geo.reason || "Joylashuvni aniqlab bo'lmadi.") + '\n\nBu \u2014 "ish joyidan tashqaridasiz" degani EMAS: qurilma joylashuvni umuman bermadi.',
+          okText: "Qayta urinish",
+          cancelText: "Yopish"
+        });
+        if (retry) await startCamera(mode2);
+        return;
+      }
+      await alertDialog({
+        title: "Ish joyidan tashqarida",
+        message: geo.reason || "Siz ish joyidan tashqaridasiz."
+      });
+      return;
+    }
+    cameraStatus.textContent = currentBranch ? `${SCAN_HINT_TEXT}
+\u{1F4CD} ${currentBranch.name}` : SCAN_HINT_TEXT;
+    requiredFrames = numSetting(
+      await oqishYokiZaxira(db.getSetting("recognition_hold_frames"), null, "Freym sozlamasi"),
+      12
+    );
+    const requiredBlinks = numSetting(
+      await oqishYokiZaxira(db.getSetting("liveness_required_blinks"), null, "Liveness sozlamasi"),
+      1
+    );
+    const minMovement = numSetting(
+      await oqishYokiZaxira(db.getSetting("liveness_min_movement"), null, "Harakat sozlamasi"),
+      0.035
+    );
     livenessTracker = new LivenessTracker({ requiredBlinks, minMovement });
     collectedFrames = 0;
     bestDescriptor = null;
     frameDescriptors = [];
     bosh_yoq = 0;
     kichik_yuz = 0;
-    qaytaUrinish = 0;
-    _birinchiYuzVaqti = 0;
-    _sunggiYuzUlushi = 0;
-    _sunggiYoruglik = null;
-    _yuzYoqKetma = 0;
-    _yoriqMatn = "";
-    _yoriqVaqt = 0;
-    cameraInstruction.style.color = "";
-    _skanerBoshi = Date.now();
     cameraOchilganVaqt = Date.now();
     recognitionInProgress = false;
     try {
@@ -7149,10 +6574,7 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       return;
     }
     try {
-      // 10.10.2026: oldingi xodimdan keyin kamera bir oz vaqt ochiq turadi —
-      // ketma-ket kelganlarda kamera qaytadan ochilishini kutmaymiz.
-      const parklangan = kameraniParkdanOl();
-      mediaStream = parklangan || await navigator.mediaDevices.getUserMedia({
+      mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: CAMERA_WIDTH }, height: { ideal: CAMERA_HEIGHT }, facingMode: "user" },
         audio: false
       });
@@ -7163,44 +6585,12 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       );
       return;
     }
-    if (videoEl.srcObject !== mediaStream) videoEl.srcObject = mediaStream;
+    videoEl.srcObject = mediaStream;
     await videoEl.play();
     overlayEl.width = videoEl.videoWidth || CAMERA_WIDTH;
     overlayEl.height = videoEl.videoHeight || CAMERA_HEIGHT;
-    _kameraTayyorMs = Date.now() - _bosilganVaqt;
     boshlaDetectLoop();
   }
-  var KAMERA_PARK_MS = 25e3;
-  var _parkStream = null;
-  var _parkTimer = null;
-  function kameraniParkdanOl() {
-    if (_parkTimer) {
-      clearTimeout(_parkTimer);
-      _parkTimer = null;
-    }
-    const st = _parkStream;
-    _parkStream = null;
-    if (st && st.getVideoTracks().some((t) => t.readyState === "live")) return st;
-    if (st) st.getTracks().forEach((t) => t.stop());
-    return null;
-  }
-  function kameraniButunlayYop() {
-    if (_parkTimer) {
-      clearTimeout(_parkTimer);
-      _parkTimer = null;
-    }
-    if (_parkStream) {
-      _parkStream.getTracks().forEach((t) => t.stop());
-      _parkStream = null;
-    }
-    try {
-      if (videoEl && !mediaStream) videoEl.srcObject = null;
-    } catch {
-    }
-  }
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) kameraniButunlayYop();
-  });
   function boshlaDetectLoop() {
     loopToxtadi = false;
     tickBusy = false;
@@ -7227,11 +6617,8 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       detectLoopHandle = null;
     }
     if (mediaStream) {
-      // Darhol o'chirmaymiz — 25 soniya "parkda" turadi (keyingi xodim uchun).
-      kameraniButunlayYop();
-      _parkStream = mediaStream;
+      mediaStream.getTracks().forEach((track) => track.stop());
       mediaStream = null;
-      _parkTimer = setTimeout(kameraniButunlayYop, document.hidden ? 0 : KAMERA_PARK_MS);
     }
   }
   function stopCameraAndGoHome() {
@@ -7240,34 +6627,22 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
   }
   async function runDetectionTick() {
     if (!mediaStream || recognitionInProgress) return;
-    const deskriptorKerak = collectedFrames >= JOYLASHISH_FREYM && frameDescriptors.length < DESKRIPTOR_KERAK;
+    const deskriptorKerak = frameDescriptors.length < DESKRIPTOR_KERAK;
     let detection;
-    const _t0 = performance.now();
     try {
       detection = await detectFace(videoEl, { descriptor: deskriptorKerak });
     } catch (err) {
       console.error("detectFace failed:", err);
       return;
     }
-    const _dt = performance.now() - _t0;
-    if (deskriptorKerak) {
-      _deskJamiMs += _dt;
-      _deskSoni += 1;
-    } else {
-      _kadrJamiMs += _dt;
-      _kadrSoni += 1;
-    }
     const ctx = overlayEl.getContext("2d");
     ctx.clearRect(0, 0, overlayEl.width, overlayEl.height);
     if (!detection) {
       cameraStatus.textContent = SCAN_HINT_TEXT;
-      _yuzYoqKetma += 1;
-      if (_yuzYoqKetma >= 3) yoriqnoma("Yuzingizni kameraga qarating \u{1F642}");
       bosh_yoq += 1;
       if (bosh_yoq >= YUZ_YOQ_CHEGARA && collectedFrames > 0) {
         collectedFrames = 0;
         frameDescriptors = [];
-        _birinchiYuzVaqti = 0;
         if (livenessTracker && typeof livenessTracker.reset === "function") livenessTracker.reset();
       }
       if (Date.now() - cameraOchilganVaqt > KAMERA_BEKOR_MS) {
@@ -7277,77 +6652,33 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       return;
     }
     bosh_yoq = 0;
-    _yuzYoqKetma = 0;
     const box = detection.detection.box;
     ctx.strokeStyle = "#ED2040";
     ctx.lineWidth = 3;
     ctx.strokeRect(box.x, box.y, box.width, box.height);
-    // Umumiy vaqt chegarasi: shuncha vaqtda tanib bo'lmasa - qo'pol
-    // "aniqlanmadi" emas, yumshoq maslahat ekrani.
-    if (Date.now() - cameraOchilganVaqt > SKANER_MAX_MS) {
-      tashxisYoz("VAQT TUGADI");
-      showResultWarning("Sizni aniqlash qiyin bo'lyapti", qiyinchilikMaslahati());
-      return;
-    }
     // Yuz juda kichik bo'lsa (uzoqda turibdi) - bu freym hisobga
     // olinmaydi, aks holda sifatsiz "barmoq izi" olinadi.
     const kadrEni = overlayEl.width || videoEl.videoWidth || 1;
-    _sunggiYuzUlushi = box.width / kadrEni;
     if (box.width < kadrEni * MIN_YUZ_ULUSHI) {
-      // Uzoqda turibdi - "aniqlanmadi" demaymiz, yaqinlashishini so'raymiz.
       kichik_yuz += 1;
-      yoriqnoma("Sal yaqinroq keling \u{1F447}", true);
-      return;
-    }
-    if (box.width > kadrEni * KATTA_YUZ_ULUSHI) {
-      // Juda yaqin - yuz kadrga sig'maydi, sifat pasayadi.
-      yoriqnoma("Biroz orqaroq turing", true);
+      if (kichik_yuz >= KICHIK_YUZ_CHEGARA) {
+        // Cheksiz "yaqinroq keling" deb turib qolmasin.
+        stopCamera();
+        showResultWarning(
+          "Yuz juda uzoqda",
+          "Kameraga yaqinroq turib, qaytadan urinib ko'ring."
+        );
+        return;
+      }
+      cameraStatus.textContent = "Kameraga yaqinroq keling\u2026";
       return;
     }
     kichik_yuz = 0;
-    // Yorug'lik: qorong'i yuzdan sifatli "barmoq izi" chiqmaydi.
-    const yoruglik = yuzYorugligi(box);
-    if (yoruglik != null) _sunggiYoruglik = yoruglik;
-    // Bosh qattiq burilgan bo'lsa - bu freymdan barmoq izi olinmaydi.
-    let burilgan = false;
-    try {
-      burilgan = Math.abs(yawSignal(detection.landmarks)) > BURILGAN_YAW;
-    } catch (err) {
-      burilgan = false;
-    }
-    if (burilgan) {
-      yoriqnoma("Kameraga to'g'ri qarang", true);
-      return;
-    }
-    if (yoruglik != null && yoruglik < QORONGI_CHEGARA) {
-      yoriqnoma("Yuzingiz qorong'i \u2014 yorug'roq joyga turing", true);
-    } else if (qaytaUrinish > 0) {
-      yoriqnoma("Sizni aniqlash qiyin bo'lyapti \u2014 to'g'ri qarab, qimirlamay turing", true);
-    } else {
-      yoriqnoma("Kameraga qarab turing\u2026");
-    }
-    if (!_birinchiYuzVaqti) _birinchiYuzVaqti = Date.now();
     livenessTracker.addSample(detection.landmarks);
     collectedFrames += 1;
     if (detection.descriptor) frameDescriptors.push(detection.descriptor);
-    if (collectedFrames < requiredFrames) {
-      cameraStatus.textContent = SCAN_HINT_TEXT;
-      return;
-    }
-    // Barmoq izlari hali yig'ilmoqda - davom etamiz.
-    if (frameDescriptors.length < DESKRIPTOR_KERAK) return;
-    // Tirik odam isboti (ko'z yumish yoki bosh qimirlashi) hali yo'q -
-    // shoshilmaymiz, kutamiz. Vaqt tugasa, finishRecognition o'zi
-    // to'g'ri xabarni chiqaradi.
-    if (!livenessTracker.isLive) {
-      const otdi = Date.now() - _birinchiYuzVaqti;
-      if (otdi < TIRIKLIK_MAX_MS) {
-        if (otdi > TIRIKLIK_MASLAHAT_MS) {
-          cameraStatus.textContent = "Ko'zingizni bir marta yumib oching \u{1F642}";
-        }
-        return;
-      }
-    }
+    cameraStatus.textContent = SCAN_HINT_TEXT;
+    if (collectedFrames < requiredFrames) return;
     if (!frameDescriptors.length) {
       // Deskriptor umuman olinmagan bo'lsa (kamdan-kam), oxirgi
       // freymdan bittasini olib ko'ramiz — bo'sh tanish qilmaymiz.
@@ -7396,50 +6727,11 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       mode: currentMode2
     });
   }
-  async function joylashuvNatijasi() {
-    // Kamera ishlagan vaqtda joylashuv ham aniqlanib bo'lgan - odatda
-    // bu yerda kutish 0 ga teng.
-    if (!geoVada) return { allowed: true };
-    try {
-      return await geoVada;
-    } catch (err) {
-      console.error("Geofence promise failed:", err);
-      return { allowed: true };
-    }
-  }
-  async function joylashuvTosigi(mode2) {
-    const geo = await joylashuvNatijasi();
-    if (geo.allowed) return true;
-    stopCamera();
-    showScreen("home");
-    if (geo.unavailable) {
-      const retry = await confirmDialog({
-        title: "Joylashuv aniqlanmadi",
-        message: (geo.reason || "Joylashuvni aniqlab bo'lmadi.") + '\n\nBu \u2014 "ish joyidan tashqaridasiz" degani EMAS: qurilma joylashuvni umuman bermadi.',
-        okText: "Qayta urinish",
-        cancelText: "Yopish"
-      });
-      if (retry) await startCamera(mode2 || currentMode2);
-      return false;
-    }
-    await alertDialog({
-      title: "Ish joyidan tashqarida",
-      message: geo.reason || "Siz ish joyidan tashqaridasiz."
-    });
-    return false;
-  }
   async function finishRecognition() {
-    // Yuz tanildi - endi joylashuvni tekshiramiz (davomat yozilishidan
-    // oldin). Agar ish joyidan tashqarida bo'lsa, hech narsa yozilmaydi.
-    if (!await joylashuvTosigi(currentMode2)) {
-      tashxisYoz("JOYLASHUV");
-      return;
-    }
     if (!livenessTracker.isLive) {
-      tashxisYoz("TIRIKLIK");
       showResultWarning(
         "Yuzingiz yaxshi ko'rinmayapti.",
-        "Kameraga to'g'ri qarab, ko'zingizni bir marta yumib oching."
+        "Iltimos, kameraga to'g'ri qarang."
       );
       return;
     }
@@ -7448,86 +6740,51 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
       return;
     }
     try {
-      // 10.10.2026: yuz vektorlari va chegara XOTIRADAN — internet kutilmaydi.
-      if (!tezXotira.embeddings || !tezXotira.embeddings.length) {
-        await vaqtBilanCheklash(xotiraniYangila(true), 4e3).catch(() => {
-        });
-        if (!tezXotira.embeddings || !tezXotira.embeddings.length) xotiraniNusxadanTold();
-      }
-      let candidates = tezXotira.embeddings || [];
-      let thresholdRaw = tezXotira.threshold;
-      let threshold = numSetting(thresholdRaw, 0.5);
-      let natija = qatiyMatch(frameDescriptors, bestDescriptor, candidates, threshold);
-      // Tanilmadi va xotira eski bo'lsa (masalan, admin hozirgina yangi
-      // xodim qo'shgan) — bir marta serverdan yangilab, qayta solishtiramiz.
-      if (!natija.employeeId && natija.sabab === "chegaradan uzoq" && !_buSkanerdaYangilandi && !oflaynRejim() && Date.now() - tezXotira.vaqt > 2e4) {
-        _buSkanerdaYangilandi = true;
-        await vaqtBilanCheklash(xotiraniYangila(true, true), 3e3).catch(() => {
-        });
-        if (tezXotira.embeddings && tezXotira.embeddings.length) {
-          candidates = tezXotira.embeddings;
-          thresholdRaw = tezXotira.threshold;
-          threshold = numSetting(thresholdRaw, 0.5);
-          natija = qatiyMatch(frameDescriptors, bestDescriptor, candidates, threshold);
-        }
-      }
+      const [thresholdRaw, candidates] = await Promise.all([
+        oqishYokiZaxira(
+          db.getSetting("face_match_threshold").then((v) => {
+            saqlaThreshold(v);
+            return v;
+          }),
+          oqiThreshold,
+          "Tanish chegarasi"
+        ),
+        oqishYokiZaxira(
+          db.getAllActiveEmbeddings().then((rows) => {
+            saqlaEmbeddings(rows);
+            return rows;
+          }),
+          oqiEmbeddings,
+          "Yuz vektorlari"
+        )
+      ]);
+      const threshold = numSetting(thresholdRaw, 0.5);
+      const natija = qatiyMatch(frameDescriptors, bestDescriptor, candidates, threshold);
       const employeeId = natija.employeeId;
-      const masofa = tashxisMasofalar(bestDescriptor, candidates);
-      const masofaMalumoti = {
-        sabab: natija.sabab || "",
-        masofa: masofa.birinchi != null ? Math.round(masofa.birinchi * 1e3) / 1e3 : null,
-        ikkinchi: masofa.ikkinchi != null ? Math.round(masofa.ikkinchi * 1e3) / 1e3 : null,
-        chegara: Math.min(threshold, MAX_THRESHOLD),
-        yaqinXodimId: masofa.birinchiId || ""
-      };
       if (!employeeId) {
-        const ishonchsiz = natija.sabab === "freymlar kelishmadi" || natija.sabab === "freym kam" || natija.sabab === "tasdiq kam";
-        // 07.10.2026: "chegaradan uzoq" ham - yorug'lik yoki burilish
-        // tufayli bir lahzalik yomon kadr bo'lishi mumkin. Darhol
-        // "aniqlanmadi" demay, jimgina yana urinamiz.
-        const qaytaMumkin = ishonchsiz || natija.sabab === "chegaradan uzoq";
-        if (qaytaMumkin && qaytaUrinish < MAX_QAYTA_URINISH && mediaStream) {
-          tashxisYoz("QAYTA", masofaMalumoti);
-          qaytaUrinish += 1;
-          collectedFrames = 0;
-          frameDescriptors = [];
-          bestDescriptor = null;
-          bosh_yoq = 0;
-          // Tiriklik isboti saqlanadi - o'sha odam turibdi, qayta
-          // ko'z yumishini kutish shart emas.
-          cameraStatus.textContent = "Biroz kuting\u2026";
-          boshlaDetectLoop();
+        if (natija.sabab === "freymlar kelishmadi" || natija.sabab === "freym kam") {
+          // Bu "noma'lum odam" emas - tizim ishonchi yetmadi.
+          // Noto'g'ri odamni ko'rsatgandan ko'ra qayta so'ragan yaxshi.
+          showResultWarning(
+            "Aniq tanib bo'lmadi",
+            "Kameraga to'g'ri va yaqinroq qarang, so'ng qayta urinib ko'ring."
+          );
           return;
         }
-        tashxisYoz(ishonchsiz ? "ISHONCHSIZ" : "ANIQLANMADI", masofaMalumoti);
-        // 07.10.2026 so'rovi: qo'pol "Xodim aniqlanmadi" o'rniga - yumshoq
-        // ogohlantirish va aniq maslahat. Begona odam bo'lsa ham surati
-        // Xavfsizlik jurnaliga baribir tushadi.
-        if (!ishonchsiz) {
-          captureUnknownFace().catch((err) => console.error("Unknown-face capture failed (non-fatal):", err));
-        }
-        showResultWarning("Sizni aniqlash qiyin bo'lyapti", qiyinchilikMaslahati());
+        captureUnknownFace().catch((err) => console.error("Unknown-face capture failed (non-fatal):", err));
+        showResultError("\u26A0\uFE0F Xodim aniqlanmadi", "Iltimos, administratorga murojaat qiling.");
         return;
       }
-      // 10.10.2026: xodim ma'lumoti ham xotiradan (serverga faqat xotirada
-      // bo'lmasa murojaat qilinadi, ko'pi bilan 3 soniya).
-      let employee = tezXotira.xodimlar.get(employeeId) || null;
-      if (!employee || employee.__nusxa && !oflaynRejim()) {
-        const serverdan = await oqishYokiZaxira(
-          vaqtBilanCheklash(db.getEmployee(employeeId), 3e3),
-          () => employee || oqiXodim(employeeId),
-          "Xodim ma'lumoti"
-        );
-        if (serverdan) employee = serverdan;
-      }
+      const employee = await oqishYokiZaxira(
+        db.getEmployee(employeeId),
+        () => oqiXodim(employeeId),
+        "Xodim ma'lumoti"
+      );
       if (!employee || !employee.isActive) {
-        // Yuz tanildi, lekin xodim o'chirilgan yoki faol emas.
-        tashxisYoz("FAOL EMAS", masofaMalumoti);
-        showResultWarning("Profilingiz faol emas", "Iltimos, administratorga murojaat qiling.");
+        showResultError("\u26A0\uFE0F Xodim aniqlanmadi", "Iltimos, administratorga murojaat qiling.");
         return;
       }
       const fullName = `${employee.firstName} ${employee.lastName || ""}`.trim();
-      tashxisYoz("TANILDI", { ...masofaMalumoti, xodim: fullName });
       let branches = [];
       if (currentBranch && employee.branchId && employee.branchId !== currentBranch.id) {
         branches = await oqishYokiZaxira(
@@ -7544,11 +6801,9 @@ Qattiq nazorat yoqilgan \u2014 faqat o'z ish joyingizda belgilana oladi.`
         /* @__PURE__ */ new Date(),
         currentBranch
       );
-      tashxisgaDavomat(davomatMatni(result));
       showAttendanceResult(result, employee.photoUrl, branchNoteFor(employee, branches));
     } catch (err) {
       console.error("finishRecognition failed:", err);
-      tashxisgaDavomat("XATO: " + uzError(err));
       showResultError("Xatolik yuz berdi", uzError(err));
     }
   }
@@ -10135,7 +9390,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       const lateText = lateMinutes ? `<span title="Kechikish: ${lateMinutes} min${lateParts} \xB7 Jarima: ${latePenalty.toLocaleString("uz-UZ")} so'm">${lateMinutes} min</span>` : "\u2014";
       const tr = document.createElement("tr");
       if (lateMinutes > 0) tr.className = "row-late";
-      const oflaynBelgi = att && att.offlineQueued ? ` <span class="offline-pill" title="Bu yozuv internet uzilganda qurilmada saqlangan va aloqa tiklangach yuborilgan" style="background:#FFF1D6;color:#8A5A00;border-radius:999px;padding:1px 7px;font-weight:700;">\u{1F4F6} oflayn</span>` : "";
+      const oflaynBelgi = att && att.offlineQueued ? ` <span class="offline-pill" title="Bu yozuv internet uzilganda qurilmada saqlangan va aloqa tiklangach yuborilgan">\u{1F4F6}</span>` : "";
       tr.innerHTML = `
       <td>${fullName}${oflaynBelgi}</td><td>${DAY_STATUS_LABELS_UZ[status] || status}</td>
       <td>${checkIn2}</td><td>${checkOut2}</td><td>${lateText}</td>
@@ -10609,6 +9864,85 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
   var _user4;
   var _canExport;
   var _canEditAttendance;
+
+  // ====================================================================
+  // 11.10.2026: CHEKLIST dasturidagi BONUS va JARIMA (faqat o'qish).
+  // Cheklist alohida Firebase loyihasida (cheklist-597b0). Bu yerdan
+  // faqat 2 ta hujjat O'QILADI: xodimlar ro'yxati va bonus/jarima
+  // yozuvlari. Hech narsa yozilmaydi/o'zgartirilmaydi. Xato bo'lsa
+  // (internet, ruxsat) hisobot odatdagidek ishlayveradi.
+  // ====================================================================
+  var CHEK_CONFIG = {
+    apiKey: "AIzaSyACWHvpmHQLq4TnZ1xiitBnSjuFdLY4dpI",
+    authDomain: "cheklist-597b0.firebaseapp.com",
+    projectId: "cheklist-597b0",
+    storageBucket: "cheklist-597b0.firebasestorage.app",
+    messagingSenderId: "703149906833",
+    appId: "1:703149906833:web:9750e9135516fa56bdd830"
+  };
+  var _chekCache = { at: 0, data: null };
+  async function chekReadAll() {
+    if (_chekCache.data && Date.now() - _chekCache.at < 60000) return _chekCache.data;
+    const [appMod, fsMod, authMod] = await Promise.all([
+      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
+      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"),
+      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js")
+    ]);
+    const existing = appMod.getApps().find((a) => a.name === "cheklist");
+    const app = existing || appMod.initializeApp(CHEK_CONFIG, "cheklist");
+    // Cheklist bazasi faqat anonim kirgan so'rovlarga ochiq (firestore.rules).
+    try {
+      const chekAuth = authMod.getAuth(app);
+      if (!chekAuth.currentUser) await authMod.signInAnonymously(chekAuth);
+    } catch (e) { console.warn("Cheklist anonim kirish:", e && e.code); }
+    const cdb = fsMod.getFirestore(app);
+    const readJson = async (key) => {
+      const snap = await fsMod.getDoc(fsMod.doc(cdb, "shared_kv", key));
+      if (!snap.exists()) return [];
+      try { const v = JSON.parse(snap.data().value); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+    };
+    const [emps, entries] = await Promise.all([readJson("employees-list"), readJson("bonus-penalty-entries")]);
+    _chekCache = { at: Date.now(), data: { emps, entries } };
+    return _chekCache.data;
+  }
+  function chekNorm(s) { return (s || "").trim().toLowerCase().replace(/\s+/g, " "); }
+  /** Bitta xodimning oy bo'yicha bonus/jarima yig'indisi. */
+  async function getChekBonusJarima(employeeName, year, month) {
+    try {
+      const { emps, entries } = await chekReadAll();
+      const key = chekNorm(employeeName);
+      let match = emps.filter((e) => chekNorm(e.name) === key);
+      if (match.length !== 1) {
+        // to'liq ism topilmasa — faqat ismi (birinchi so'z) bo'yicha, agar yagona bo'lsa
+        const first = key.split(" ")[0];
+        const byFirst = emps.filter((e) => chekNorm(e.name).split(" ")[0] === first);
+        if (byFirst.length === 1) match = byFirst;
+      }
+      if (match.length !== 1) return { found: false };
+      const id = match[0].id;
+      const prefix = `${year}-${String(month).padStart(2, "0")}`;
+      const out = { found: true, bonus: 0, bonusCount: 0, jarima: 0, jarimaCount: 0, autoBonus: 0, items: [] };
+      for (const e of entries) {
+        if (e.employeeId !== id) continue;
+        if (e.type !== "bonus" && e.type !== "jarima") continue;
+        if (e.type === "jarima" && e.reviewStatus === "pending") continue; // hali tasdiqlanmagan
+        const d = new Date(e.createdAt);
+        if (isNaN(d.getTime())) continue;
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        if (k !== prefix) continue;
+        const amount = Number(e.amount) || 0;
+        if (e.type === "bonus") {
+          out.bonus += amount; out.bonusCount++;
+          if (e.source === "early_arrival" || e.source === "late_leave") out.autoBonus += amount;
+        } else { out.jarima += amount; out.jarimaCount++; }
+      }
+      return out;
+    } catch (err) {
+      console.error("cheklist bonus/jarima o'qilmadi:", err);
+      return { found: false, error: true };
+    }
+  }
+  function chekFmt(n) { return (Number(n) || 0).toLocaleString("uz-UZ"); }
   var _lastReport = null;
   var _branchNameById = /* @__PURE__ */ new Map();
   var _editMode = false;
@@ -10722,6 +10056,31 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
     }
     renderSummary();
     renderReportRows();
+    await attachChekBonus(_lastReport);
+  }
+  async function attachChekBonus(report) {
+    let box = document.getElementById("reportChekBox");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "reportChekBox";
+      box.style.cssText = "margin:8px 0; padding:10px 12px; border-radius:8px; background:#F0FDF4; border:1px solid #BBF7D0; line-height:1.7;";
+      summaryEl.parentNode.insertBefore(box, summaryEl.nextSibling);
+    }
+    if (!report) { box.style.display = "none"; return; }
+    box.style.display = "";
+    box.textContent = "Bonus va jarima (cheklist) yuklanmoqda\u2026";
+    const c = await getChekBonusJarima(report.employeeName, report.year, report.month);
+    report.chek = c;
+    if (report !== _lastReport) return;
+    if (c.error) { box.textContent = "Bonus/jarima (cheklist) hozir o'qilmadi \u2014 internet yoki ruxsatni tekshiring."; return; }
+    if (!c.found) { box.textContent = "Bonus/jarima (cheklist): bu xodim cheklist dasturida topilmadi (ismi bir xil yozilganini tekshiring)."; return; }
+    const net = c.bonus - c.jarima;
+    box.innerHTML =
+      `<b>Bonus (cheklist):</b> <span style="color:#15803D;font-weight:700;">+${chekFmt(c.bonus)} so'm</span> (${c.bonusCount} ta` +
+      (c.autoBonus ? `, shundan avtomatik: ${chekFmt(c.autoBonus)}` : "") + `)` +
+      ` &nbsp;|&nbsp; <b>Qo'shimcha jarima (cheklist):</b> <span style="color:#B91C1C;font-weight:700;">\u2212${chekFmt(c.jarima)} so'm</span> (${c.jarimaCount} ta)` +
+      ` &nbsp;|&nbsp; <b>Kechikish jarimasi:</b> \u2212${chekFmt(report.totalLatePenalty)} so'm` +
+      ` &nbsp;|&nbsp; <b>Sof farq:</b> <span style="font-weight:700;">${net - report.totalLatePenalty >= 0 ? "+" : "\u2212"}${chekFmt(Math.abs(net - report.totalLatePenalty))} so'm</span>`;
   }
   function renderSummary() {
     const r = _lastReport;
@@ -10737,7 +10096,7 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
       const earlyText = day.earlyMinutes ? `${day.earlyMinutes} min` : "\u2014";
       const joylar = [day.branchName, day.branchName2].filter((x) => !!x).filter((x, i, arr) => arr.indexOf(x) === i);
       const branchText = joylar.length ? `<span class="branch-pill">${escapeHtml(joylar.join(" \xB7 "))}</span>` : "\u2014";
-      const oflaynBelgi = day.offlineQueued ? ` <span class="offline-pill" title="Bu yozuv internet uzilganda qurilmada saqlangan va aloqa tiklangach yuborilgan" style="background:#FFF1D6;color:#8A5A00;border-radius:999px;padding:1px 7px;font-weight:700;">\u{1F4F6} oflayn</span>` : "";
+      const oflaynBelgi = day.offlineQueued ? ` <span class="offline-pill" title="Bu yozuv internet uzilganda qurilmada saqlangan va aloqa tiklangach yuborilgan">\u{1F4F6}</span>` : "";
       const sanaKatak = `${day.dateStr} (${day.weekdayUz})${oflaynBelgi}`;
       const tr = document.createElement("tr");
       tr.dataset.dateKey = day.dateKey;
@@ -10868,6 +10227,7 @@ ${bothCount} ta kun ikkala ro'yxatda ham belgilangan edi \u2014 ular DAM KUNI bo
   async function onExport() {
     if (!_lastReport) await onCalculate();
     if (!_lastReport) return;
+    if (!_lastReport.chek) _lastReport.chek = await getChekBonusJarima(_lastReport.employeeName, _lastReport.year, _lastReport.month);
     try {
       const { exportMonthlyReportDocx: exportMonthlyReportDocx2 } = await Promise.resolve().then(() => (init_wordExport(), wordExport_exports));
       // 29.09.2026: hisobotga filial nomi va uni kim chop etgani qo'shiladi.
@@ -12134,143 +11494,6 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       if (ochilyapti) renderFaceAudit();
     });
     document.getElementById("btnSecFaceRun").addEventListener("click", renderFaceAudit);
-    document.getElementById("btnSecScanDiag").addEventListener("click", () => {
-      const panel = document.getElementById("secDiagPanel");
-      const ochilyapti = panel.style.display === "none";
-      panel.style.display = ochilyapti ? "" : "none";
-      if (ochilyapti) renderScanDiag();
-    });
-    document.getElementById("btnSecDiagRefresh").addEventListener("click", renderScanDiag);
-    document.getElementById("btnSecDiagClear").addEventListener("click", async () => {
-      const ok = await confirmDialog({
-        title: "Tashxisni tozalash",
-        message: "Shu qurilmadagi barcha skaner tashxisi yozuvlari o'chirilsinmi?",
-        okText: "Ha, tozalash",
-        cancelText: "Yo'q",
-        danger: true
-      });
-      if (!ok) return;
-      try {
-        localStorage.removeItem(TASHXIS_KALIT);
-      } catch (err) {
-      }
-      renderScanDiag();
-    });
-  }
-  var TASHXIS_NOMI = {
-    TANILDI: "✅ Tanildi",
-    QAYTA: "\u{1F504} Jim qayta urinish",
-    ANIQLANMADI: "❌ Aniqlanmadi",
-    ISHONCHSIZ: "⚠️ Ishonchsiz",
-    TIRIKLIK: "\u{1F441} Tiriklik",
-    "VAQT TUGADI": "\u23F1 Vaqt tugadi",
-    "FAOL EMAS": "\u{1F6AB} Faol emas",
-    JOYLASHUV: "\u{1F4CD} Joylashuv"
-  };
-  function tashxisIzohi(r) {
-    if (r.natija === "TANILDI") return r.qaytaUrinish ? `${r.qaytaUrinish} ta jim qayta urinishdan keyin` : "";
-    if (r.natija === "TIRIKLIK") return "Ko'z yumish ham, bosh qimirlashi ham sezilmadi";
-    if (r.natija === "JOYLASHUV") return "Ish joyidan tashqarida yoki joylashuv aniqlanmadi";
-    if (r.natija === "VAQT TUGADI") {
-      if (r.yuzUlushi != null && r.yuzUlushi < 10) return "20 soniyada yaqinlashmadi \u2014 uzoqda turgan";
-      if (r.yoruglik != null && r.yoruglik < 60) return "20 soniyada tanilmadi \u2014 yuz qorong'i edi";
-      return "20 soniyada tanib bo'lmadi";
-    }
-    if (r.natija === "FAOL EMAS") return "Yuz tanildi, lekin xodim o'chirilgan yoki faol emas";
-    if (r.sabab === "chegaradan uzoq") {
-      if (r.masofa != null && r.chegara != null && r.masofa < r.chegara + 0.08) {
-        return "Chegaraga juda yaqin — bu xodimning yuzini qayta oling";
-      }
-      return "Ro'yxatdagi hech kimga o'xshamadi (begona yoki yorug'lik yomon)";
-    }
-    if (r.sabab === "freymlar kelishmadi") return "Freymlar har xil odamni ko'rsatdi (qimirladi yoki ikki kishi)";
-    if (r.sabab === "tasdiq kam" || r.sabab === "freym kam") return "Ishonch yetmadi — kamera oldida qimirlamay turing";
-    return r.sabab || "";
-  }
-  async function renderScanDiag() {
-    const tbody = document.getElementById("secDiagTable").querySelector("tbody");
-    const countEl = document.getElementById("secDiagCount");
-    const xulosa = document.getElementById("secDiagSummary");
-    let rows = [];
-    try {
-      rows = JSON.parse(localStorage.getItem(TASHXIS_KALIT) || "[]");
-      if (!Array.isArray(rows)) rows = [];
-    } catch (err) {
-      rows = [];
-    }
-    let nomlar = /* @__PURE__ */ new Map();
-    try {
-      const emps = await _db10.listEmployees({ activeOnly: false });
-      nomlar = new Map(emps.map((e) => [e.id, `${e.firstName || ""} ${e.lastName || ""}`.trim()]));
-    } catch (err) {
-    }
-    // "Urinish" = foydalanuvchi ko'rgan yakuniy natija (jim qayta urinishlar
-    // alohida hisoblanmaydi).
-    const yakuniy = rows.filter((r) => r.natija !== "QAYTA");
-    const tanildi = yakuniy.filter((r) => r.natija === "TANILDI");
-    countEl.textContent = `${rows.length} ta yozuv`;
-    if (!yakuniy.length) {
-      xulosa.style.color = "";
-      xulosa.textContent = "Hali birorta urinish yozilmagan. Xodimlar KELYAPMAN/KETYAPMAN bosgandan keyin shu yerda ko'rinadi.";
-    } else {
-      const foiz = Math.round(tanildi.length / yakuniy.length * 100);
-      const vaqtlar = tanildi.map((r) => r.soniya).filter((x) => typeof x === "number");
-      const ortacha = vaqtlar.length ? (vaqtlar.reduce((a, b) => a + b, 0) / vaqtlar.length).toFixed(1) : "—";
-      const sabablar = {};
-      for (const r of yakuniy) if (r.natija !== "TANILDI") sabablar[r.natija] = (sabablar[r.natija] || 0) + 1;
-      const sababMatn = Object.entries(sabablar).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${TASHXIS_NOMI[k] || k}: ${v}`).join("  •  ");
-      // Kim ko'p "chegaraga yaqin" bo'lyapti - o'shani qayta olish kerak
-      const yaqinlar = {};
-      for (const r of rows) {
-        if (r.sabab === "chegaradan uzoq" && r.masofa != null && r.chegara != null && r.masofa < r.chegara + 0.08 && r.yaqinXodimId) {
-          yaqinlar[r.yaqinXodimId] = (yaqinlar[r.yaqinXodimId] || 0) + 1;
-        }
-      }
-      const qaytaOlish = Object.entries(yaqinlar).sort((a, b) => b[1] - a[1]).map(([id, n]) => `${nomlar.get(id) || id} (${n})`).join(", ");
-      xulosa.style.color = foiz >= 90 ? "#0E6B3A" : foiz >= 70 ? "#B35A00" : "#C41230";
-      // 10.10.2026: tezlik tekshiruvi — oxirgi 30 ta urinish bo'yicha.
-      const oxirgi = rows.slice(-30);
-      const ort = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
-      const kadr = ort(oxirgi.map((r) => r.kadrMs).filter((x) => typeof x === "number"));
-      const desk = ort(oxirgi.map((r) => r.deskMs).filter((x) => typeof x === "number"));
-      const kam = ort(oxirgi.map((r) => r.kameraS).filter((x) => typeof x === "number"));
-      const qur = oxirgi.map((r) => r.qurilma).filter(Boolean).pop() || "";
-      let tezlikMatn = "";
-      if (kadr != null || desk != null || kam != null) {
-        const malum = qur && qur !== "?";
-        const gpu = qur === "webgl" ? "videokarta (WebGL) \u2705" : malum ? `${qur} \u26A0\uFE0F videokarta ishlatilmayapti` : "qurilma noma'lum";
-        tezlikMatn = `\nTezlik: kamera ochilishi ${kam != null ? kam.toFixed(1) + " s" : "\u2014"} \u2022 kuzatish kadri ${kadr != null ? Math.round(kadr) + " ms" : "\u2014"} \u2022 tanish kadri ${desk != null ? Math.round(desk) + " ms" : "\u2014"} \u2022 ${gpu}`;
-        if (malum && qur !== "webgl") tezlikMatn += "\n\u26A0\uFE0F Brauzer videokartadan foydalanmayapti \u2014 skaner sekin ishlaydi. Chrome: Sozlamalar \u2192 Tizim \u2192 \u00ABGrafik tezlatgichdan foydalanish\u00BB ni yoqing va brauzerni qayta oching.";
-        else if (desk != null && desk > 900) tezlikMatn += "\n\u26A0\uFE0F Noutbuk yuzni sekin hisoblayapti \u2014 boshqa dasturlarni yoping, noutbukni quvvatga ulang.";
-      }
-      try {
-        const nj = JSON.parse(localStorage.getItem("shifoat_navbat_jurnal") || "[]");
-        const tashlangan = nj.filter((x) => x.holat === "TASHLANDI");
-        const yuborilgan = nj.filter((x) => x.holat === "YUBORILDI");
-        if (nj.length) {
-          tezlikMatn += `\nOflayn navbat: ${yuborilgan.length} ta keyin yuborildi`;
-          if (tashlangan.length) {
-            tezlikMatn += `, \u26A0\uFE0F ${tashlangan.length} ta YUBORILMADI: ` + tashlangan.slice(-5).map((x) => {
-              const t = new Date(x.atIso);
-              return `${x.xodim} (${x.mode === "OUT" ? "ketish" : "kelish"} ${ddmmyyyy(t)} ${hhmm(t)} \u2014 ${x.sabab})`;
-            }).join("; ");
-          }
-        }
-      } catch {
-      }
-      xulosa.textContent = `Tanish darajasi: ${foiz}% (${tanildi.length}/${yakuniy.length}) — o'rtacha ${ortacha} soniya` + (sababMatn ? `\nTanilmaganlar: ${sababMatn}` : "") + (qaytaOlish ? `\n\u{1F4F8} Yuzini qayta olish tavsiya etiladi: ${qaytaOlish}` : "") + tezlikMatn;
-    }
-    tbody.innerHTML = "";
-    for (const r of rows.slice().reverse().slice(0, 200)) {
-      const t = new Date(r.vaqt);
-      const kim = r.xodim || (r.yaqinXodimId ? `(${nomlar.get(r.yaqinXodimId) || "?"}ga yaqin)` : "—");
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td style="white-space:nowrap;">${ddmmyyyy(t)} ${hhmm(t)}</td><td style="white-space:nowrap;">${r.rejim === "OUT" ? "\u{1F534} Ketyapman" : r.rejim === "IN" ? "\u{1F7E2} Kelyapman" : escapeHtml(r.rejim || "\u2014")}</td><td style="white-space:nowrap;">${TASHXIS_NOMI[r.natija] || escapeHtml(r.natija || "")}</td><td>${escapeHtml(kim)}</td><td style="white-space:nowrap;">${escapeHtml(r.davomat || "\u2014")}</td><td>${r.masofa != null ? r.masofa.toFixed(3) : "—"}</td><td>${r.ikkinchi != null ? r.ikkinchi.toFixed(3) : "—"}</td><td>${r.soniya != null ? r.soniya : "—"}</td><td>${r.yuzUlushi != null ? r.yuzUlushi : "—"}</td><td class="muted">${escapeHtml(tashxisIzohi(r))}</td>`;
-      tbody.appendChild(tr);
-    }
-    if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="10" class="muted">Yozuv yo'q.</td></tr>`;
-    }
   }
   async function renderFaceAudit() {
     const tbody = document.getElementById("secFaceTable").querySelector("tbody");
@@ -12290,30 +11513,7 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       return;
     }
     const threshold = Math.min(Number(thresholdRaw) || 0.5, 0.52);
-    // Ranglar sozlamaga emas, HAQIQIY xavfga qarab: 0.45 dan kichik =
-    // jiddiy xavf, 0.55 gacha = kuzatish, undan katta = bemalol farqlanadi.
-    const QIZIL = Math.max(0.45, threshold);
-    const SARIQ = 0.55;
     const nomlar = new Map(employees.map((e) => [e.id, `${e.firstName || ""} ${e.lastName || ""}`.trim()]));
-    // 07.10.2026: 29.09 - 02.10 oralig'ida dastur yuzni past sifatda
-    // (kichraytirilgan kadrdan) saqlagan. O'sha kunlarda yuzi olingan
-    // xodimlar endi yomonroq tanilishi mumkin - ularni ko'rsatamiz.
-    const PAST_BOSH = "2026-09-29T00:00:00.000Z";
-    const PAST_OXIR = "2026-10-03T00:00:00.000Z";
-    const pastlar = /* @__PURE__ */ new Set();
-    for (const r of rows) {
-      if (r.createdAt && r.createdAt >= PAST_BOSH && r.createdAt < PAST_OXIR) pastlar.add(r.employeeId);
-    }
-    const oldEl = document.getElementById("secFaceOld");
-    if (oldEl) {
-      const ismlar = [...pastlar].map((id) => nomlar.get(id)).filter(Boolean);
-      if (ismlar.length) {
-        oldEl.style.color = "#B35A00";
-        oldEl.textContent = `\u{1F4F8} Yuzi 29.09 \u2013 02.10 oralig'ida (past sifatda) olingan xodimlar \u2014 qayta olish tavsiya etiladi:\n${ismlar.join(", ")}`;
-      } else {
-        oldEl.textContent = "";
-      }
-    }
     // Har bir xodim juftligi uchun ENG YAQIN masofani topamiz.
     const eng = /* @__PURE__ */ new Map();
     for (let i = 0; i < rows.length; i++) {
@@ -12329,24 +11529,8 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
       const [x, y] = kalit.split("|");
       return { a: nomlar.get(x) || x, b: nomlar.get(y) || y, d };
     }).sort((p1, p2) => p1.d - p2.d);
-    const qizillar = juftlar.filter((pp) => pp.d < QIZIL);
-    const sariqlar = juftlar.filter((pp) => pp.d >= QIZIL && pp.d < SARIQ);
-    countEl.textContent = `${rows.length} ta yuz yozuvi \u2014 ${juftlar.length} ta juft tekshirildi`;
-    const xulosa = document.getElementById("secFaceSummary");
-    if (xulosa) {
-      if (!juftlar.length) {
-        xulosa.textContent = "";
-      } else if (qizillar.length) {
-        xulosa.style.color = "#C41230";
-        xulosa.textContent = `\u{1F534} ${qizillar.length} ta juft xavfli \u2014 quyidagi xodimlarning yuzini qayta oling.`;
-      } else if (sariqlar.length) {
-        xulosa.style.color = "#B35A00";
-        xulosa.textContent = `\u{1F7E0} Xavfli juft yo'q, lekin ${sariqlar.length} ta juft chegaraga yaqin \u2014 kuzatib turing.`;
-      } else {
-        xulosa.style.color = "#0E6B3A";
-        xulosa.textContent = "\u2705 Hech kim hech kim bilan adashmaydi \u2014 barcha xodimlar bir-biridan yetarlicha farq qiladi.";
-      }
-    }
+    const xavfli = juftlar.filter((p) => p.d < threshold + 0.14);
+    countEl.textContent = `${rows.length} ta yuz yozuvi \u2014 ${xavfli.length} ta xavfli juft`;
     tbody.innerHTML = "";
     if (!juftlar.length) {
       tbody.innerHTML = `<tr><td colspan="4" class="muted">Taqqoslash uchun kamida ikkita xodimning yuzi kerak.</td></tr>`;
@@ -12360,10 +11544,10 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     for (const juft of korsatiladi) {
       const tr = document.createElement("tr");
       let holat, rang;
-      if (juft.d < QIZIL) {
+      if (juft.d < threshold) {
         holat = "\u{1F534} XAVFLI \u2014 yuzni qayta oling";
         rang = "#C41230";
-      } else if (juft.d < SARIQ) {
+      } else if (juft.d < threshold + 0.14) {
         holat = "\u{1F7E0} Chegaraga yaqin \u2014 kuzating";
         rang = "#B35A00";
       } else {
@@ -12463,8 +11647,6 @@ Bu amalni orqaga qaytarib bo'lmaydi.`,
     if (geoPanel && geoPanel.style.display !== "none") await renderGeoBreaches();
     const facePanel = document.getElementById("secFacePanel");
     if (facePanel && facePanel.style.display !== "none") await renderFaceAudit();
-    const diagPanel = document.getElementById("secDiagPanel");
-    if (diagPanel && diagPanel.style.display !== "none") await renderScanDiag();
   }
   async function renderUnknownFaces() {
     const grid2 = document.getElementById("secUnknownGrid");
@@ -13462,8 +12644,8 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/autoUpdate.js
-  var CHECK_MS = 2 * 60 * 1e3;
-  var FIRST_CHECK_MS = 15 * 1e3;
+  var CHECK_MS = 10 * 60 * 1e3;
+  var FIRST_CHECK_MS = 60 * 1e3;
   var MAX_RELOADS = 3;
   var TAG_KEY = "shifoat_build_tag";
   var COUNT_KEY = "shifoat_reload_count";
@@ -13497,86 +12679,21 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
     const el2 = document.getElementById("adminRoot");
     return !!el2 && getComputedStyle(el2).display !== "none";
   }
-  var dialogOchiq = false;
-  function showUpdateDialog() {
-    if (dialogOchiq) return;
-    dialogOchiq = true;
-    const overlay = document.createElement("div");
-    overlay.className = "modal-overlay active";
-    overlay.style.cssText = "position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.3);";
-
-    const box = document.createElement("div");
-    box.className = "modal-box";
-    box.style.cssText = "background:#fff; border-radius:12px; padding:32px; max-width:400px; width:90%; text-align:center; font-family:inherit; box-shadow:0 10px 40px rgba(0,0,0,0.2);";
-
-    const icon = document.createElement("div");
-    icon.style.cssText = "font-size:48px; margin-bottom:16px;";
-    icon.textContent = "\ud83d\udd04";
-
-    const title = document.createElement("h2");
-    title.style.cssText = "font-size:20px; font-weight:700; color:#212355; margin:0 0 12px 0;";
-    title.textContent = "Yangilanish keldi!";
-
-    const desc = document.createElement("p");
-    desc.style.cssText = "font-size:14px; color:#5A6071; margin:0 0 24px 0; line-height:1.5;";
-    desc.textContent = "Yangi versiya mavjud. Hozir yangilaysizmi?";
-
-    const btnContainer = document.createElement("div");
-    btnContainer.style.cssText = "display:flex; gap:12px; justify-content:center;";
-
-    const btnCancel = document.createElement("button");
-    btnCancel.type = "button";
-    btnCancel.style.cssText = "padding:10px 20px; border:1px solid #D4D8E9; background:#fff; color:#5A6071; border-radius:6px; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit;";
-    btnCancel.textContent = "Keyinroq";
-    btnCancel.addEventListener("click", () => { overlay.remove(); dialogOchiq = false; });
-
-    const btnOk = document.createElement("button");
-    btnOk.type = "button";
-    btnOk.style.cssText = "padding:10px 24px; border:none; background:#17A94B; color:#fff; border-radius:6px; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit; box-shadow:0 2px 8px rgba(23,169,75,0.3);";
-    btnOk.textContent = "OK, yangilash";
-    btnOk.addEventListener("click", () => {
-      overlay.remove();
-      doReload();
-    });
-
-    btnContainer.appendChild(btnCancel);
-    btnContainer.appendChild(btnOk);
-
-    box.appendChild(icon);
-    box.appendChild(title);
-    box.appendChild(desc);
-    box.appendChild(btnContainer);
-
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
-  }
-
   function showReloadNotice() {
     const box = document.createElement("div");
-    box.style.cssText = "position:fixed; inset:0; z-index:1001; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.96); font-family:inherit; font-size:17px; font-weight:700; color:#212355; text-align:center; padding:24px;";
-    box.innerHTML = "<div><div style='font-size:48px; margin-bottom:12px;'>\u23f3</div>Yangi versiya yuklanmoqda<span style='animation:blink 1.5s infinite;'>\u2026</span></div>";
-    const style = document.createElement("style");
-    style.textContent = "@keyframes blink { 0%, 49% { opacity:1; } 50%, 100% { opacity:0.3; } }";
-    document.head.appendChild(style);
+    box.style.cssText = "position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.94); font-family:inherit; font-size:17px; font-weight:700; color:#212355; text-align:center; padding:24px;";
+    box.textContent = "Yangi versiya yuklanmoqda\u2026";
     document.body.appendChild(box);
   }
-
   function doReload() {
-    // 10.10.2026: hisoblagich hech qachon nolga tushmasdi — bitta oynada 3
-    // marta yangilangandan keyin "OK, yangilash" umuman ishlamay qolardi.
-    let rec = { n: 0, t: Date.now() };
-    try {
-      const r = JSON.parse(ss(COUNT_KEY) || "null");
-      if (r && typeof r === "object" && Date.now() - r.t < 10 * 60 * 1e3) rec = r;
-    } catch {
-    }
-    if (rec.n >= MAX_RELOADS) return;
-    ss(COUNT_KEY, JSON.stringify({ n: rec.n + 1, t: rec.t }));
+    const count = Number(ss(COUNT_KEY) || 0);
+    if (count >= MAX_RELOADS) return;
+    ss(COUNT_KEY, String(count + 1));
     showReloadNotice();
     setTimeout(() => {
       const base = location.pathname;
       location.replace(base + "?v=" + Date.now());
-    }, 1500);
+    }, 1200);
   }
   function showAdminBanner() {
     if (banner) return;
@@ -13597,7 +12714,8 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
         return;
       }
       if (tag === baseTag) return;
-      if (kioskIdle() || adminOpen()) showUpdateDialog();
+      if (kioskIdle()) doReload();
+      else if (adminOpen()) showAdminBanner();
     } catch {
     }
   }
@@ -13617,7 +12735,7 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-10-14 10:00 UTC";
+  var BUILD_STAMP = "2026-10-02 16:20 UTC";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
   buildTag.textContent = "build: " + BUILD_STAMP;
