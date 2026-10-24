@@ -656,6 +656,10 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
 .rest-days-group { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 6px 0; }
 .rest-day-opt { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .rest-day-opt input { width: auto; margin: 0; }
+/* 17.10.2026 so'rovi: xodim oynasidagi har bir bo'lim alohida to'q qizil ramkada. */
+.emp-box { border: 2px solid #991B1B; border-radius: 12px; padding: 12px 14px 0; margin-bottom: 14px; }
+.emp-box > .form-row:last-child { margin-bottom: 12px; }
+.form-row.emp-box { padding-bottom: 12px; }
 </style>
 <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 </head>
@@ -1348,11 +1352,12 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
 <div class="modal-overlay" id="employeeModal">
   <div class="modal-box">
     <h3 id="employeeModalTitle">Yangi xodim</h3>
-    <div class="form-row">
+    <div class="form-row emp-box">
       <label>Xodim rasmi (ixtiyoriy) — faqat admin kirita oladi</label>
       <img id="empPhotoPreview" style="display:none; width:64px; height:64px; border-radius:50%; object-fit:cover; margin-bottom:6px;" />
       <input type="file" accept="image/*" id="empPhotoInput" />
     </div>
+    <div class="emp-box">
     <div class="form-row"><label>Xodimning ismi</label><input type="text" id="empFirstName" /></div>
     <!-- 17.10.2026 so'rovi: parol ko'rinmaydi (shart emas). Maydon kod uchun qoladi. -->
     <div class="form-row" style="display:none;"><label>Parol</label><input type="text" id="empPassword" /></div>
@@ -1368,12 +1373,15 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     <!-- 13.09.2026: xodim qaysi filialda ishlaydi -->
     <div class="form-row" id="empBranchRow"><label>Filial</label><select id="empBranch"></select></div>
     <div class="form-row" style="display:none;"><label>Telefon (ixtiyoriy)</label><input type="text" id="empPhone" /></div>
+    </div>
+    <div class="emp-box">
     <div class="form-row"><label>Ish boshlanish vaqti</label><input type="time" id="empWorkStart" value="08:00" /></div>
     <div class="form-row"><label>Ish tugash vaqti</label><input type="time" id="empWorkEnd" value="18:00" /></div>
+    </div>
     <!-- 15.09.2026 so'rovi (Xondamir): bo'linadigan ish kuni — 08:00-12:00
          ishlaydi, institutga boradi, 18:00 da qaytib 23:59 gacha ishlaydi.
          To'ldirilsa, o'sha xodim kunda 4 marta yuz skanerlaydi. -->
-    <div class="form-row">
+    <div class="form-row emp-box">
       <label>Ikkinchi ish vaqti (ixtiyoriy) — kunda ikkinchi marta ishga kelsa</label>
       <div class="weekday-ov-add">
         <span class="ov-pair"><input type="time" id="empWorkStart2" /><span>&mdash;</span><input type="time" id="empWorkEnd2" /></span>
@@ -1383,7 +1391,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
     </div>
     <!-- 13.09.2026: haftaning ayrim kunlarida boshqa ish vaqti
          (masalan: doim 14:00-24:00, lekin yakshanba 10:00-24:00) -->
-    <div class="form-row">
+    <div class="form-row emp-box">
       <label>Haftalik istisno (ixtiyoriy) — ayrim kunda boshqa vaqt</label>
       <div class="weekday-ov-add">
         <select id="empOvDay">
@@ -1404,7 +1412,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       </div>
       <div class="weekday-ov-list" id="empOvList"></div>
     </div>
-    <div class="form-row"><label>Haftalik dam kunlari</label>
+    <div class="form-row emp-box"><label>Haftalik dam kunlari</label>
       <!-- 15.10.2026 so'rovi: bir nechta kunni dam kuni qilib belgilash
            mumkin bo'lsin. Hech biri tanlanmasa - dam kuni yo'q (har kuni
            ishlaydi). Eski bitta kunlik yozuvlar ham shu yerda to'g'ri
@@ -1422,7 +1430,9 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       <!-- 17.10.2026 so'rovi: "2 haftada 1 marta dam" (masalan 2 haftada 1 seshanba).
            Dam kunlaridan birining sanasi kiritiladi - shu kundan boshlab har 14 kunda
            takrorlanadi. -->
-      <label style="margin-top:10px;">2 haftada 1 marta dam kuni (ixtiyoriy) &mdash; dam kunlaridan birining sanasi</label>
+    </div>
+    <div class="form-row emp-box">
+      <label>2 haftada 1 marta dam kuni (ixtiyoriy) &mdash; dam kunlaridan birining sanasi</label>
       <div class="weekday-ov-add">
         <input type="hidden" id="empBiweeklyFrom" /><button class="btn btn-secondary" type="button" id="btnBwPick">📅 Sanani tanlang</button>
         <div class="bw-cal" id="empBwCal" style="display:none;"></div>
@@ -1440,11 +1450,13 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
          ishlaydi va dastur uning SHAXSIY telefoniga o'rnatiladi. Bunday
          xodim uchun joylashuv sharti qat'iyroq bo'lishi kerak — qarang
          geofenceService.js → evaluateStrictLocation(). -->
+    <div class="emp-box">
     <div class="form-row" id="empStrictLocationRow">
       <label><input type="checkbox" id="empStrictLocation" /> Qattiq joylashuv nazorati (shaxsiy telefon uchun)</label>
       <div class="muted" style="margin-top:4px;">Yoqilsa: joylashuv aniqlanmasa yoki GPS aniqligi yomon bo'lsa, yoxud xodim o'z ish joyida bo'lmasa — kelish/ketish belgilanmaydi.</div>
     </div>
     <div class="form-row"><label><input type="checkbox" id="empActive" checked /> Faol</label></div>
+    </div>
     <p class="error-text" id="employeeModalError"></p>
     <div style="display:flex; gap:10px; justify-content:flex-end;">
       <button class="btn btn-secondary" id="employeeModalCancel">Bekor qilish</button>
@@ -3148,6 +3160,65 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
         await signInAnonymously(auth);
       }
     }
+    // 24.10.2026 (Shoxrux so'rovi): davomat QO'LDA o'zgartirilsa — yozuvning
+    // o'ziga tarix (editLog) qo'shiladi va "Kunlik vazifalar" (cheklist)
+    // ilovasi orqali rahbarning telefoniga DARHOL push yuboriladi.
+    async function appendAttendanceEditLog2(employeeId, dateKey, entry) {
+      const found = await findAttendanceDoc(employeeId, dateKey);
+      if (!found) return null;
+      await updateDoc(found.ref, { editLog: fsMod.arrayUnion(entry) });
+      return found.id;
+    }
+    const CHEKLIST_FIREBASE_CONFIG = {
+      apiKey: "AIzaSyACWHvpmHQLq4TnZ1xiitBnSjuFdLY4dpI",
+      authDomain: "cheklist-597b0.firebaseapp.com",
+      projectId: "cheklist-597b0",
+      storageBucket: "cheklist-597b0.firebasestorage.app",
+      messagingSenderId: "703149906833",
+      appId: "1:703149906833:web:9750e9135516fa56bdd830"
+    };
+    let _cheklistDbPromise = null;
+    function cheklistDb() {
+      if (!_cheklistDbPromise) {
+        _cheklistDbPromise = (async () => {
+          const capp = getApps().find((a) => a.name === "cheklist-notify") || initializeApp(CHEKLIST_FIREBASE_CONFIG, "cheklist-notify");
+          let cauth;
+          try {
+            cauth = initializeAuth(capp, { persistence: inMemoryPersistence });
+          } catch (e) {
+            cauth = getAuth(capp);
+          }
+          if (!cauth.currentUser) await signInAnonymously(cauth);
+          return getFirestore(capp);
+        })().catch((e) => {
+          _cheklistDbPromise = null;
+          throw e;
+        });
+      }
+      return _cheklistDbPromise;
+    }
+    async function cheklistKvAppend(key, item, keep) {
+      const cdb = await cheklistDb();
+      const ref = doc(cdb, "shared_kv", key);
+      const snap = await getDoc(ref);
+      let list = [];
+      if (snap.exists()) {
+        try {
+          list = JSON.parse(snap.data().value) || [];
+        } catch (e) {
+        }
+      }
+      await setDoc(ref, { value: JSON.stringify([...list, item].slice(-keep)), updatedAt: Date.now() });
+    }
+    async function notifyCheklistAdmin2(title, body, seenKey) {
+      if (seenKey) await cheklistKvAppend("faceid-edits-seen", seenKey, 2e3).catch((e) => console.warn("faceid-edits-seen:", e));
+      await cheklistKvAppend("admin-notices", {
+        id: `an_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+        title: String(title || "").slice(0, 120),
+        body: String(body || "").slice(0, 300),
+        createdAt: Date.now()
+      }, 40);
+    }
     return {
       docToObject,
       listBranches: listBranches2,
@@ -3232,6 +3303,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       exportBackupJson: exportBackupJson2,
       importBackupJson: importBackupJson2,
       ensureKioskSession: ensureKioskSession2,
+      appendAttendanceEditLog: appendAttendanceEditLog2,
+      notifyCheklistAdmin: notifyCheklistAdmin2,
       mode: "firebase"
     };
   }
@@ -5156,6 +5229,64 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       undertimeMinutes: first.undertimeMinutes + second.undertimeMinutes,
       manuallyEditedBy: editedByUserId
     });
+    // 24.10.2026: tahrir tarixi + rahbarga darhol xabar (kim, qachon, qaysi
+    // qurilmadan, oldin -> keyin). Xato bo'lsa ham tahrirning o'zi saqlanadi.
+    try {
+      const hhT = (iso) => iso ? hhmm(new Date(iso)).slice(0, 5) : "";
+      const before = existing ? {
+        in1: hhT(existing.checkInTime),
+        out1: hhT(existing.checkOutTime),
+        in2: hhT(existing.checkInTime2),
+        out2: hhT(existing.checkOutTime2),
+        late: Number(existing.lateMinutes) || 0,
+        penalty: Number(existing.latePenalty) || 0
+      } : null;
+      const after = {
+        in1: (checkInHHMM || "").slice(0, 5),
+        out1: (checkOutHHMM || "").slice(0, 5),
+        in2: checkInHHMM ? (checkInHHMM2 || "").slice(0, 5) : "",
+        out2: checkInHHMM ? (checkOutHHMM2 || "").slice(0, 5) : "",
+        late: first.lateMinutes + second.lateMinutes,
+        penalty: first.latePenalty + second.latePenalty
+      };
+      const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
+      const device = /iPhone|iPod/i.test(ua) ? "\u{1F4F1} Telefon (iPhone)" : /iPad/i.test(ua) ? "\u{1F4F1} Planshet (iPad)" : /Android/i.test(ua) && /Mobile/i.test(ua) ? "\u{1F4F1} Telefon (Android)" : /Android/i.test(ua) ? "\u{1F4F1} Planshet (Android)" : /Windows/i.test(ua) ? "\u{1F4BB} Noutbuk/kompyuter (Windows)" : /Macintosh|Mac OS/i.test(ua) ? "\u{1F4BB} Noutbuk (Mac)" : "\u{1F4BB} Kompyuter";
+      let byName = "";
+      try {
+        const u = db2.getUserById ? await db2.getUserById(editedByUserId) : null;
+        byName = u && (u.fullName || u.username) || "";
+      } catch (e) {
+      }
+      let empName = "";
+      try {
+        const em = await db2.getEmployee(employeeId);
+        empName = em ? `${em.firstName || ""} ${em.lastName || ""}`.trim() : "";
+      } catch (e) {
+      }
+      const at = (/* @__PURE__ */ new Date()).toISOString();
+      const entry = { at, byId: editedByUserId || null, byName, device, ua: ua.slice(0, 180), before, after };
+      if (db2.appendAttendanceEditLog) await db2.appendAttendanceEditLog(employeeId, dateKey, entry).catch((e) => console.warn("editLog failed (non-fatal):", e));
+      if (db2.addAuditLog) db2.addAuditLog(editedByUserId, byName, "ATTENDANCE_EDITED", "attendance", `${employeeId}|${dateKey}`, JSON.stringify({ before, after, device })).catch(() => {
+      });
+      if (db2.notifyCheklistAdmin) {
+        const b = before || {};
+        const ch = [
+          b.in1 !== after.in1 ? `kelish ${b.in1 || "\u2014"} \u2192 ${after.in1 || "\u2014"}` : "",
+          b.out1 !== after.out1 ? `ketish ${b.out1 || "\u2014"} \u2192 ${after.out1 || "\u2014"}` : "",
+          b.in2 !== after.in2 ? `2-smena kelish ${b.in2 || "\u2014"} \u2192 ${after.in2 || "\u2014"}` : "",
+          b.out2 !== after.out2 ? `2-smena ketish ${b.out2 || "\u2014"} \u2192 ${after.out2 || "\u2014"}` : ""
+        ].filter(Boolean).join(", ") || "vaqt qayta saqlandi";
+        const lateTxt = (b.late || 0) !== after.late ? `. Kech qolish: ${b.late || 0} \u2192 ${after.late} daq` : "";
+        const [yy, mm, dd] = String(dateKey).split("-");
+        await db2.notifyCheklistAdmin(
+          "\u270F\uFE0F Face ID: vaqt o'zgartirildi",
+          `${empName || "Xodim"} \u00B7 ${dd}.${mm}.${yy}: ${ch}${lateTxt}. Kim: ${byName || "Admin"} \u00B7 ${hhmm(new Date(at)).slice(0, 5)} \u00B7 ${device}`,
+          `${employeeId}|${dateKey}|${at}`
+        ).catch((e) => console.warn("cheklist push failed (non-fatal):", e));
+      }
+    } catch (e) {
+      console.warn("attendance edit log failed (non-fatal):", e);
+    }
   }
   async function getTodayRecord(db2, employeeId, at = /* @__PURE__ */ new Date()) {
     return db2.getAttendanceForDate(employeeId, tashkentDateKey(at));
@@ -12776,7 +12907,14 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
     const section = visibleSections.find((s) => s.key === key);
     if (!section) return;
     showBusy("Yangilanmoqda\u2026");
-    Promise.resolve(section.refresh()).catch((err) => console.error(`Section "${key}" refresh failed:`, err)).finally(() => hideBusy());
+    // 17.10.2026: tezlik o'lchagich - har bo'lim necha soniyada ochilgani pastda ko'rinadi.
+    const t0 = performance.now();
+    Promise.resolve(section.refresh()).catch((err) => console.error(`Section "${key}" refresh failed:`, err)).finally(() => {
+      hideBusy();
+      const sec = ((performance.now() - t0) / 1e3).toFixed(1);
+      console.log(`[tezlik] ${section.title}: ${sec} s`);
+      if (typeof buildTag !== "undefined" && buildTag) buildTag.textContent = `${section.title}: ${sec} s \u00b7 ` + BUILD_LABEL;
+    });
   }
   function activateSection(key) {
     window.__shifoatActivateSection(key);
@@ -12877,10 +13015,11 @@ DIQQAT: bu filialga ${employeeCount} ta xodim biriktirilgan. O'chirilsa, ular he
   }
 
   // src/ui/appEntry.js
-  var BUILD_STAMP = "2026-10-17 17:10";
+  var BUILD_STAMP = "2026-10-17 18:00";
   console.log("Shifoat build: " + BUILD_STAMP);
   var buildTag = document.createElement("div");
-  buildTag.textContent = "2-versiya \u00b7 " + BUILD_STAMP;
+  var BUILD_LABEL = "4-versiya \u00b7 " + BUILD_STAMP;
+  buildTag.textContent = BUILD_LABEL;
   buildTag.style.cssText = "position:fixed; bottom:4px; right:8px; font-size:10px; color:#B9BCD6; z-index:9999; pointer-events:none; font-family:monospace;";
   document.body.appendChild(buildTag);
   function goHome() {
