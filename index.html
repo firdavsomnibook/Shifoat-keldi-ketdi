@@ -1863,7 +1863,124 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
 
   function hbBoshQator() { return new Paragraph({ text: "", spacing: { before: 0, after: 60 } }); }
 
-  function yasaHisobotDoc(report, chopEtdi) {
+  // -------------------------------------------------------------------
+  // 31.10.2026: MOLIYAVIY XULOSA — hisobot oxirida kech qolish jarimasi,
+  // Cheklist ilovasidagi bonus/jarimalar (cheklist, tablo, erta kelish /
+  // kech ketish) va YAKUNIY HISOB. Ma'lumot "Shifoat Dorixonasi" cheklist
+  // ilovasining bazasidan (faqat o'qish) olinadi.
+  // -------------------------------------------------------------------
+  const CK_FIREBASE = {
+    apiKey: "AIzaSyACWHvpmHQLq4TnZ1xiitBnSjuFdLY4dpI",
+    authDomain: "cheklist-597b0.firebaseapp.com",
+    projectId: "cheklist-597b0",
+    storageBucket: "cheklist-597b0.firebasestorage.app",
+    messagingSenderId: "703149906833",
+    appId: "1:703149906833:web:9750e9135516fa56bdd830",
+  };
+  const ckNorm = (s) => String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
+  async function ckOqish() {
+    const [{ initializeApp, getApps }, fs, au] = await Promise.all([
+      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
+      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"),
+      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"),
+    ]);
+    const app = getApps().find((a) => a.name === "cheklist-kv") || initializeApp(CK_FIREBASE, "cheklist-kv");
+    const auth = au.getAuth(app);
+    if (!auth.currentUser) await au.signInAnonymously(auth);
+    const db = fs.getFirestore(app);
+    const [e, b] = await Promise.all([
+      fs.getDoc(fs.doc(db, "shared_kv", "employees-list")),
+      fs.getDoc(fs.doc(db, "shared_kv", "bonus-penalty-entries")),
+    ]);
+    const parse = (snap) => { try { return snap.exists() ? JSON.parse(snap.data().value || "[]") || [] : []; } catch { return []; } };
+    return { employees: parse(e), entries: parse(b) };
+  }
+  async function hbMoliyaMalumot(report) {
+    const bo = () => ({ bonus: 0, bonusN: 0, jarima: 0, jarimaN: 0 });
+    const out = { ok: false, cheklist: bo(), tablo: bo(), face: bo() };
+    try {
+      const data = await Promise.race([ckOqish(), new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 12000))]);
+      const n = ckNorm(report.employeeName);
+      const n1 = n.split(" ")[0];
+      const emp = data.employees.find((x) => ckNorm(x.name) === n)
+        || data.employees.find((x) => { const m = ckNorm(x.name); return m && n && (m.startsWith(n) || n.startsWith(m)); })
+        || data.employees.find((x) => { const m1 = ckNorm(x.name).split(" ")[0]; return m1 && n1 && m1.length >= 3 && (m1.startsWith(n1) || n1.startsWith(m1)); });
+      if (!emp) { out.ok = true; out.noEmp = true; return out; }
+      const ym = `${report.year}-${String(report.month).padStart(2, "0")}`;
+      const kunKey = (e) => {
+        if (e.earlyDateKey) return e.earlyDateKey;
+        if (e.lateLeaveDateKey) return e.lateLeaveDateKey;
+        const d = new Date(Number(e.createdAt) || 0);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      };
+      data.entries.forEach((e) => {
+        if (!e || e.employeeId !== emp.id || e.reviewStatus === "pending") return;
+        if (!kunKey(e).startsWith(ym)) return;
+        const amt = Number(e.amount) || 0;
+        if (amt <= 0) return;
+        const g = e.source === "tablo_bonus" || e.source === "tablo_late" ? out.tablo
+          : e.source === "early_arrival" || e.source === "late_leave" ? out.face : out.cheklist;
+        if (e.type === "bonus") { g.bonus += amt; g.bonusN++; }
+        else if (e.type === "jarima" || e.type === "qattiq") { g.jarima += amt; g.jarimaN++; }
+      });
+      out.ok = true;
+    } catch (err) {
+      console.warn("Moliyaviy xulosa: cheklist ma'lumoti olinmadi", err);
+    }
+    return out;
+  }
+  function hbSomBelgi(n) { return (n > 0 ? "+" : n < 0 ? "−" : "") + hbSom(Math.abs(n)); }
+  function hbMoliya(report, m) {
+    const YASHIL = "#15803D";
+    const late = Number(report.totalLatePenalty) || 0;
+    const nat = (g) => g.bonus - g.jarima;
+    const bosh = (t) => new TableCell({ columnSpan: 2, margins: KATAK_CHEKKA, shading: { fill: "E8E8E8" }, borders: CHEGARA, children: [hbMatn(t, { bold: true, size: KICHIK })] });
+    const k = (t) => hbKatak(t, { size: KICHIK });
+    const v = (n, kuch) => hbKatak(n === null ? "" : (typeof n === "string" ? n : hbSomBelgi(n)), { size: KICHIK, bold: true, color: typeof n === "number" ? (n < 0 ? COLOR_RED : n > 0 ? YASHIL : undefined) : undefined });
+    const q = (t, n) => [k(t), v(n)];
+    const gr = (g, i) => [
+      q(`Bonus (${g.bonusN} ta)`, g.bonus),
+      q(`Jarima (${g.jarimaN} ta)`, -g.jarima),
+      q("Natija", nat(g)),
+    ][i];
+    const qatorlar = [0, 1, 2].map((i) => new TableRow({ children: [
+      ...[[`Kunlar`, `${report.lateDays} kun`], [`Daqiqa`, `${report.totalLateMinutes} min`], [`Kech qolish jarimasi`, -late]][i].map((x, j) => j === 0 ? hbKatak(x, { size: KICHIK, bold: i === 2 }) : v(x)),
+      ...gr(m.cheklist, i), ...gr(m.tablo, i),
+      ...(i === 0 ? q(`Bonus (${m.face.bonusN} ta)`, m.face.bonus) : i === 1 ? [k(""), v(null)] : q("Natija", nat(m.face))),
+    ] }));
+    const kutilar = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      layout: "fixed",
+      columnWidths: [1500, 1125, 1300, 1325, 1300, 1325, 1300, 1325],
+      rows: [new TableRow({ children: [bosh("⏰ Kech qolish"), bosh("✅ Cheklist"), bosh("📺 Tablo"), bosh("🌅 Erta kelish / kech ketish")] }), ...qatorlar],
+    });
+    const boshqa = nat(m.cheklist) + nat(m.tablo) + nat(m.face);
+    const jami = boshqa - late;
+    const chiziq = (matn, summa, fon) => new TableRow({ children: [
+      new TableCell({ margins: { top: 50, bottom: 50, left: 110, right: 110 }, shading: { fill: fon }, borders: CHEGARASIZ, width: { size: 7300, type: WidthType.DXA }, children: [hbMatn(matn, { bold: true, size: 19, color: "#FFFFFF" })] }),
+      new TableCell({ margins: { top: 50, bottom: 50, left: 110, right: 110 }, shading: { fill: fon }, borders: CHEGARASIZ, width: { size: 3200, type: WidthType.DXA }, children: [hbMatn(summa, { bold: true, size: 22, color: "#FFFFFF", align: AlignmentType.RIGHT })] }),
+    ] });
+    const bosh2 = (fon) => new TableRow({ children: [new TableCell({ columnSpan: 2, borders: CHEGARASIZ, margins: { top: 0, bottom: 0, left: 0, right: 0 }, children: [new Paragraph({ spacing: { before: 0, after: 0, line: 60, lineRule: "exact" }, children: [] })] })] });
+    const barlar = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      layout: "fixed",
+      borders: CHEGARASIZ,
+      columnWidths: [7300, 3200],
+      rows: [
+        chiziq(`⏰ KECH QOLISH JARIMASI (${report.lateDays} kun · ${report.totalLateMinutes} min)`, hbSomBelgi(-late), "B91C1C"),
+        bosh2(),
+        chiziq("Bonus − jarima (cheklist, tablo, erta kelish / kech ketish)", hbSomBelgi(boshqa), "15803D"),
+        bosh2(),
+        chiziq("YAKUNIY HISOB", hbSomBelgi(jami), "212355"),
+      ],
+    });
+    const izoh = !m.ok
+      ? [hbMatn("Diqqat: cheklist ilovasidan bonus/jarima ma'lumoti olinmadi (internet?) — faqat kech qolish hisoblandi.", { size: 13, color: COLOR_RED })]
+      : m.noEmp ? [hbMatn("Izoh: bu xodim cheklist ilovasida topilmadi — bonus/jarimalar 0.", { size: 13, color: "666666" })] : [];
+    return [hbMatn("MOLIYAVIY XULOSA", { bold: true, size: 19, color: COLOR_NAVY_DEEP }), kutilar, hbBoshQator(), barlar, ...izoh];
+  }
+
+  function yasaHisobotDoc(report, chopEtdi, moliya) {
     const endi = new Date();
     const ikki = (n) => String(n).padStart(2, "0");
     const chopEtilgan =
@@ -1879,6 +1996,7 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
       hbBoshQator(),
       hbKunlik(report.days),
       hbBoshQator(),
+      ...(moliya ? [...hbMoliya(report, moliya), hbBoshQator()] : []),
       ...(report.days.some((d) => d.offlineQueued) ? [hbMatn("\u00ABoflayn\u00BB \u2014 internet yo'q paytda qurilmada saqlanib, aloqa tiklangach yuborilgan yozuv.", { size: 13, color: "B26A00" })] : []),
       hbMatn(`${BRAND_NAME} ${BRAND_SINCE} — Face ID tizimi tomonidan avtomatik shakllantirildi.`,
            { italics: true, size: 13, color: "666666" }),
@@ -1905,7 +2023,8 @@ table.data-table td { padding: 8px 10px; border-top: 1px solid #EEF0F7; font-siz
 
   async function exportMonthlyReportDocx(report, chopEtdi) {
     await ensureDocx();
-    const doc = yasaHisobotDoc(report, chopEtdi);
+    const moliya = await hbMoliyaMalumot(report);
+    const doc = yasaHisobotDoc(report, chopEtdi, moliya);
     const blob = await Packer.toBlob(doc);
     const safeName = report.employeeName.replace(/\s+/g, "_");
     const filename = `${safeName}_Attendance_${report.year}-${String(report.month).padStart(2, "0")}.docx`;
